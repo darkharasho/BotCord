@@ -1,5 +1,6 @@
-import { Client, Events } from 'discord.js';
-import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind } from '../../shared/domain';
+import { Client, Events, Partials } from 'discord.js';
+import type { Message } from 'discord.js';
+import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji } from '../../shared/domain';
 import { REQUIRED_INTENTS } from './intents';
 import {
   broadcast,
@@ -7,6 +8,10 @@ import {
   GATEWAY_EVENT_CHANNEL,
   GUILD_UPDATE_CHANNEL,
   CHANNEL_UPDATE_CHANNEL,
+  MESSAGE_CREATE_CHANNEL,
+  MESSAGE_UPDATE_CHANNEL,
+  MESSAGE_DELETE_CHANNEL,
+  GUILD_EMOJIS_UPDATE_CHANNEL,
 } from '../events/gateway-events';
 import type { TokenVault } from '../vault/token-vault';
 
@@ -69,6 +74,33 @@ export function createClientManager(vault: TokenVault): ClientManager {
     c.on(Events.GuildUpdate, (_, g) => broadcast(GUILD_UPDATE_CHANNEL, toGuildSummary(g)));
     c.on(Events.ChannelCreate, (ch) => broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch))));
     c.on(Events.ChannelUpdate, (_, ch) => broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch))));
+    c.on(Events.MessageCreate, (m) => {
+      broadcast(MESSAGE_CREATE_CHANNEL, { channelId: m.channelId, message: summarizeMessage(m) });
+    });
+    c.on(Events.MessageUpdate, (_old, mNew) => {
+      if (mNew.partial) {
+        mNew.fetch().then(full => {
+          broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: full.channelId, message: summarizeMessage(full) });
+        }).catch(() => { /* ignore */ });
+        return;
+      }
+      broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: mNew.channelId, message: summarizeMessage(mNew) });
+    });
+    c.on(Events.MessageDelete, (m) => {
+      broadcast(MESSAGE_DELETE_CHANNEL, { channelId: m.channelId, messageId: m.id });
+    });
+    c.on(Events.GuildEmojiCreate, (e) => {
+      const guild = e.guild;
+      broadcast(GUILD_EMOJIS_UPDATE_CHANNEL, { guildId: guild.id, emojis: projectGuildEmojis(guild.id, guild.emojis.cache.values()) });
+    });
+    c.on(Events.GuildEmojiDelete, (e) => {
+      const guild = e.guild;
+      broadcast(GUILD_EMOJIS_UPDATE_CHANNEL, { guildId: guild.id, emojis: projectGuildEmojis(guild.id, guild.emojis.cache.values()) });
+    });
+    c.on(Events.GuildEmojiUpdate, (_old, eNew) => {
+      const guild = eNew.guild;
+      broadcast(GUILD_EMOJIS_UPDATE_CHANNEL, { guildId: guild.id, emojis: projectGuildEmojis(guild.id, guild.emojis.cache.values()) });
+    });
   };
 
   return {
@@ -79,7 +111,10 @@ export function createClientManager(vault: TokenVault): ClientManager {
       const token = await vault.readToken();
       if (!token) return { ok: false, reason: 'INVALID_TOKEN', message: 'No token in vault' };
 
-      client = new Client({ intents: REQUIRED_INTENTS });
+      client = new Client({
+        intents: REQUIRED_INTENTS,
+        partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.Reaction],
+      });
       wireEvents(client);
       setGateway({ status: 'connecting' });
 
@@ -152,4 +187,67 @@ function mapType(t: number): ChannelKind {
     case 15: return 'forum';
     default: return 'other';
   }
+}
+
+export function summarizeMessage(m: Message): MessageSummary {
+  const attachments: MessageAttachment[] = m.attachments.map(a => ({
+    id: a.id,
+    name: a.name ?? 'file',
+    url: a.url,
+    size: a.size,
+    contentType: a.contentType ?? null,
+    width: a.width ?? null,
+    height: a.height ?? null,
+  }));
+
+  const embeds: MessageEmbedSummary[] = m.embeds.map(e => ({
+    title: e.title ?? null,
+    description: e.description ?? null,
+    url: e.url ?? null,
+    color: e.color ?? null,
+    image: e.image?.url ?? null,
+    thumbnail: e.thumbnail?.url ?? null,
+    authorName: e.author?.name ?? null,
+    footerText: e.footer?.text ?? null,
+    fields: e.fields.map(f => ({ name: f.name, value: f.value, inline: f.inline ?? false })),
+  }));
+
+  const mentions: ResolvedMention[] = [];
+  m.mentions.users.forEach(u => mentions.push({ type: 'user', id: u.id, name: u.username }));
+  m.mentions.channels.forEach(c => mentions.push({ type: 'channel', id: c.id, name: 'name' in c && typeof c.name === 'string' ? c.name : 'channel' }));
+  m.mentions.roles.forEach(r => mentions.push({ type: 'role', id: r.id, name: r.name }));
+
+  return {
+    id: m.id,
+    channelId: m.channelId,
+    authorId: m.author.id,
+    authorTag: `${m.author.username}${m.author.discriminator && m.author.discriminator !== '0' ? '#' + m.author.discriminator : ''}`,
+    authorAvatarUrl: m.author.displayAvatarURL({ size: 64 }),
+    content: m.content,
+    createdAt: m.createdTimestamp,
+    editedAt: m.editedTimestamp,
+    hasEmbeds: embeds.length > 0,
+    hasAttachments: attachments.length > 0,
+    attachments,
+    embeds,
+    mentions,
+    replyTo: m.reference?.messageId
+      ? { id: m.reference.messageId, authorTag: '' }
+      : null,
+  };
+}
+
+export function projectGuildEmojis(guildId: string, emojis: Iterable<{ id: string | null; name: string | null; animated: boolean | null }>): GuildEmoji[] {
+  const out: GuildEmoji[] = [];
+  for (const e of emojis) {
+    if (!e.id || !e.name) continue;
+    out.push({
+      id: e.id,
+      name: e.name,
+      animated: e.animated ?? false,
+      guildId,
+      url: `https://cdn.discordapp.com/emojis/${e.id}.${e.animated ? 'gif' : 'png'}`,
+    });
+  }
+  return out;
 }
