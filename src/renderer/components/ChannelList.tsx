@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import type { ChannelSummary } from '../../shared/domain';
 import { CategoryGroup } from './CategoryGroup';
+import {
+  IconHash,
+  IconVolume,
+  IconSpeakerphone,
+  IconMessages,
+  IconCornerDownRight,
+} from '@tabler/icons-react';
+import type { Icon } from '@tabler/icons-react';
 
 export function ChannelList({ guildId, selected, onSelect }: { guildId: string | null; selected: string | null; onSelect: (id: string) => void }) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
@@ -60,20 +68,23 @@ export function ChannelList({ guildId, selected, onSelect }: { guildId: string |
     });
   };
 
-  const renderChannel = (c: ChannelSummary, indent = false) => (
-    <button
-      key={c.id}
-      onClick={() => onSelect(c.id)}
-      className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5
-        ${indent ? 'pl-7' : ''}
-        ${selected === c.id
-          ? 'bg-selected text-fg'
-          : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
-    >
-      <span className="text-fg-dim w-4 inline-flex justify-center text-base">{kindGlyph(c.type)}</span>
-      <span className="truncate">{c.name}</span>
-    </button>
-  );
+  const renderChannel = (c: ChannelSummary, indent = false) => {
+    const Glyph = kindGlyph(c.type);
+    return (
+      <button
+        key={c.id}
+        onClick={() => onSelect(c.id)}
+        className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5
+          ${indent ? 'pl-7' : ''}
+          ${selected === c.id
+            ? 'bg-selected text-fg'
+            : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
+      >
+        <Glyph size={20} stroke={1.75} className="text-fg-dim shrink-0" />
+        <span className="truncate">{c.name}</span>
+      </button>
+    );
+  };
 
   const uncategorized = grouped.byParent.get(null) ?? [];
   const childrenOfTextChannel = (parentTextChannelId: string) => grouped.byParent.get(parentTextChannelId) ?? [];
@@ -109,14 +120,14 @@ export function ChannelList({ guildId, selected, onSelect }: { guildId: string |
   );
 }
 
-function kindGlyph(t: ChannelSummary['type']): string {
+function kindGlyph(t: ChannelSummary['type']): Icon {
   switch (t) {
-    case 'text': return '#';
-    case 'announcement': return '📣';
-    case 'voice': return '🔉';
-    case 'thread': return '#';
-    case 'category': return '▾';
-    case 'forum': return '🗨';
-    default: return '·';
+    case 'text': return IconHash;
+    case 'announcement': return IconSpeakerphone;
+    case 'voice': return IconVolume;
+    case 'thread': return IconCornerDownRight;
+    case 'forum': return IconMessages;
+    case 'category': return IconHash;
+    default: return IconHash;
   }
 }

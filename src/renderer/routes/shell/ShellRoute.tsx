@@ -7,6 +7,7 @@ import { Toaster } from '../../components/Toaster';
 import { ChannelView } from './ChannelView';
 import { api } from '../../lib/api';
 import type { ChannelSummary } from '../../../shared/domain';
+import { IconSettings } from '@tabler/icons-react';
 
 export function ShellRoute() {
   const [guildId, setGuildId] = useState<string | null>(null);
@@ -30,10 +31,10 @@ export function ShellRoute() {
         <div className="h-12 px-4 flex items-center justify-between shadow-[0_1px_0_rgba(0,0,0,0.2),0_1.5px_0_rgba(0,0,0,0.05),0_2px_0_rgba(0,0,0,0.05)] z-10 shrink-0">
           <span className="font-semibold text-fg text-[15px] truncate">BotCord</span>
           <button
-            className="text-fg-dim hover:text-fg text-base"
+            className="text-fg-dim hover:text-fg"
             onClick={() => setSettingsOpen(true)}
             title="Settings"
-          >⚙</button>
+          ><IconSettings size={20} stroke={1.75} /></button>
         </div>
         <div className="flex-1 min-h-0">
           <ChannelList guildId={guildId} selected={channelId} onSelect={setChannelId} />

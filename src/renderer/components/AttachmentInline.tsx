@@ -1,4 +1,5 @@
 import type { MessageAttachment } from '../../shared/domain';
+import { IconPaperclip } from '@tabler/icons-react';
 
 export function AttachmentInline({ attachment }: { attachment: MessageAttachment }) {
   const isImage = attachment.contentType?.startsWith('image/');
@@ -19,7 +20,7 @@ export function AttachmentInline({ attachment }: { attachment: MessageAttachment
       onClick={(e) => { e.preventDefault(); window.botcord.system.openExternal(attachment.url); }}
       className="inline-flex items-center gap-2 px-3 py-2 bg-bg-subtle border border-border rounded text-sm hover:bg-bg-sunken"
     >
-      <span>📎</span>
+      <IconPaperclip size={16} stroke={1.75} className="text-fg-muted" />
       <span className="font-medium">{attachment.name}</span>
       <span className="text-fg-muted text-xs">{formatBytes(attachment.size)}</span>
     </a>

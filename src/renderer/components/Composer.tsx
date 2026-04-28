@@ -5,6 +5,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { AttachmentTray } from './AttachmentTray';
 import { pushToast } from './Toaster';
 import type { GatewayState } from '../../shared/domain';
+import { IconCirclePlus, IconMoodSmile, IconSend2 } from '@tabler/icons-react';
 
 const MAX_FILES = 10;
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -130,9 +131,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
           <button
             onClick={onPick}
             disabled={offline || busy}
-            className="text-fg-muted hover:text-fg w-8 h-11 flex items-center justify-center disabled:opacity-40 shrink-0 text-lg"
+            className="text-fg-muted hover:text-fg w-10 h-11 flex items-center justify-center disabled:opacity-40 shrink-0"
             title="Attach files"
-          >+</button>
+          ><IconCirclePlus size={22} stroke={1.75} /></button>
           <textarea
             ref={taRef}
             value={text}
@@ -147,9 +148,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
             <button
               onClick={() => setEmojiOpen(o => !o)}
               disabled={offline || busy}
-              className="text-fg-muted hover:text-fg w-8 h-11 flex items-center justify-center disabled:opacity-40"
+              className="text-fg-muted hover:text-fg w-10 h-11 flex items-center justify-center disabled:opacity-40"
               title="Emoji"
-            >😀</button>
+            ><IconMoodSmile size={22} stroke={1.75} /></button>
             {emojiOpen && (
               <EmojiPicker
                 guildEmojis={guildEmojis}
@@ -162,9 +163,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
             <button
               onClick={send}
               disabled={offline || busy || !channelId}
-              className="text-accent hover:text-accent-hover w-8 h-11 flex items-center justify-center disabled:opacity-40 shrink-0"
+              className="text-accent hover:text-accent-hover w-10 h-11 flex items-center justify-center disabled:opacity-40 shrink-0"
               title="Send"
-            >➤</button>
+            ><IconSend2 size={22} stroke={1.75} /></button>
           )}
         </div>
       </div>
