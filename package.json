@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pretest": "npm rebuild better-sqlite3 --silent",
+    "posttest": "electron-rebuild -f -w better-sqlite3 --silent",
     "lint": "eslint . --ext .ts,.tsx",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },

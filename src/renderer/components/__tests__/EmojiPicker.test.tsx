@@ -14,7 +14,7 @@ describe('EmojiPicker', () => {
     const onSelect = vi.fn();
     render(<EmojiPicker guildEmojis={guildEmojis} onSelect={onSelect} onClose={() => {}} />);
     const fireButtons = screen.getAllByTitle(':fire:');
-    fireEvent.click(fireButtons[0]);
+    fireEvent.click(fireButtons[0]!);
     expect(onSelect).toHaveBeenCalledWith('<:fire:111>');
   });
 
@@ -22,7 +22,7 @@ describe('EmojiPicker', () => {
     const onSelect = vi.fn();
     render(<EmojiPicker guildEmojis={guildEmojis} onSelect={onSelect} onClose={() => {}} />);
     const danceButtons = screen.getAllByTitle(':dance:');
-    fireEvent.click(danceButtons[0]);
+    fireEvent.click(danceButtons[0]!);
     expect(onSelect).toHaveBeenCalledWith('<a:dance:222>');
   });
 
@@ -30,7 +30,7 @@ describe('EmojiPicker', () => {
     const onSelect = vi.fn();
     render(<EmojiPicker guildEmojis={[]} onSelect={onSelect} onClose={() => {}} />);
     const fireButtons = screen.getAllByTitle(':fire:');
-    fireEvent.click(fireButtons[0]);
+    fireEvent.click(fireButtons[0]!);
     expect(onSelect).toHaveBeenCalledWith('🔥');
   });
 
