@@ -18,16 +18,53 @@ export type ChannelSummary = {
   topic: string | null;
 };
 
+export type MessageAttachment = {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  contentType: string | null;
+  width: number | null;
+  height: number | null;
+};
+
+export type MessageEmbedSummary = {
+  title: string | null;
+  description: string | null;
+  url: string | null;
+  color: number | null;
+  image: string | null;
+  thumbnail: string | null;
+  authorName: string | null;
+  footerText: string | null;
+  fields: Array<{ name: string; value: string; inline: boolean }>;
+};
+
+export type ResolvedMention = { type: 'user' | 'channel' | 'role'; id: string; name: string };
+
+export type GuildEmoji = {
+  id: string;
+  name: string;
+  animated: boolean;
+  guildId: string;
+  url: string;
+};
+
 export type MessageSummary = {
   id: string;
   channelId: string;
   authorId: string;
   authorTag: string;
+  authorAvatarUrl: string | null;
   content: string;
   createdAt: number;
   editedAt: number | null;
   hasEmbeds: boolean;
   hasAttachments: boolean;
+  attachments: MessageAttachment[];
+  embeds: MessageEmbedSummary[];
+  mentions: ResolvedMention[];
+  replyTo: { id: string; authorTag: string } | null;
 };
 
 export type EmbedPayload = {
@@ -77,4 +114,11 @@ export type Prefs = {
   lastSelectedGuildId: string | null;
   lastSelectedChannelId: string | null;
   theme: 'dark';
+  collapsedCategoryIds: string[];
+};
+
+export type SendAttachment = {
+  name: string;
+  mimeType: string;
+  bytes: Uint8Array;
 };
