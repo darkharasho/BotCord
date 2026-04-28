@@ -1,3 +1,6 @@
+export type Migration = { version: number; sql: string };
+
+const M001_INIT = `
 CREATE TABLE drafts (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -28,5 +31,8 @@ CREATE TABLE prefs (
   value_json TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+`;
 
--- schema_version table is created by the migration runner.
+export const MIGRATIONS: ReadonlyArray<Migration> = [
+  { version: 1, sql: M001_INIT },
+];

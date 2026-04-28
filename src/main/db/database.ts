@@ -1,9 +1,6 @@
 import Database from 'better-sqlite3';
 import type { Database as DB } from 'better-sqlite3';
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
-
-const MIGRATIONS_DIR = join(__dirname, 'migrations');
+import { MIGRATIONS } from './migrations';
 
 export function openDatabase(path: string): DB {
   const db = new Database(path);
@@ -24,16 +21,8 @@ export function applyMigrations(db: DB): void {
       .map(r => r.version)
   );
 
-  const files = readdirSync(MIGRATIONS_DIR)
-    .filter(f => f.endsWith('.sql'))
-    .sort();
-
-  for (const file of files) {
-    const m = /^(\d+)_/.exec(file);
-    if (!m) continue;
-    const version = Number(m[1]);
+  for (const { version, sql } of [...MIGRATIONS].sort((a, b) => a.version - b.version)) {
     if (applied.has(version)) continue;
-    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
     const tx = db.transaction(() => {
       db.exec(sql);
       db.prepare('INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)')
