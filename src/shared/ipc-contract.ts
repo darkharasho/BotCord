@@ -52,6 +52,14 @@ export interface BotcordApi {
     appVersion(): Promise<string>;
     openExternal(url: string): Promise<void>;
   };
+  window: {
+    minimize(): Promise<void>;
+    toggleMaximize(): Promise<void>;
+    close(): Promise<void>;
+    isMaximized(): Promise<boolean>;
+    platform(): Promise<NodeJS.Platform>;
+    onMaximizeChange(cb: (maximized: boolean) => void): () => void;
+  };
 }
 
 export const IPC_CHANNELS = {
@@ -76,6 +84,12 @@ export const IPC_CHANNELS = {
   'prefs.set': 'prefs.set',
   'system.appVersion': 'system.appVersion',
   'system.openExternal': 'system.openExternal',
+  'window.minimize': 'window.minimize',
+  'window.toggleMaximize': 'window.toggleMaximize',
+  'window.close': 'window.close',
+  'window.isMaximized': 'window.isMaximized',
+  'window.platform': 'window.platform',
+  'event.windowMaximizeChange': 'event.windowMaximizeChange',
   'event.botStatus': 'event.botStatus',
   'event.gatewayState': 'event.gatewayState',
   'event.guildUpdate': 'event.guildUpdate',

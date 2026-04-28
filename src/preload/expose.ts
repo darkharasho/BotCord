@@ -57,6 +57,14 @@ const api: BotcordApi = {
     appVersion: () => invoke(IPC_CHANNELS['system.appVersion']),
     openExternal: (url) => invoke(IPC_CHANNELS['system.openExternal'], url),
   },
+  window: {
+    minimize: () => invoke(IPC_CHANNELS['window.minimize']),
+    toggleMaximize: () => invoke(IPC_CHANNELS['window.toggleMaximize']),
+    close: () => invoke(IPC_CHANNELS['window.close']),
+    isMaximized: () => invoke(IPC_CHANNELS['window.isMaximized']),
+    platform: () => invoke(IPC_CHANNELS['window.platform']),
+    onMaximizeChange: (cb) => subscribe(IPC_CHANNELS['event.windowMaximizeChange'], cb as (p: unknown) => void),
+  },
 };
 
 contextBridge.exposeInMainWorld('botcord', api);

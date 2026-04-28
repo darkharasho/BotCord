@@ -7,6 +7,7 @@ import type { BotStatus } from '../shared/domain';
 import { OnboardingRoute } from './routes/onboarding/OnboardingRoute';
 import { ShellRoute } from './routes/shell/ShellRoute';
 import { ComposeRoute } from './routes/compose/ComposeRoute';
+import { TitleBar } from './components/TitleBar';
 
 function StatusGate() {
   const [status, setStatus] = useState<BotStatus | null>(null);
@@ -32,13 +33,18 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <HashRouter>
-        <Routes>
-          <Route path="/" element={<StatusGate />} />
-          <Route path="/onboarding" element={<OnboardingRoute />} />
-          <Route path="/shell" element={<ShellRoute />} />
-          <Route path="/compose" element={<ComposeRoute />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <div className="h-full flex flex-col">
+          <TitleBar />
+          <div className="flex-1 min-h-0">
+            <Routes>
+              <Route path="/" element={<StatusGate />} />
+              <Route path="/onboarding" element={<OnboardingRoute />} />
+              <Route path="/shell" element={<ShellRoute />} />
+              <Route path="/compose" element={<ComposeRoute />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </div>
       </HashRouter>
     </QueryClientProvider>
   );
