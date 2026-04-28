@@ -1,6 +1,23 @@
 import { app, BrowserWindow } from 'electron';
+import { createMainWindow } from './window';
+import { installCSP } from './security/csp';
 
-app.whenReady().then(() => {
-  const win = new BrowserWindow({ width: 1200, height: 800 });
-  win.loadURL('about:blank');
-});
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const [win] = BrowserWindow.getAllWindows();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    installCSP();
+    createMainWindow();
+  });
+
+  app.on('window-all-closed', () => app.quit());
+}
