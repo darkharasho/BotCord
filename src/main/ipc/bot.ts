@@ -21,7 +21,10 @@ export function registerBotHandlers({ vault, manager }: Deps): void {
     if (typeof token !== 'string' || !token.trim()) return err('INVALID_TOKEN', 'Token must be a non-empty string');
     try {
       const res = await fetch('https://discord.com/api/v10/users/@me', {
-        headers: { Authorization: `Bot ${token.trim()}` },
+        headers: {
+        Authorization: `Bot ${token.trim()}`,
+        'User-Agent': 'BotCord (https://github.com/darkharasho/BotCord, 0.0.1)',
+      },
       });
       if (res.status === 401) return err('INVALID_TOKEN', 'Discord rejected the token');
       if (!res.ok) return err('DISCORD_HTTP_ERROR', `HTTP ${res.status}`);
@@ -42,7 +45,10 @@ export function registerBotHandlers({ vault, manager }: Deps): void {
   ipcMain.handle(IPC_CHANNELS['bot.saveToken'], async (_, token: unknown): Promise<Result<BotIdentity>> => {
     if (typeof token !== 'string' || !token.trim()) return err('INVALID_TOKEN', 'Token must be a non-empty string');
     const validateRes = await fetch('https://discord.com/api/v10/users/@me', {
-      headers: { Authorization: `Bot ${token.trim()}` },
+      headers: {
+        Authorization: `Bot ${token.trim()}`,
+        'User-Agent': 'BotCord (https://github.com/darkharasho/BotCord, 0.0.1)',
+      },
     });
     if (validateRes.status === 401) return err('INVALID_TOKEN', 'Discord rejected the token');
     if (!validateRes.ok) return err('DISCORD_HTTP_ERROR', `HTTP ${validateRes.status}`);
