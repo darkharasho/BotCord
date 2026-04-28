@@ -71,7 +71,7 @@ export type DraftRow = {
   updatedAt: number;
 };
 
-export type DraftInput = Omit<DraftRow, 'createdAt' | 'updatedAt'> & { id?: string };
+export type DraftInput = Omit<DraftRow, 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
 
 export type Prefs = {
   lastSelectedGuildId: string | null;
