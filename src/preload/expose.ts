@@ -1,0 +1,55 @@
+import { contextBridge, ipcRenderer } from 'electron';
+import { IPC_CHANNELS } from '../shared/ipc-contract';
+import type { BotcordApi } from '../shared/ipc-contract';
+
+const invoke = <T>(channel: string, ...args: unknown[]) =>
+  ipcRenderer.invoke(channel, ...args) as Promise<T>;
+
+const subscribe = (channel: string, cb: (payload: unknown) => void): (() => void) => {
+  const handler = (_: unknown, payload: unknown) => cb(payload);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+};
+
+const api: BotcordApi = {
+  bot: {
+    getStatus: () => invoke(IPC_CHANNELS['bot.getStatus']),
+    validateToken: (token) => invoke(IPC_CHANNELS['bot.validateToken'], token),
+    saveToken: (token) => invoke(IPC_CHANNELS['bot.saveToken'], token),
+    clearToken: () => invoke(IPC_CHANNELS['bot.clearToken']),
+    buildInviteUrl: (clientId) => invoke(IPC_CHANNELS['bot.buildInviteUrl'], clientId),
+  },
+  guilds: {
+    list: () => invoke(IPC_CHANNELS['guilds.list']),
+    listChannels: (guildId) => invoke(IPC_CHANNELS['guilds.listChannels'], guildId),
+  },
+  messages: {
+    send: (channelId, content) => invoke(IPC_CHANNELS['messages.send'], channelId, content),
+    sendEmbed: (channelId, embed, content) =>
+      invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content),
+    history: (channelId, opts) => invoke(IPC_CHANNELS['messages.history'], channelId, opts),
+    delete: (channelId, messageId) => invoke(IPC_CHANNELS['messages.delete'], channelId, messageId),
+    bulkDelete: (channelId, ids) => invoke(IPC_CHANNELS['messages.bulkDelete'], channelId, ids),
+  },
+  drafts: {
+    list: () => invoke(IPC_CHANNELS['drafts.list']),
+    upsert: (draft) => invoke(IPC_CHANNELS['drafts.upsert'], draft),
+    delete: (id) => invoke(IPC_CHANNELS['drafts.delete'], id),
+  },
+  prefs: {
+    get: (key) => invoke(IPC_CHANNELS['prefs.get'], key),
+    set: (key, value) => invoke(IPC_CHANNELS['prefs.set'], key, value),
+  },
+  events: {
+    onBotStatus: (cb) => subscribe(IPC_CHANNELS['event.botStatus'], cb as (p: unknown) => void),
+    onGatewayState: (cb) => subscribe(IPC_CHANNELS['event.gatewayState'], cb as (p: unknown) => void),
+    onGuildUpdate: (cb) => subscribe(IPC_CHANNELS['event.guildUpdate'], cb as (p: unknown) => void),
+    onChannelUpdate: (cb) => subscribe(IPC_CHANNELS['event.channelUpdate'], cb as (p: unknown) => void),
+  },
+  system: {
+    appVersion: () => invoke(IPC_CHANNELS['system.appVersion']),
+    openExternal: (url) => invoke(IPC_CHANNELS['system.openExternal'], url),
+  },
+};
+
+contextBridge.exposeInMainWorld('botcord', api);
