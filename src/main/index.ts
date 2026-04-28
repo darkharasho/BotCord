@@ -1,6 +1,11 @@
 import { app, BrowserWindow } from 'electron';
+import { join } from 'path';
 import { createMainWindow } from './window';
 import { installCSP } from './security/csp';
+import { createTokenVault } from './vault/token-vault';
+import { createClientManager } from './discord/client-manager';
+import { openDatabase } from './db/database';
+import { registerAllIpc } from './ipc';
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -8,15 +13,24 @@ if (!gotLock) {
 } else {
   app.on('second-instance', () => {
     const [win] = BrowserWindow.getAllWindows();
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-    }
+    if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     installCSP();
+
+    const userData = app.getPath('userData');
+    const vault = createTokenVault(join(userData, 'vault'));
+    const manager = createClientManager(vault);
+    const db = openDatabase(join(userData, 'botcord.sqlite'));
+
+    registerAllIpc({ vault, manager, db });
+
     createMainWindow();
+
+    if (vault.hasToken()) {
+      manager.connect().catch(() => { /* surfaced via gateway state events */ });
+    }
   });
 
   app.on('window-all-closed', () => app.quit());
