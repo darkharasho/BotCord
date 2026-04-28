@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import type { GuildSummary } from '../../shared/domain';
 import { Tooltip } from './Tooltip';
 
-export function ServerRail({ selected, onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
+export function ServerRail({ selected, onSelect }: { selected: string | null; onSelect: (g: GuildSummary) => void }) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +27,7 @@ export function ServerRail({ selected, onSelect }: { selected: string | null; on
       {guilds.map(g => (
         <Tooltip key={g.id} label={g.name} side="right">
           <button
-            onClick={() => onSelect(g.id)}
+            onClick={() => onSelect(g)}
             className="relative group"
           >
             <span
