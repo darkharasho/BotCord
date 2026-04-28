@@ -66,6 +66,8 @@ export type MessageSummary = {
   authorTag: string;
   authorDisplayName: string;
   authorAvatarUrl: string | null;
+  authorRoleColor: string | null;
+  authorTopRoleName: string | null;
   content: string;
   createdAt: number;
   editedAt: number | null;

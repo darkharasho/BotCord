@@ -33,8 +33,9 @@ export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
           <div data-message-id={head.id}>
             <div className="flex items-baseline gap-2 whitespace-nowrap">
               <span
-                className="font-medium text-fg text-[15px] truncate cursor-default"
-                title={`@${head.authorTag}`}
+                className="font-medium text-[15px] truncate cursor-default"
+                style={head.authorRoleColor ? { color: head.authorRoleColor } : undefined}
+                title={head.authorTopRoleName ? `@${head.authorTag} · ${head.authorTopRoleName}` : `@${head.authorTag}`}
               >{head.authorDisplayName}</span>
               <span className="text-[11px] text-fg-dim shrink-0">{formatHeaderTimestamp(head.createdAt)}</span>
             </div>

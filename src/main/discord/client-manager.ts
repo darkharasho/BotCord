@@ -230,6 +230,19 @@ export function summarizeMessage(m: Message): MessageSummary {
         : null)
     ?? m.author.username;
 
+  let authorRoleColor: string | null = null;
+  let authorTopRoleName: string | null = null;
+  if (m.member) {
+    const colored = m.member.roles.cache
+      .filter(r => r.color !== 0 && r.name !== '@everyone')
+      .sort((a, b) => b.position - a.position)
+      .first();
+    if (colored) {
+      authorRoleColor = `#${colored.color.toString(16).padStart(6, '0')}`;
+      authorTopRoleName = colored.name;
+    }
+  }
+
   return {
     id: m.id,
     channelId: m.channelId,
@@ -237,6 +250,8 @@ export function summarizeMessage(m: Message): MessageSummary {
     authorTag,
     authorDisplayName,
     authorAvatarUrl: m.author.displayAvatarURL({ size: 64 }),
+    authorRoleColor,
+    authorTopRoleName,
     content: m.content,
     createdAt: m.createdTimestamp,
     editedAt: m.editedTimestamp,
