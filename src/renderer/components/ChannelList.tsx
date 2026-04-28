@@ -64,11 +64,13 @@ export function ChannelList({ guildId, selected, onSelect }: { guildId: string |
     <button
       key={c.id}
       onClick={() => onSelect(c.id)}
-      className={`w-full flex items-center gap-2 px-2 py-1 rounded text-left text-sm
-        ${indent ? 'pl-6' : ''}
-        ${selected === c.id ? 'bg-bg-subtle text-fg' : 'text-fg-muted hover:bg-bg-subtle/50 hover:text-fg'}`}
+      className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5
+        ${indent ? 'pl-7' : ''}
+        ${selected === c.id
+          ? 'bg-selected text-fg'
+          : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
     >
-      <span className="text-xs w-4 inline-block">{kindGlyph(c.type)}</span>
+      <span className="text-fg-dim w-4 inline-flex justify-center text-base">{kindGlyph(c.type)}</span>
       <span className="truncate">{c.name}</span>
     </button>
   );
@@ -86,7 +88,7 @@ export function ChannelList({ guildId, selected, onSelect }: { guildId: string |
   );
 
   return (
-    <div className="h-full overflow-y-auto p-2">
+    <div className="h-full overflow-y-auto px-2 pt-2 pb-4">
       {uncategorized
         .filter(c => c.type !== 'thread')
         .map(renderChannelWithThreads)}
@@ -110,11 +112,11 @@ export function ChannelList({ guildId, selected, onSelect }: { guildId: string |
 function kindGlyph(t: ChannelSummary['type']): string {
   switch (t) {
     case 'text': return '#';
-    case 'announcement': return '📢';
-    case 'voice': return '🔊';
-    case 'thread': return '↳';
+    case 'announcement': return '📣';
+    case 'voice': return '🔉';
+    case 'thread': return '#';
     case 'category': return '▾';
-    case 'forum': return '☰';
+    case 'forum': return '🗨';
     default: return '·';
   }
 }

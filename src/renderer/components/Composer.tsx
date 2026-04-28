@@ -111,57 +111,62 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
 
   return (
     <div
-      className="border-t border-border bg-bg relative"
+      className="bg-bg relative px-4 pb-6"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
     >
       {dragOver && (
-        <div className="absolute inset-0 bg-accent/20 border-2 border-dashed border-accent flex items-center justify-center z-40 pointer-events-none">
+        <div className="absolute inset-0 bg-accent/20 border-2 border-dashed border-accent rounded-lg flex items-center justify-center z-40 pointer-events-none m-2">
           <span className="text-fg font-semibold">Drop to attach</span>
         </div>
       )}
-      <AttachmentTray files={files} onRemove={(i) => setFiles(prev => prev.filter((_, idx) => idx !== i))} />
       {offline && (
-        <div className="px-3 py-1 text-xs text-warn bg-warn/10">Bot is not connected — sending disabled.</div>
+        <div className="mb-2 px-3 py-1 text-xs text-warn bg-warn/10 rounded">Bot is not connected — sending disabled.</div>
       )}
-      <div className="flex items-end gap-2 px-3 py-2">
-        <button
-          onClick={onPick}
-          disabled={offline || busy}
-          className="text-fg-muted hover:text-fg p-2 disabled:opacity-40"
-          title="Attach files"
-        >📎</button>
-        <textarea
-          ref={taRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKey}
-          disabled={offline || busy}
-          placeholder={channelId ? 'Message…' : 'Select a channel'}
-          rows={1}
-          className="flex-1 bg-bg-sunken border border-border rounded px-3 py-2 text-sm resize-none disabled:opacity-50"
-        />
-        <div className="relative">
+      <div className="bg-bg-input rounded-lg overflow-hidden">
+        <AttachmentTray files={files} onRemove={(i) => setFiles(prev => prev.filter((_, idx) => idx !== i))} />
+        <div className="flex items-end gap-1 px-2">
           <button
-            onClick={() => setEmojiOpen(o => !o)}
+            onClick={onPick}
             disabled={offline || busy}
-            className="text-fg-muted hover:text-fg p-2 disabled:opacity-40"
-            title="Emoji"
-          >😀</button>
-          {emojiOpen && (
-            <EmojiPicker
-              guildEmojis={guildEmojis}
-              onSelect={(token) => { insertAtCursor(token); }}
-              onClose={() => setEmojiOpen(false)}
-            />
+            className="text-fg-muted hover:text-fg w-8 h-11 flex items-center justify-center disabled:opacity-40 shrink-0 text-lg"
+            title="Attach files"
+          >+</button>
+          <textarea
+            ref={taRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKey}
+            disabled={offline || busy}
+            placeholder={channelId ? 'Message…' : 'Select a channel'}
+            rows={1}
+            className="flex-1 bg-transparent text-fg placeholder:text-fg-dim text-[15px] py-3 resize-none disabled:opacity-50 outline-none"
+          />
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setEmojiOpen(o => !o)}
+              disabled={offline || busy}
+              className="text-fg-muted hover:text-fg w-8 h-11 flex items-center justify-center disabled:opacity-40"
+              title="Emoji"
+            >😀</button>
+            {emojiOpen && (
+              <EmojiPicker
+                guildEmojis={guildEmojis}
+                onSelect={(token) => { insertAtCursor(token); }}
+                onClose={() => setEmojiOpen(false)}
+              />
+            )}
+          </div>
+          {(text.trim().length > 0 || files.length > 0) && (
+            <button
+              onClick={send}
+              disabled={offline || busy || !channelId}
+              className="text-accent hover:text-accent-hover w-8 h-11 flex items-center justify-center disabled:opacity-40 shrink-0"
+              title="Send"
+            >➤</button>
           )}
         </div>
-        <button
-          onClick={send}
-          disabled={offline || busy || (text.trim().length === 0 && files.length === 0) || !channelId}
-          className="px-3 py-2 bg-accent text-white rounded text-sm disabled:opacity-40 hover:bg-accent-hover"
-        >Send</button>
       </div>
     </div>
   );

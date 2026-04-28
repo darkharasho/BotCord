@@ -7,9 +7,9 @@ export function MessageContent({ message }: { message: MessageSummary }) {
   return (
     <div className="space-y-1">
       {message.content && (
-        <div className="text-sm text-fg whitespace-pre-wrap break-words">
+        <div className="text-[15px] leading-[1.375] text-fg whitespace-pre-wrap break-words">
           <Markdown source={message.content} mentions={message.mentions} />
-          {message.editedAt && <span className="text-fg-muted text-[10px] ml-1">(edited)</span>}
+          {message.editedAt && <span className="text-fg-dim text-[10px] ml-1">(edited)</span>}
         </div>
       )}
       {message.attachments.map(a => <AttachmentInline key={a.id} attachment={a} />)}

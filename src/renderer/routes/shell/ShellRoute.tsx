@@ -22,23 +22,27 @@ export function ShellRoute() {
   const channelName = channels.find(c => c.id === channelId)?.name ?? null;
 
   return (
-    <div className="h-full flex flex-col">
-      <header className="h-10 border-b border-border flex items-center justify-between px-3 bg-bg-subtle shrink-0">
-        <div className="font-semibold tracking-tight">BotCord</div>
-        <div className="flex items-center gap-3">
-          <StatusPill />
-          <button className="text-xs text-fg-muted hover:text-fg" onClick={() => setSettingsOpen(true)}>Settings</button>
+    <div className="h-full flex">
+      <aside className="w-[72px] shrink-0 min-h-0">
+        <ServerRail selected={guildId} onSelect={(id) => { setGuildId(id); setChannelId(null); }} />
+      </aside>
+      <aside className="w-60 shrink-0 min-h-0 bg-bg-subtle flex flex-col">
+        <div className="h-12 px-4 flex items-center justify-between shadow-[0_1px_0_rgba(0,0,0,0.2),0_1.5px_0_rgba(0,0,0,0.05),0_2px_0_rgba(0,0,0,0.05)] z-10 shrink-0">
+          <span className="font-semibold text-fg text-[15px] truncate">BotCord</span>
+          <button
+            className="text-fg-dim hover:text-fg text-base"
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+          >⚙</button>
         </div>
-      </header>
-      <div className="flex-1 grid grid-cols-[72px_240px_1fr] min-h-0">
-        <aside className="border-r border-border min-h-0">
-          <ServerRail selected={guildId} onSelect={(id) => { setGuildId(id); setChannelId(null); }} />
-        </aside>
-        <aside className="border-r border-border min-h-0 bg-bg-subtle/40">
+        <div className="flex-1 min-h-0">
           <ChannelList guildId={guildId} selected={channelId} onSelect={setChannelId} />
-        </aside>
-        <ChannelView channelId={channelId} guildId={guildId} channelName={channelName} />
-      </div>
+        </div>
+        <div className="h-[52px] px-2 flex items-center bg-bg-sunken shrink-0">
+          <StatusPill />
+        </div>
+      </aside>
+      <ChannelView channelId={channelId} guildId={guildId} channelName={channelName} />
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <Toaster />
     </div>
