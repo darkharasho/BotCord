@@ -45,7 +45,7 @@ export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
           data-message-id={m.id}
           className="flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group"
         >
-          <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-6">
+          <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-[21px] whitespace-nowrap tracking-tight">
             {formatGutterTimestamp(m.createdAt)}
           </div>
           <div className="flex-1 min-w-0">
