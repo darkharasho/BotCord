@@ -1,2 +1,6 @@
 import { createRoot } from 'react-dom/client';
-createRoot(document.getElementById('root')!).render(<div>BotCord</div>);
+import './styles/globals.css';
+
+createRoot(document.getElementById('root')!).render(
+  <div className="p-6 text-fg">BotCord</div>
+);
