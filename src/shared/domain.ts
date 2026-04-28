@@ -95,6 +95,7 @@ export type GatewayState =
 
 export type BotStatus =
   | { kind: 'unconfigured' }
+  | { kind: 'connecting' }
   | { kind: 'configured'; identity: BotIdentity; gateway: GatewayState };
 
 export type DraftRow = {

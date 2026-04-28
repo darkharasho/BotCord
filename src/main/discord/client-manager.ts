@@ -29,7 +29,11 @@ export function createClientManager(vault: TokenVault): ClientManager {
   let reconnectAttempt = 0;
 
   const getStatus = (): BotStatus =>
-    identity ? { kind: 'configured', identity, gateway } : { kind: 'unconfigured' };
+    identity
+      ? { kind: 'configured', identity, gateway }
+      : vault.hasToken()
+        ? { kind: 'connecting' }
+        : { kind: 'unconfigured' };
 
   const setGateway = (next: GatewayState) => {
     gateway = next;
