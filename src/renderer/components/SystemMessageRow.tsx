@@ -31,7 +31,7 @@ const ACCENTS: Record<SystemMessageKind, string> = {
 };
 
 function describe(message: MessageSummary): string {
-  const who = message.authorTag || 'Someone';
+  const who = message.authorDisplayName || message.authorTag || 'Someone';
   switch (message.systemKind) {
     case 'user_join': return `${who} joined the server.`;
     case 'pin': return `${who} pinned a message to this channel.`;

@@ -27,12 +27,15 @@ export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
         <div className="w-10 shrink-0 pt-0.5">
           {head.authorAvatarUrl
             ? <img src={head.authorAvatarUrl} alt="" className="w-10 h-10 rounded-full" />
-            : <div className="w-10 h-10 rounded-full bg-bg-input flex items-center justify-center text-xs font-semibold text-fg">{head.authorTag.slice(0, 2).toUpperCase()}</div>}
+            : <div className="w-10 h-10 rounded-full bg-bg-input flex items-center justify-center text-xs font-semibold text-fg">{head.authorDisplayName.slice(0, 2).toUpperCase()}</div>}
         </div>
         <div className="flex-1 min-w-0">
           <div data-message-id={head.id}>
             <div className="flex items-baseline gap-2 whitespace-nowrap">
-              <span className="font-medium text-fg text-[15px] truncate">{head.authorTag}</span>
+              <span
+                className="font-medium text-fg text-[15px] truncate cursor-default"
+                title={`@${head.authorTag}`}
+              >{head.authorDisplayName}</span>
               <span className="text-[11px] text-fg-dim shrink-0">{formatHeaderTimestamp(head.createdAt)}</span>
             </div>
             <MessageContent message={head} />

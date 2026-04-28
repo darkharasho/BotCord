@@ -3,7 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import type { MessageSummary, GatewayState } from '../../../shared/domain';
 
 const mkMsg = (id: string, channelId: string, createdAt = id.length): MessageSummary => ({
-  id, channelId, authorId: 'u1', authorTag: 'u1', authorAvatarUrl: null,
+  id, channelId, authorId: 'u1', authorTag: 'u1', authorDisplayName: 'u1', authorAvatarUrl: null,
   content: id, createdAt, editedAt: null, hasEmbeds: false, hasAttachments: false,
   attachments: [], embeds: [], mentions: [], replyTo: null, systemKind: null,
 });

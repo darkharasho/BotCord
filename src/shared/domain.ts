@@ -64,6 +64,7 @@ export type MessageSummary = {
   channelId: string;
   authorId: string;
   authorTag: string;
+  authorDisplayName: string;
   authorAvatarUrl: string | null;
   content: string;
   createdAt: number;

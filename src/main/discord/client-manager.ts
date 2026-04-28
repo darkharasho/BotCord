@@ -222,11 +222,20 @@ export function summarizeMessage(m: Message): MessageSummary {
   m.mentions.channels.forEach(c => mentions.push({ type: 'channel', id: c.id, name: 'name' in c && typeof c.name === 'string' ? c.name : 'channel' }));
   m.mentions.roles.forEach(r => mentions.push({ type: 'role', id: r.id, name: r.name }));
 
+  const authorTag = `${m.author.username}${m.author.discriminator && m.author.discriminator !== '0' ? '#' + m.author.discriminator : ''}`;
+  const authorDisplayName =
+    (m.member && typeof m.member.displayName === 'string' && m.member.displayName.length > 0 ? m.member.displayName : null)
+    ?? (typeof (m.author as { globalName?: string | null }).globalName === 'string' && (m.author as { globalName?: string | null }).globalName!.length > 0
+        ? (m.author as { globalName: string }).globalName
+        : null)
+    ?? m.author.username;
+
   return {
     id: m.id,
     channelId: m.channelId,
     authorId: m.author.id,
-    authorTag: `${m.author.username}${m.author.discriminator && m.author.discriminator !== '0' ? '#' + m.author.discriminator : ''}`,
+    authorTag,
+    authorDisplayName,
     authorAvatarUrl: m.author.displayAvatarURL({ size: 64 }),
     content: m.content,
     createdAt: m.createdTimestamp,
