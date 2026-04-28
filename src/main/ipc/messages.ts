@@ -114,7 +114,18 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       const fetchOpts: { limit: number; before?: string } = { limit: o.limit };
       if (o.before) fetchOpts.before = o.before;
       const messages = await (got as { ok: true; channel: SendableChannel }).channel.messages.fetch(fetchOpts);
-      return ok(Array.from(messages.values()).map(summarizeMessage));
+      const list = Array.from(messages.values());
+
+      // Hydrate guild members so role colors / nicknames project correctly on history messages.
+      const guild = list.find(m => m.guild)?.guild ?? null;
+      if (guild) {
+        const missing = Array.from(new Set(list.filter(m => !m.member && m.guild).map(m => m.author.id)));
+        if (missing.length > 0) {
+          await guild.members.fetch({ user: missing }).catch(() => { /* permissions etc — fall through */ });
+        }
+      }
+
+      return ok(list.map(summarizeMessage));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }

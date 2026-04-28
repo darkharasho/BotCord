@@ -233,14 +233,10 @@ export function summarizeMessage(m: Message): MessageSummary {
   let authorRoleColor: string | null = null;
   let authorTopRoleName: string | null = null;
   if (m.member) {
-    const colored = m.member.roles.cache
-      .filter(r => r.color !== 0 && r.name !== '@everyone')
-      .sort((a, b) => b.position - a.position)
-      .first();
-    if (colored) {
-      authorRoleColor = `#${colored.color.toString(16).padStart(6, '0')}`;
-      authorTopRoleName = colored.name;
-    }
+    const hex = m.member.displayHexColor;
+    if (hex && hex !== '#000000') authorRoleColor = hex;
+    const topColored = m.member.roles.color;
+    if (topColored) authorTopRoleName = topColored.name;
   }
 
   return {
