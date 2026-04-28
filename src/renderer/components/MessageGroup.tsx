@@ -31,9 +31,9 @@ export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
         </div>
         <div className="flex-1 min-w-0">
           <div data-message-id={head.id}>
-            <div className="flex items-baseline gap-2 leading-none">
-              <span className="font-medium text-fg text-[15px]">{head.authorTag}</span>
-              <span className="text-[11px] text-fg-dim">{formatHeaderTimestamp(head.createdAt)}</span>
+            <div className="flex items-baseline gap-2 whitespace-nowrap">
+              <span className="font-medium text-fg text-[15px] truncate">{head.authorTag}</span>
+              <span className="text-[11px] text-fg-dim shrink-0">{formatHeaderTimestamp(head.createdAt)}</span>
             </div>
             <MessageContent message={head} />
           </div>

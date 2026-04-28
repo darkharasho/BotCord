@@ -5,7 +5,7 @@ import { AttachmentInline } from './AttachmentInline';
 
 export function MessageContent({ message }: { message: MessageSummary }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {message.content && (
         <div className="text-[15px] leading-[1.375] text-fg whitespace-pre-wrap break-words">
           <Markdown source={message.content} mentions={message.mentions} />
