@@ -30,46 +30,49 @@ export function MessageList({ channelId }: { channelId: string | null }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pendingNew, setPendingNew] = useState(0);
   const previousLength = useRef(0);
-  const previousChannelId = useRef<string | null>(null);
+  const justSwitchedRef = useRef(true);
   const anchorRef = useRef<{ id: string; top: number } | null>(null);
 
+  // Reset on channel switch — stay "just switched" until messages render and we pin to bottom.
   useEffect(() => {
+    justSwitchedRef.current = true;
+    setPendingNew(0);
+    previousLength.current = 0;
+  }, [channelId]);
+
+  useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    if (previousChannelId.current !== channelId) {
-      previousChannelId.current = channelId;
-      setPendingNew(0);
-      requestAnimationFrame(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      });
+    // Anchor preservation for loadOlder prepends takes priority.
+    if (anchorRef.current) {
+      const target = el.querySelector(`[data-message-id="${anchorRef.current.id}"]`) as HTMLElement | null;
+      if (target) {
+        const newTop = target.getBoundingClientRect().top;
+        el.scrollTop += (newTop - anchorRef.current.top);
+      }
+      anchorRef.current = null;
       previousLength.current = messages.length;
       return;
     }
 
+    // After channel switch, keep pinning to bottom until at least one message has rendered.
+    if (justSwitchedRef.current) {
+      el.scrollTop = el.scrollHeight;
+      if (messages.length > 0) justSwitchedRef.current = false;
+      previousLength.current = messages.length;
+      return;
+    }
+
+    // New live messages: scroll if user is near bottom, otherwise show pending pill.
     if (messages.length > previousLength.current) {
       const newCount = messages.length - previousLength.current;
       const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 100;
-      if (nearBottom) {
-        requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-      } else if (anchorRef.current === null) {
-        setPendingNew(p => p + newCount);
-      }
+      if (nearBottom) el.scrollTop = el.scrollHeight;
+      else setPendingNew(p => p + newCount);
     }
     previousLength.current = messages.length;
   }, [messages, channelId]);
-
-  useLayoutEffect(() => {
-    if (!anchorRef.current) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const target = el.querySelector(`[data-message-id="${anchorRef.current.id}"]`) as HTMLElement | null;
-    if (target) {
-      const newTop = target.getBoundingClientRect().top;
-      el.scrollTop += (newTop - anchorRef.current.top);
-    }
-    anchorRef.current = null;
-  }, [messages]);
 
   const onScroll = async () => {
     const el = scrollRef.current;
