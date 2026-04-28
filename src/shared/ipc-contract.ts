@@ -1,6 +1,6 @@
 import type {
   BotIdentity, BotStatus, ChannelSummary, DraftInput, DraftRow,
-  EmbedPayload, GatewayState, GuildSummary, MessageSummary, Prefs,
+  EmbedPayload, GatewayState, GuildEmoji, GuildSummary, MessageSummary, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
 
@@ -15,10 +15,16 @@ export interface BotcordApi {
   guilds: {
     list(): Promise<Result<GuildSummary[]>>;
     listChannels(guildId: string): Promise<Result<ChannelSummary[]>>;
+    listEmojis(guildId: string): Promise<Result<GuildEmoji[]>>;
   };
   messages: {
     send(channelId: string, content: string): Promise<Result<MessageSummary>>;
     sendEmbed(channelId: string, embed: EmbedPayload, content?: string): Promise<Result<MessageSummary>>;
+    sendWithAttachments(
+      channelId: string,
+      content: string,
+      attachments: SendAttachment[],
+    ): Promise<Result<MessageSummary>>;
     history(channelId: string, opts: { before?: string; limit: number }): Promise<Result<MessageSummary[]>>;
     delete(channelId: string, messageId: string): Promise<Result<void>>;
     bulkDelete(channelId: string, messageIds: string[]): Promise<Result<{ deleted: string[] }>>;
@@ -37,6 +43,10 @@ export interface BotcordApi {
     onGatewayState(cb: (s: GatewayState) => void): () => void;
     onGuildUpdate(cb: (g: GuildSummary) => void): () => void;
     onChannelUpdate(cb: (c: ChannelSummary) => void): () => void;
+    onMessageCreate(cb: (p: { channelId: string; message: MessageSummary }) => void): () => void;
+    onMessageUpdate(cb: (p: { channelId: string; message: MessageSummary }) => void): () => void;
+    onMessageDelete(cb: (p: { channelId: string; messageId: string }) => void): () => void;
+    onGuildEmojisUpdate(cb: (p: { guildId: string; emojis: GuildEmoji[] }) => void): () => void;
   };
   system: {
     appVersion(): Promise<string>;
@@ -52,8 +62,10 @@ export const IPC_CHANNELS = {
   'bot.buildInviteUrl': 'bot.buildInviteUrl',
   'guilds.list': 'guilds.list',
   'guilds.listChannels': 'guilds.listChannels',
+  'guilds.listEmojis': 'guilds.listEmojis',
   'messages.send': 'messages.send',
   'messages.sendEmbed': 'messages.sendEmbed',
+  'messages.sendWithAttachments': 'messages.sendWithAttachments',
   'messages.history': 'messages.history',
   'messages.delete': 'messages.delete',
   'messages.bulkDelete': 'messages.bulkDelete',
@@ -68,6 +80,10 @@ export const IPC_CHANNELS = {
   'event.gatewayState': 'event.gatewayState',
   'event.guildUpdate': 'event.guildUpdate',
   'event.channelUpdate': 'event.channelUpdate',
+  'event.messageCreate': 'event.messageCreate',
+  'event.messageUpdate': 'event.messageUpdate',
+  'event.messageDelete': 'event.messageDelete',
+  'event.guildEmojisUpdate': 'event.guildEmojisUpdate',
 } as const;
 
 export type IpcChannel = keyof typeof IPC_CHANNELS;

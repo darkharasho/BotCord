@@ -11,3 +11,7 @@ export const GATEWAY_EVENT_CHANNEL = IPC_CHANNELS['event.gatewayState'];
 export const BOT_STATUS_CHANNEL = IPC_CHANNELS['event.botStatus'];
 export const GUILD_UPDATE_CHANNEL = IPC_CHANNELS['event.guildUpdate'];
 export const CHANNEL_UPDATE_CHANNEL = IPC_CHANNELS['event.channelUpdate'];
+export const MESSAGE_CREATE_CHANNEL = IPC_CHANNELS['event.messageCreate'];
+export const MESSAGE_UPDATE_CHANNEL = IPC_CHANNELS['event.messageUpdate'];
+export const MESSAGE_DELETE_CHANNEL = IPC_CHANNELS['event.messageDelete'];
+export const GUILD_EMOJIS_UPDATE_CHANNEL = IPC_CHANNELS['event.guildEmojisUpdate'];
