@@ -1,6 +1,7 @@
 import { Client, Events, Partials } from 'discord.js';
 import type { Message } from 'discord.js';
-import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji } from '../../shared/domain';
+import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, SystemMessageKind } from '../../shared/domain';
+import { MessageType } from 'discord.js';
 import { REQUIRED_INTENTS } from './intents';
 import {
   broadcast,
@@ -238,7 +239,26 @@ export function summarizeMessage(m: Message): MessageSummary {
     replyTo: m.reference?.messageId
       ? { id: m.reference.messageId, authorTag: '' }
       : null,
+    systemKind: classifySystemMessage(m.type, m.system),
   };
+}
+
+function classifySystemMessage(type: MessageType, isSystem: boolean | null): SystemMessageKind | null {
+  if (!isSystem && type === MessageType.Default) return null;
+  if (!isSystem && type === MessageType.Reply) return null;
+  switch (type) {
+    case MessageType.UserJoin: return 'user_join';
+    case MessageType.ChannelPinnedMessage: return 'pin';
+    case MessageType.GuildBoost:
+    case MessageType.GuildBoostTier1:
+    case MessageType.GuildBoostTier2:
+    case MessageType.GuildBoostTier3: return 'boost';
+    case MessageType.ChannelFollowAdd: return 'channel_follow';
+    case MessageType.ThreadCreated:
+    case MessageType.ThreadStarterMessage: return 'thread_create';
+    case MessageType.RecipientAdd: return 'recipient_add';
+    default: return isSystem ? 'other' : null;
+  }
 }
 
 export function projectGuildEmojis(guildId: string, emojis: Iterable<{ id: string | null; name: string | null; animated: boolean | null }>): GuildEmoji[] {

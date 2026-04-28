@@ -50,6 +50,15 @@ export type GuildEmoji = {
   url: string;
 };
 
+export type SystemMessageKind =
+  | 'user_join'
+  | 'pin'
+  | 'boost'
+  | 'thread_create'
+  | 'channel_follow'
+  | 'recipient_add'
+  | 'other';
+
 export type MessageSummary = {
   id: string;
   channelId: string;
@@ -65,6 +74,7 @@ export type MessageSummary = {
   embeds: MessageEmbedSummary[];
   mentions: ResolvedMention[];
   replyTo: { id: string; authorTag: string } | null;
+  systemKind: SystemMessageKind | null;
 };
 
 export type EmbedPayload = {

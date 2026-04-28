@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MessageSummary } from '../../shared/domain';
 import { useChannelMessages } from '../lib/use-channel-messages';
 import { MessageGroup } from './MessageGroup';
+import { SystemMessageRow } from './SystemMessageRow';
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
@@ -10,7 +11,12 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   for (const m of messages) {
     const last = groups[groups.length - 1];
     const prev = last?.[last.length - 1];
-    if (prev && prev.authorId === m.authorId && (m.createdAt - prev.createdAt) < GROUP_WINDOW_MS) {
+    const canGroup = prev
+      && !prev.systemKind
+      && !m.systemKind
+      && prev.authorId === m.authorId
+      && (m.createdAt - prev.createdAt) < GROUP_WINDOW_MS;
+    if (canGroup) {
       last!.push(m);
     } else {
       groups.push([m]);
@@ -91,9 +97,11 @@ export function MessageList({ channelId }: { channelId: string | null }) {
         {!hasMore && messages.length > 0 && (
           <div className="text-center text-[10px] text-fg-muted py-2">— Beginning of channel history —</div>
         )}
-        {groups.map((g, gi) => (
-          <MessageGroup key={`g-${gi}-${g[0]!.id}`} messages={g} />
-        ))}
+        {groups.map((g, gi) => {
+          const head = g[0]!;
+          if (head.systemKind) return <SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />;
+          return <MessageGroup key={`g-${gi}-${head.id}`} messages={g} />;
+        })}
       </div>
       {pendingNew > 0 && (
         <button
