@@ -22,11 +22,14 @@ const api: BotcordApi = {
   guilds: {
     list: () => invoke(IPC_CHANNELS['guilds.list']),
     listChannels: (guildId) => invoke(IPC_CHANNELS['guilds.listChannels'], guildId),
+    listEmojis: (guildId) => invoke(IPC_CHANNELS['guilds.listEmojis'], guildId),
   },
   messages: {
     send: (channelId, content) => invoke(IPC_CHANNELS['messages.send'], channelId, content),
     sendEmbed: (channelId, embed, content) =>
       invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content),
+    sendWithAttachments: (channelId, content, attachments) =>
+      invoke(IPC_CHANNELS['messages.sendWithAttachments'], channelId, content, attachments),
     history: (channelId, opts) => invoke(IPC_CHANNELS['messages.history'], channelId, opts),
     delete: (channelId, messageId) => invoke(IPC_CHANNELS['messages.delete'], channelId, messageId),
     bulkDelete: (channelId, ids) => invoke(IPC_CHANNELS['messages.bulkDelete'], channelId, ids),
@@ -45,6 +48,10 @@ const api: BotcordApi = {
     onGatewayState: (cb) => subscribe(IPC_CHANNELS['event.gatewayState'], cb as (p: unknown) => void),
     onGuildUpdate: (cb) => subscribe(IPC_CHANNELS['event.guildUpdate'], cb as (p: unknown) => void),
     onChannelUpdate: (cb) => subscribe(IPC_CHANNELS['event.channelUpdate'], cb as (p: unknown) => void),
+    onMessageCreate: (cb) => subscribe(IPC_CHANNELS['event.messageCreate'], cb as (p: unknown) => void),
+    onMessageUpdate: (cb) => subscribe(IPC_CHANNELS['event.messageUpdate'], cb as (p: unknown) => void),
+    onMessageDelete: (cb) => subscribe(IPC_CHANNELS['event.messageDelete'], cb as (p: unknown) => void),
+    onGuildEmojisUpdate: (cb) => subscribe(IPC_CHANNELS['event.guildEmojisUpdate'], cb as (p: unknown) => void),
   },
   system: {
     appVersion: () => invoke(IPC_CHANNELS['system.appVersion']),
