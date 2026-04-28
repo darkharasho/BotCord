@@ -111,7 +111,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
 
   return (
     <div
-      className="bg-bg relative px-4 pb-6"
+      className="bg-bg relative px-4 pt-2 pb-6"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
