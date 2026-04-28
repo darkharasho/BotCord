@@ -1,8 +1,8 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary } from '../../shared/domain';
-import { projectChannel } from '../discord/client-manager';
+import type { GuildSummary, ChannelSummary, GuildEmoji } from '../../shared/domain';
+import { projectChannel, projectGuildEmojis } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
 export function registerGuildHandlers({ manager }: IpcDeps): void {
@@ -34,5 +34,14 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       topic: 'topic' in c ? (c.topic ?? null) : null,
     }));
     return ok(channels);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.listEmojis'], async (_, guildId: unknown): Promise<Result<GuildEmoji[]>> => {
+    if (typeof guildId !== 'string') return err('INTERNAL', 'guildId must be a string');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+    return ok(projectGuildEmojis(guild.id, guild.emojis.cache.values()));
   });
 }

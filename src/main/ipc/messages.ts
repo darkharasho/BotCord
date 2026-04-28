@@ -1,53 +1,19 @@
 import { ipcMain } from 'electron';
-import { EmbedBuilder, type Message } from 'discord.js';
+import { EmbedBuilder, AttachmentBuilder, type Message } from 'discord.js';
+import { IPC_CHANNELS } from '../../shared/ipc-contract';
+import { ok, err, type Result } from '../../shared/errors';
+import type { EmbedPayload, MessageSummary, SendAttachment } from '../../shared/domain';
+import { summarizeMessage } from '../discord/client-manager';
+import type { IpcDeps } from './index';
 
 type SendableChannel = {
-  send: (opts: { content?: string | undefined; embeds?: EmbedBuilder[] }) => Promise<Message>;
+  send: (opts: { content?: string | undefined; embeds?: EmbedBuilder[]; files?: AttachmentBuilder[] }) => Promise<Message>;
   messages: {
     fetch: ((opts: { limit: number; before?: string }) => Promise<Map<string, Message>>) &
            ((id: string) => Promise<Message>);
   };
   bulkDelete?: (ids: string[], filterOld?: boolean) => Promise<Map<string, Message>>;
 };
-import { IPC_CHANNELS } from '../../shared/ipc-contract';
-import { ok, err, type Result } from '../../shared/errors';
-import type { EmbedPayload, MessageSummary } from '../../shared/domain';
-import type { IpcDeps } from './index';
-
-const summarize = (m: Message): MessageSummary => ({
-  id: m.id,
-  channelId: m.channelId,
-  authorId: m.author.id,
-  authorTag: `${m.author.username}#${m.author.discriminator}`,
-  authorAvatarUrl: m.author.avatarURL(),
-  content: m.content,
-  createdAt: m.createdTimestamp,
-  editedAt: m.editedTimestamp,
-  hasEmbeds: m.embeds.length > 0,
-  hasAttachments: m.attachments.size > 0,
-  attachments: Array.from(m.attachments.values()).map(a => ({
-    id: a.id,
-    name: a.name,
-    url: a.url,
-    size: a.size,
-    contentType: a.contentType,
-    width: a.width,
-    height: a.height,
-  })),
-  embeds: m.embeds.map(e => ({
-    title: e.title ?? null,
-    description: e.description ?? null,
-    url: e.url ?? null,
-    color: e.color,
-    image: e.image?.url ?? null,
-    thumbnail: e.thumbnail?.url ?? null,
-    authorName: e.author?.name ?? null,
-    footerText: e.footer?.text ?? null,
-    fields: e.fields?.map(f => ({ name: f.name, value: f.value, inline: f.inline ?? false })) ?? [],
-  })),
-  mentions: [],
-  replyTo: null,
-});
 
 const buildEmbed = (p: EmbedPayload): EmbedBuilder => {
   const e = new EmbedBuilder();
@@ -86,7 +52,7 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
     try {
       const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({ content });
-      return ok(summarize(msg));
+      return ok(summarizeMessage(msg));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }
@@ -101,7 +67,38 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
         content: typeof content === 'string' ? content : undefined,
         embeds: [buildEmbed(embed as EmbedPayload)],
       });
-      return ok(summarize(msg));
+      return ok(summarizeMessage(msg));
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['messages.sendWithAttachments'], async (_, channelId: unknown, content: unknown, attachments: unknown): Promise<Result<MessageSummary>> => {
+    if (typeof channelId !== 'string' || typeof content !== 'string' || !Array.isArray(attachments)) {
+      return err('INTERNAL', 'invalid arguments');
+    }
+    const got = await requireSendableChannel(channelId);
+    if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
+
+    let files: AttachmentBuilder[];
+    try {
+      files = (attachments as SendAttachment[]).map((a, i) => {
+        if (typeof a?.name !== 'string' || !(a.bytes instanceof Uint8Array)) {
+          throw new Error(`attachments[${i}] is malformed`);
+        }
+        const buffer = Buffer.from(a.bytes);
+        return new AttachmentBuilder(buffer, { name: a.name });
+      });
+    } catch (e) {
+      return err('INTERNAL', e instanceof Error ? e.message : String(e));
+    }
+
+    try {
+      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({
+        content: content.length > 0 ? content : undefined,
+        files,
+      });
+      return ok(summarizeMessage(msg));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }
@@ -117,7 +114,7 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       const fetchOpts: { limit: number; before?: string } = { limit: o.limit };
       if (o.before) fetchOpts.before = o.before;
       const messages = await (got as { ok: true; channel: SendableChannel }).channel.messages.fetch(fetchOpts);
-      return ok(Array.from(messages.values()).map(summarize));
+      return ok(Array.from(messages.values()).map(summarizeMessage));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }
@@ -143,12 +140,11 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     const got = await requireSendableChannel(channelId);
     if ('ok' in got && got.ok === false) return got as Result<{ deleted: string[] }>;
     const channel = (got as { ok: true; channel: SendableChannel }).channel;
-    if (!('bulkDelete' in channel) || typeof (channel as { bulkDelete: unknown }).bulkDelete !== 'function') {
+    if (!channel.bulkDelete) {
       return err('MISSING_PERMISSIONS', 'Channel does not support bulk delete');
     }
     try {
-      const result = await (channel as unknown as { bulkDelete: (ids: string[], filterOld?: boolean) => Promise<Map<string, Message>> })
-        .bulkDelete(ids, true);
+      const result = await channel.bulkDelete(ids, true);
       return ok({ deleted: Array.from(result.keys()) });
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));

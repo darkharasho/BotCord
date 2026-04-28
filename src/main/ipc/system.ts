@@ -5,6 +5,7 @@ const ALLOWED_PREFIXES = [
   'https://discord.com/',
   'https://cdn.discordapp.com/',
   'https://discordapp.com/',
+  'https://media.discordapp.net/',
 ];
 
 export function registerSystemHandlers(): void {
