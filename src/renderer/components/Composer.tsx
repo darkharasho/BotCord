@@ -125,7 +125,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
       {offline && (
         <div className="mb-2 px-3 py-1 text-xs text-warn bg-warn/10 rounded">Bot is not connected — sending disabled.</div>
       )}
-      <div className="bg-bg-input rounded-lg overflow-hidden">
+      <div className="bg-bg-input rounded-lg">
         <AttachmentTray files={files} onRemove={(i) => setFiles(prev => prev.filter((_, idx) => idx !== i))} />
         <div className="flex items-end gap-1 px-2">
           <button
