@@ -2,7 +2,7 @@ import { session } from 'electron';
 
 const PROD_CSP = [
   "default-src 'self'",
-  "img-src 'self' https://cdn.discordapp.com data:",
+  "img-src 'self' https://cdn.discordapp.com https://media.discordapp.net data:",
   "connect-src 'none'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
@@ -14,7 +14,7 @@ const PROD_CSP = [
 
 const DEV_CSP = [
   "default-src 'self' http://localhost:* ws://localhost:*",
-  "img-src 'self' https://cdn.discordapp.com data:",
+  "img-src 'self' https://cdn.discordapp.com https://media.discordapp.net data:",
   "connect-src 'self' http://localhost:* ws://localhost:*",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*",
   "style-src 'self' 'unsafe-inline'",
