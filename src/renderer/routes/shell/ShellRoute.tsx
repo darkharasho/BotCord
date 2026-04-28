@@ -1,50 +1,43 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { GuildList } from '../../components/GuildList';
+import { useEffect, useState } from 'react';
+import { ServerRail } from '../../components/ServerRail';
 import { ChannelList } from '../../components/ChannelList';
 import { StatusPill } from '../../components/StatusPill';
 import { SettingsPanel } from '../../components/SettingsPanel';
 import { Toaster } from '../../components/Toaster';
+import { ChannelView } from './ChannelView';
+import { api } from '../../lib/api';
+import type { ChannelSummary } from '../../../shared/domain';
 
 export function ShellRoute() {
   const [guildId, setGuildId] = useState<string | null>(null);
   const [channelId, setChannelId] = useState<string | null>(null);
+  const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!guildId) { setChannels([]); return; }
+    api.guilds.listChannels(guildId).then(res => { if (res.ok) setChannels(res.data); });
+  }, [guildId]);
+
+  const channelName = channels.find(c => c.id === channelId)?.name ?? null;
 
   return (
     <div className="h-full flex flex-col">
-      <header className="h-10 border-b border-border flex items-center justify-between px-3 bg-bg-subtle">
+      <header className="h-10 border-b border-border flex items-center justify-between px-3 bg-bg-subtle shrink-0">
         <div className="font-semibold tracking-tight">BotCord</div>
         <div className="flex items-center gap-3">
           <StatusPill />
-          <button className="text-xs text-fg-muted hover:text-fg" onClick={() => setSettingsOpen(true)}>
-            Settings
-          </button>
+          <button className="text-xs text-fg-muted hover:text-fg" onClick={() => setSettingsOpen(true)}>Settings</button>
         </div>
       </header>
-      <div className="flex-1 grid grid-cols-[220px_240px_1fr] min-h-0">
-        <aside className="border-r border-border bg-bg-sunken min-h-0">
-          <GuildList selected={guildId} onSelect={(id) => { setGuildId(id); setChannelId(null); }} />
-        </aside>
+      <div className="flex-1 grid grid-cols-[72px_240px_1fr] min-h-0">
         <aside className="border-r border-border min-h-0">
+          <ServerRail selected={guildId} onSelect={(id) => { setGuildId(id); setChannelId(null); }} />
+        </aside>
+        <aside className="border-r border-border min-h-0 bg-bg-subtle/40">
           <ChannelList guildId={guildId} selected={channelId} onSelect={setChannelId} />
         </aside>
-        <main className="p-6 overflow-y-auto">
-          {channelId ? (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Channel selected</h2>
-              <p className="text-fg-muted text-sm">Select an action:</p>
-              <Link
-                to="/compose"
-                className="inline-block px-3 py-2 rounded bg-accent text-white hover:bg-accent-hover"
-              >
-                Open embed composer
-              </Link>
-            </div>
-          ) : (
-            <p className="text-fg-muted">Select a channel to begin.</p>
-          )}
-        </main>
+        <ChannelView channelId={channelId} guildId={guildId} channelName={channelName} />
       </div>
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <Toaster />
