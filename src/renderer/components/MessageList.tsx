@@ -28,10 +28,31 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
 export function MessageList({ channelId }: { channelId: string | null }) {
   const { messages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [pendingNew, setPendingNew] = useState(0);
   const previousLength = useRef(0);
   const justSwitchedRef = useRef(true);
   const anchorRef = useRef<{ id: string; top: number } | null>(null);
+
+  // Re-pin to bottom when content height grows after the initial scroll
+  // (images/attachments loading, embeds expanding). If the user is reading
+  // older messages we leave the position alone.
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content) return;
+    const ro = new ResizeObserver(() => {
+      if (anchorRef.current) return;
+      if (justSwitchedRef.current) {
+        scroller.scrollTop = scroller.scrollHeight;
+        return;
+      }
+      const nearBottom = scroller.scrollHeight - (scroller.scrollTop + scroller.clientHeight) < 120;
+      if (nearBottom) scroller.scrollTop = scroller.scrollHeight;
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, []);
 
   // Reset on channel switch — stay "just switched" until messages render and we pin to bottom.
   useEffect(() => {
@@ -95,16 +116,18 @@ export function MessageList({ channelId }: { channelId: string | null }) {
   return (
     <div className="flex-1 min-h-0 flex flex-col relative">
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto">
-        {error && <div className="p-3 text-danger text-sm">{error}</div>}
-        {loading && messages.length === 0 && <div className="p-3 text-fg-muted text-sm">Loading…</div>}
-        {!hasMore && messages.length > 0 && (
-          <div className="text-center text-[10px] text-fg-muted py-2">— Beginning of channel history —</div>
-        )}
-        {groups.map((g, gi) => {
-          const head = g[0]!;
-          if (head.systemKind) return <SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />;
-          return <MessageGroup key={`g-${gi}-${head.id}`} messages={g} />;
-        })}
+        <div ref={contentRef}>
+          {error && <div className="p-3 text-danger text-sm">{error}</div>}
+          {loading && messages.length === 0 && <div className="p-3 text-fg-muted text-sm">Loading…</div>}
+          {!hasMore && messages.length > 0 && (
+            <div className="text-center text-[10px] text-fg-muted py-2">— Beginning of channel history —</div>
+          )}
+          {groups.map((g, gi) => {
+            const head = g[0]!;
+            if (head.systemKind) return <SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />;
+            return <MessageGroup key={`g-${gi}-${head.id}`} messages={g} />;
+          })}
+        </div>
       </div>
       {pendingNew > 0 && (
         <button
