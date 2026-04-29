@@ -18,6 +18,56 @@ function scoreMatch(m: GuildMember, q: string): number {
 }
 
 export function registerGuildHandlers({ manager }: IpcDeps): void {
+  // Returns null if everything is fine, or a Result error if not.
+  async function assertCanManageRoleOnTarget(guildId: string, targetUserId: string, roleId: string): Promise<{ guild: import('discord.js').Guild; target: GuildMember; role: import('discord.js').Role } | Result<never>> {
+    const client = manager.getClient();
+    if (!client || !client.isReady() || !client.user) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+    const botMember = guild.members.cache.get(client.user.id) ?? await guild.members.fetch(client.user.id).catch(() => null);
+    if (!botMember) return err('NOT_FOUND', 'Bot member not found in guild');
+    if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return err('FORBIDDEN', 'Bot is missing the Manage Roles permission');
+    }
+    const role = guild.roles.cache.get(roleId);
+    if (!role) return err('NOT_FOUND', `Role ${roleId} not found`);
+    if (role.managed) return err('FORBIDDEN', 'Cannot assign integration-managed roles');
+    if (role.position >= botMember.roles.highest.position) {
+      return err('FORBIDDEN', "Role is at or above the bot's highest role");
+    }
+    let target: GuildMember | undefined = guild.members.cache.get(targetUserId);
+    if (!target) { try { target = await guild.members.fetch(targetUserId); } catch { /* fall */ } }
+    if (!target) return err('NOT_FOUND', `Member ${targetUserId} not found`);
+    if (target.roles.highest.position >= botMember.roles.highest.position) {
+      return err('FORBIDDEN', "Target's highest role is at or above the bot's highest role");
+    }
+    return { guild, target, role };
+  }
+
+  ipcMain.handle(IPC_CHANNELS['guilds.assignRole'], async (_, guildId: unknown, userId: unknown, roleId: unknown): Promise<Result<void>> => {
+    if (typeof guildId !== 'string' || typeof userId !== 'string' || typeof roleId !== 'string') return err('INTERNAL', 'guildId, userId, roleId required');
+    const guard = await assertCanManageRoleOnTarget(guildId, userId, roleId);
+    if (!('target' in guard)) return guard;
+    try {
+      await guard.target.roles.add(guard.role, 'Assigned via BotCord');
+      return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : 'Failed to assign role');
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.removeRole'], async (_, guildId: unknown, userId: unknown, roleId: unknown): Promise<Result<void>> => {
+    if (typeof guildId !== 'string' || typeof userId !== 'string' || typeof roleId !== 'string') return err('INTERNAL', 'guildId, userId, roleId required');
+    const guard = await assertCanManageRoleOnTarget(guildId, userId, roleId);
+    if (!('target' in guard)) return guard;
+    try {
+      await guard.target.roles.remove(guard.role, 'Removed via BotCord');
+      return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : 'Failed to remove role');
+    }
+  });
+
   ipcMain.handle(IPC_CHANNELS['guilds.list'], async (): Promise<Result<GuildSummary[]>> => {
     const client = manager.getClient();
     if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');

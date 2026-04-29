@@ -7,6 +7,7 @@ export type IpcErrorCode =
   | 'DISCORD_HTTP_ERROR'
   | 'GATEWAY_OFFLINE'
   | 'NOT_FOUND'
+  | 'FORBIDDEN'
   | 'INTERNAL';
 
 export type IpcError = {
