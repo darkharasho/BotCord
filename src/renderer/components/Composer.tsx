@@ -53,6 +53,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   // Resolved back to <@id> at send time.
   const mentionMap = useRef<Map<string, string>>(new Map());
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   // Always load guild emojis when available so `:` autocomplete works without opening the picker.
   const guildEmojis = useGuildEmojis(guildId);
 
@@ -74,6 +75,16 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   const refreshAutocomplete = (value: string, cursor: number) => {
     const trig = detectTrigger(value, cursor);
     if (!trig) { setAutocomplete(null); return; }
+
+    // Suppress when the @… we're standing in is already a resolved mention.
+    // Read the full word starting at the trigger, not just up to the cursor.
+    if (trig.kind === 'mention') {
+      let wordEnd = trig.end;
+      while (wordEnd < value.length && !/\s/.test(value[wordEnd]!)) wordEnd++;
+      const fullWord = value.slice(trig.start + 1, wordEnd);
+      if (mentionMap.current.has(fullWord)) { setAutocomplete(null); return; }
+    }
+
     if (trig.kind === 'mention') {
       if (!guildId) { setAutocomplete(null); return; }
       api.guilds.searchMembers(guildId, trig.query, AUTOCOMPLETE_LIMIT).then(res => {
@@ -276,6 +287,16 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
 
   const offline = gateway.status !== 'ready';
 
+  // Highlight runs for the overlay div.
+  const highlightFragments = buildHighlightFragments(text, mentionMap.current);
+
+  const onTextScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    overlay.scrollTop = e.currentTarget.scrollTop;
+    overlay.scrollLeft = e.currentTarget.scrollLeft;
+  };
+
   return (
     <div
       className="bg-bg relative px-4 pt-2 pb-6"
@@ -332,18 +353,35 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
               </>
             )}
           </div>
-          <textarea
-            ref={taRef}
-            value={text}
-            onChange={onTextChange}
-            onSelect={onTextSelect}
-            onKeyDown={onKey}
-            onBlur={() => setTimeout(() => setAutocomplete(null), 100)}
-            disabled={offline || busy}
-            placeholder={channelId ? 'Message…' : 'Select a channel'}
-            rows={1}
-            className="flex-1 bg-transparent text-fg placeholder:text-fg-dim text-[15px] py-3 resize-none disabled:opacity-50 outline-none"
-          />
+          <div className="relative flex-1 min-w-0">
+            <div
+              ref={overlayRef}
+              aria-hidden
+              className="absolute inset-0 py-3 text-[15px] leading-[22px] whitespace-pre-wrap break-words pointer-events-none overflow-hidden"
+            >
+              {highlightFragments.map((f, i) =>
+                f.kind === 'mention'
+                  ? <span key={i} className="bg-accent/30 text-accent rounded px-0.5">{f.text}</span>
+                  : <span key={i}>{f.text}</span>
+              )}
+              {/* trailing space so cursor at EOL has measurable height */}
+              {'​'}
+            </div>
+            <textarea
+              ref={taRef}
+              value={text}
+              onChange={onTextChange}
+              onSelect={onTextSelect}
+              onScroll={onTextScroll}
+              onKeyDown={onKey}
+              onBlur={() => setTimeout(() => setAutocomplete(null), 100)}
+              disabled={offline || busy}
+              placeholder={channelId ? 'Message…' : 'Select a channel'}
+              rows={1}
+              className="relative w-full bg-transparent placeholder:text-fg-dim text-[15px] leading-[22px] py-3 resize-none disabled:opacity-50 outline-none"
+              style={{ color: 'transparent', caretColor: 'rgb(242,243,245)' }}
+            />
+          </div>
           <div className="relative shrink-0">
             <button
               onClick={() => setEmojiOpen(o => !o)}
@@ -381,6 +419,26 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
 type EmojiCandidate =
   | { key: string; kind: 'custom'; name: string; id: string; animated: boolean; url: string }
   | { key: string; kind: 'standard'; name: string; char: string };
+
+type HighlightFragment = { kind: 'text' | 'mention'; text: string };
+
+function buildHighlightFragments(text: string, mentions: Map<string, string>): HighlightFragment[] {
+  if (mentions.size === 0) return [{ kind: 'text', text }];
+  // Match @ followed by any of the known names (longest first so 'John Smith' wins over 'John').
+  const names = Array.from(mentions.keys()).sort((a, b) => b.length - a.length);
+  const escaped = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const re = new RegExp(`@(?:${escaped.join('|')})\\b`, 'g');
+  const out: HighlightFragment[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > lastIndex) out.push({ kind: 'text', text: text.slice(lastIndex, m.index) });
+    out.push({ kind: 'mention', text: m[0] });
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < text.length) out.push({ kind: 'text', text: text.slice(lastIndex) });
+  return out;
+}
 
 function filterEmoji(query: string, guildEmojis: GuildEmoji[]): EmojiCandidate[] {
   const q = query.toLowerCase();
