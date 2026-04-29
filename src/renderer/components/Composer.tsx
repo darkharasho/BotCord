@@ -310,22 +310,29 @@ export function Composer({
   const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
-    const pasted: File[] = [];
-    for (const item of items) {
-      if (item.kind !== 'file') continue;
+    const fileItems = Array.from(items).filter(it => it.kind === 'file');
+    if (fileItems.length === 0) return;
+
+    // preventDefault must be sync; the actual byte read happens after.
+    e.preventDefault();
+
+    // The clipboard's File reference can be invalidated after the paste
+    // event ends, leaving createObjectURL pointing at empty data and the
+    // upload reading 0 bytes. Eagerly copy each file's bytes into a fresh
+    // Blob so the queued attachment is independent of the clipboard.
+    void Promise.all(fileItems.map(async item => {
       const file = item.getAsFile();
-      if (!file) continue;
-      // Clipboard images come through as 'image.png' (or unnamed). Tag with a
-      // timestamp so multiple pastes don't collide and the upload preserves type.
+      if (!file) return null;
+      const buffer = await file.arrayBuffer();
+      const type = file.type || 'image/png';
       const name = !file.name || file.name === 'image.png' || file.name === 'unknown'
-        ? `pasted-${Date.now()}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
+        ? `pasted-${Date.now()}.${(type.split('/')[1] || 'png').replace('+xml', '')}`
         : file.name;
-      pasted.push(new File([file], name, { type: file.type }));
-    }
-    if (pasted.length > 0) {
-      e.preventDefault();
-      addFiles(pasted);
-    }
+      return new File([buffer], name, { type });
+    })).then(results => {
+      const valid = results.filter((f): f is File => f !== null);
+      if (valid.length > 0) addFiles(valid);
+    });
   };
 
   const offline = gateway.status !== 'ready';
