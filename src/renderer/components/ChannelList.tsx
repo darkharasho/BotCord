@@ -11,7 +11,9 @@ import {
 } from '@tabler/icons-react';
 import type { Icon } from '@tabler/icons-react';
 
-export function ChannelList({ guildId, selected, onSelect }: { guildId: string | null; selected: string | null; onSelect: (id: string) => void }) {
+export function ChannelList({
+  guildId, selected, onSelect, unreadIds,
+}: { guildId: string | null; selected: string | null; onSelect: (id: string) => void; unreadIds?: Set<string> }) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -70,19 +72,27 @@ export function ChannelList({ guildId, selected, onSelect }: { guildId: string |
 
   const renderChannel = (c: ChannelSummary, indent = false) => {
     const Glyph = kindGlyph(c.type);
+    const isSelected = selected === c.id;
+    const isUnread = !isSelected && unreadIds?.has(c.id);
     return (
-      <button
-        key={c.id}
-        onClick={() => onSelect(c.id)}
-        className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5
-          ${indent ? 'pl-7' : ''}
-          ${selected === c.id
-            ? 'bg-selected text-fg'
-            : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
-      >
-        <Glyph size={20} stroke={1.75} className="text-fg-dim shrink-0" />
-        <span className="truncate">{c.name}</span>
-      </button>
+      <div key={c.id} className="relative">
+        {isUnread && (
+          <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-fg rounded-r-full" />
+        )}
+        <button
+          onClick={() => onSelect(c.id)}
+          className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5
+            ${indent ? 'pl-7' : ''}
+            ${isSelected
+              ? 'bg-selected text-fg'
+              : isUnread
+                ? 'text-fg font-medium hover:bg-hover'
+                : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
+        >
+          <Glyph size={20} stroke={1.75} className={isUnread ? 'text-fg shrink-0' : 'text-fg-dim shrink-0'} />
+          <span className="truncate">{c.name}</span>
+        </button>
+      </div>
     );
   };
 

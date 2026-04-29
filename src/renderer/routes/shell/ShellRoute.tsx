@@ -6,6 +6,7 @@ import { SettingsPanel } from '../../components/SettingsPanel';
 import { Toaster } from '../../components/Toaster';
 import { ChannelView } from './ChannelView';
 import { api } from '../../lib/api';
+import { useUnreads } from '../../lib/use-unreads';
 import type { ChannelSummary, GuildSummary } from '../../../shared/domain';
 import { IconChevronDown } from '@tabler/icons-react';
 
@@ -21,6 +22,7 @@ export function ShellRoute() {
   }, [guild]);
 
   const channelName = channels.find(c => c.id === channelId)?.name ?? null;
+  const unreadIds = useUnreads(channelId);
 
   return (
     <div className="h-full flex">
@@ -36,7 +38,7 @@ export function ShellRoute() {
           <IconChevronDown size={18} stroke={2} className="text-fg-muted shrink-0 ml-2" />
         </div>
         <div className="flex-1 min-h-0">
-          <ChannelList guildId={guild?.id ?? null} selected={channelId} onSelect={setChannelId} />
+          <ChannelList guildId={guild?.id ?? null} selected={channelId} onSelect={setChannelId} unreadIds={unreadIds} />
         </div>
         <BotIdentityFooter onOpenSettings={() => setSettingsOpen(true)} />
       </aside>
