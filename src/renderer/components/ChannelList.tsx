@@ -10,12 +10,21 @@ import {
   IconCornerDownRight,
   IconMicrophoneOff,
   IconHeadphonesOff,
+  IconUsers,
 } from '@tabler/icons-react';
 import type { Icon } from '@tabler/icons-react';
 
 export function ChannelList({
-  guildId, selected, onSelect, unreadIds,
-}: { guildId: string | null; selected: string | null; onSelect: (id: string) => void; unreadIds?: Set<string> }) {
+  guildId, selected, onSelect, unreadIds, view, onSelectMembers, memberCount,
+}: {
+  guildId: string | null;
+  selected: string | null;
+  onSelect: (id: string) => void;
+  unreadIds?: Set<string>;
+  view: 'channel' | 'members';
+  onSelectMembers: () => void;
+  memberCount: number | null;
+}) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const loaded = useRef(false);
@@ -141,8 +150,22 @@ export function ChannelList({
     </div>
   );
 
+  const membersSelected = view === 'members';
   return (
     <div className="h-full overflow-y-auto px-2 pt-2 pb-4">
+      <button
+        onClick={onSelectMembers}
+        className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5 transition-colors duration-150 mb-1
+          ${membersSelected
+            ? 'bg-selected text-fg'
+            : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
+      >
+        <IconUsers size={20} stroke={1.75} className={membersSelected ? 'text-fg shrink-0' : 'text-fg-dim shrink-0'} />
+        <span className="truncate flex-1">Members</span>
+        {memberCount != null && (
+          <span className="text-[12px] text-fg-dim">{memberCount}</span>
+        )}
+      </button>
       {uncategorized
         .filter(c => c.type !== 'thread')
         .map(renderChannelWithThreads)}
