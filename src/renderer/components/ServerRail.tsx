@@ -3,7 +3,9 @@ import { api } from '../lib/api';
 import type { GuildSummary } from '../../shared/domain';
 import { Tooltip } from './Tooltip';
 
-export function ServerRail({ selected, onSelect }: { selected: string | null; onSelect: (g: GuildSummary) => void }) {
+export function ServerRail({
+  selected, onSelect, unreadGuildIds,
+}: { selected: string | null; onSelect: (g: GuildSummary) => void; unreadGuildIds?: Set<string> }) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +34,11 @@ export function ServerRail({ selected, onSelect }: { selected: string | null; on
           >
             <span
               className={`absolute -left-3 top-1/2 -translate-y-1/2 w-1 bg-fg rounded-r transition-all duration-150
-                ${selected === g.id ? 'h-10 opacity-100' : 'h-2 opacity-0 group-hover:h-5 group-hover:opacity-100'}`}
+                ${selected === g.id
+                  ? 'h-10 opacity-100'
+                  : unreadGuildIds?.has(g.id)
+                    ? 'h-2 opacity-100 group-hover:h-5'
+                    : 'h-2 opacity-0 group-hover:h-5 group-hover:opacity-100'}`}
             />
             <div className={`w-12 h-12 overflow-hidden bg-bg-subtle flex items-center justify-center text-sm font-semibold text-fg transition-all duration-150
               group-hover:bg-accent group-hover:text-white

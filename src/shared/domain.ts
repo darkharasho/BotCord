@@ -73,6 +73,7 @@ export type SystemMessageKind =
 export type MessageSummary = {
   id: string;
   channelId: string;
+  guildId: string | null;
   authorId: string;
   authorTag: string;
   authorDisplayName: string;

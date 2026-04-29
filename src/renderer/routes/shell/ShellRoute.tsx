@@ -22,7 +22,7 @@ export function ShellRoute() {
   }, [guild]);
 
   const channelName = channels.find(c => c.id === channelId)?.name ?? null;
-  const unreadIds = useUnreads(channelId);
+  const unreads = useUnreads(channelId);
 
   return (
     <div className="h-full flex">
@@ -30,6 +30,7 @@ export function ShellRoute() {
         <ServerRail
           selected={guild?.id ?? null}
           onSelect={(g) => { setGuild(g); setChannelId(null); }}
+          unreadGuildIds={unreads.guildIds}
         />
       </aside>
       <aside className="w-60 shrink-0 min-h-0 bg-bg-subtle flex flex-col">
@@ -38,7 +39,7 @@ export function ShellRoute() {
           <IconChevronDown size={18} stroke={2} className="text-fg-muted shrink-0 ml-2" />
         </div>
         <div className="flex-1 min-h-0">
-          <ChannelList guildId={guild?.id ?? null} selected={channelId} onSelect={setChannelId} unreadIds={unreadIds} />
+          <ChannelList guildId={guild?.id ?? null} selected={channelId} onSelect={setChannelId} unreadIds={unreads.channelIds} />
         </div>
         <BotIdentityFooter onOpenSettings={() => setSettingsOpen(true)} />
       </aside>

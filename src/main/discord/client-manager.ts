@@ -245,6 +245,7 @@ export function summarizeMessage(m: Message): MessageSummary {
   return {
     id: m.id,
     channelId: m.channelId,
+    guildId: m.guildId ?? null,
     authorId: m.author.id,
     authorTag,
     authorDisplayName,
