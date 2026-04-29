@@ -20,7 +20,7 @@ export function TitleBar() {
     >
       {/* Left padding reserves room for macOS traffic lights */}
       <div className={`${isMac ? 'w-20' : 'w-3'} shrink-0`} />
-      <img src="/botcord-white.svg" alt="" className="w-4 h-4 mr-1.5" />
+      <img src="/botcord-white.png" alt="" className="h-4 w-auto mr-2" />
       <span className="font-medium tracking-tight text-fg">BotCord</span>
       <div className="flex-1" />
       {!isMac && (
