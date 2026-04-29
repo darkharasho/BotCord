@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { Logo } from './Logo';
 
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false);
@@ -20,7 +21,7 @@ export function TitleBar() {
     >
       {/* Left padding reserves room for macOS traffic lights */}
       <div className={`${isMac ? 'w-20' : 'w-3'} shrink-0`} />
-      <img src="/botcord-white.png" alt="" className="h-4 w-auto mr-2" />
+      <Logo className="h-3.5 w-auto mr-2 text-fg" />
       <span className="font-medium tracking-tight text-fg">BotCord</span>
       <div className="flex-1" />
       {!isMac && (
