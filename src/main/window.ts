@@ -54,7 +54,7 @@ export function createMainWindow(): BrowserWindow {
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
-      spellcheck: false,
+      spellcheck: true,
     },
   };
   if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
@@ -111,6 +111,30 @@ export function createMainWindow(): BrowserWindow {
 
   win.webContents.on('will-navigate', (e, url) => {
     if (!url.startsWith('file://') && !url.startsWith('http://localhost')) e.preventDefault();
+  });
+
+  // Forward Chromium's native context-menu params to the renderer so it can
+  // render a themed menu (with spelling suggestions, edit flags, etc.). We
+  // only forward editable-target right-clicks; non-editable surfaces (the
+  // message list, channel rail, etc.) are handled by renderer-level
+  // onContextMenu handlers.
+  win.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return;
+    win.webContents.send(IPC_CHANNELS['event.systemContextMenu'], {
+      x: params.x,
+      y: params.y,
+      selectionText: params.selectionText,
+      misspelledWord: params.misspelledWord,
+      dictionarySuggestions: params.dictionarySuggestions ?? [],
+      editFlags: {
+        canPaste: params.editFlags.canPaste,
+        canCut: params.editFlags.canCut,
+        canCopy: params.editFlags.canCopy,
+        canSelectAll: params.editFlags.canSelectAll,
+        canUndo: params.editFlags.canUndo,
+        canRedo: params.editFlags.canRedo,
+      },
+    });
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {

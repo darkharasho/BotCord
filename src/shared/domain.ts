@@ -185,6 +185,7 @@ export type MessageSummary = {
   authorRoleColor: string | null;
   authorTopRoleName: string | null;
   authorRoleIcons: RoleIcon[];
+  authorIsBot: boolean;
   content: string;
   createdAt: number;
   editedAt: number | null;
@@ -204,6 +205,7 @@ export type MessageSummary = {
   systemKind: SystemMessageKind | null;
   poll: PollSummary | null;
   reactions: ReactionSummary[];
+  pinned: boolean;
 };
 
 export type EmbedPayload = {

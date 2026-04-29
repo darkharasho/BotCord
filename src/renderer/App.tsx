@@ -9,6 +9,8 @@ import { ShellRoute } from './routes/shell/ShellRoute';
 import { ComposeRoute } from './routes/compose/ComposeRoute';
 import { TitleBar } from './components/TitleBar';
 import { Lightbox } from './components/Lightbox';
+import { ContextMenuHost } from './components/ContextMenu';
+import { SystemContextMenuListener } from './components/SystemContextMenuListener';
 
 function StatusGate() {
   const [status, setStatus] = useState<BotStatus | null>(null);
@@ -37,6 +39,8 @@ export function App() {
         <div className="h-full flex flex-col">
           <TitleBar />
           <Lightbox />
+          <ContextMenuHost />
+          <SystemContextMenuListener />
           <div className="flex-1 min-h-0">
             <Routes>
               <Route path="/" element={<StatusGate />} />

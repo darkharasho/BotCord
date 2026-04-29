@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PollSummary, PollVoter, ResolvedMention } from '../../shared/domain';
-import { toTwemojiUrl } from '../lib/twemoji';
+import { TwemojiOne } from '../lib/twemoji';
 import { Markdown } from './Markdown';
 import { IconChartBar, IconX } from '@tabler/icons-react';
 import { api } from '../lib/api';
@@ -244,5 +244,5 @@ function EmojiBit({ token }: { token: string }) {
     const ext = m[1] === 'a' ? 'gif' : 'png';
     return <img src={`https://cdn.discordapp.com/emojis/${m[3]}.${ext}`} alt="" className="inline-block w-5 h-5" />;
   }
-  return <img src={toTwemojiUrl(token)} alt={token} draggable={false} className="inline-block w-5 h-5 select-none" />;
+  return <TwemojiOne char={token} className="inline-block w-5 h-5 select-none" fallbackClassName="inline-block w-5 h-5 leading-none text-[18px]" />;
 }

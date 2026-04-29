@@ -68,7 +68,10 @@ export function ChannelList({
       byParent.set(key, list);
     }
     for (const [k, list] of byParent) {
-      list.sort((a, b) => a.position - b.position);
+      // Match Discord's ordering: text-like channels first (text,
+      // announcement, forum), then voice/stage at the bottom. Within each
+      // kind the API's `position` decides the order.
+      list.sort((a, b) => kindWeight(a.type) - kindWeight(b.type) || a.position - b.position);
       byParent.set(k, list);
     }
     return { categories, byParent };
@@ -181,6 +184,22 @@ function VoiceMemberRow({ member, indent }: { member: VoiceMemberSummary; indent
       {deafened && <IconHeadphonesOff size={14} stroke={2} className={`${deafColor} shrink-0`} />}
     </li>
   );
+}
+
+// Discord groups channels by "kind" before sorting by position — text-like
+// channels render above voice/stage within the same category.
+function kindWeight(t: ChannelSummary['type']): number {
+  switch (t) {
+    case 'text':
+    case 'announcement':
+    case 'forum':
+    case 'thread':
+      return 0;
+    case 'voice':
+      return 1;
+    default:
+      return 2;
+  }
 }
 
 function kindGlyph(t: ChannelSummary['type']): Icon {

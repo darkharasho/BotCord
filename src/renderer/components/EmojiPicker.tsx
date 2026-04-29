@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { STANDARD_EMOJI, EMOJI_CATEGORIES } from '../lib/emoji-data';
 import { toTwemojiUrl } from '../lib/twemoji';
@@ -22,6 +22,7 @@ export function EmojiPicker({
   onClose,
   position = 'bottomRight',
   anchorRect,
+  ignoreRef,
 }: {
   guildEmojis: GuildEmoji[];
   onSelect: (token: string) => void;
@@ -32,9 +33,35 @@ export function EmojiPicker({
   // inside a clipping container (modal body, scroll area) where absolute
   // positioning would get cut off.
   anchorRect?: DOMRect | null;
+  // Element (typically the trigger button) excluded from the outside-click
+  // dismiss — otherwise toggling the trigger to close races with the
+  // listener and re-opens the picker.
+  ignoreRef?: { current: HTMLElement | null };
 }) {
   const [tab, setTab] = useState<Tab>(guildEmojis.length > 0 ? 'server' : 'standard');
   const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside dismiss + Escape. Defer the listener install by one tick
+  // so the click that opened us doesn't immediately close it.
+  useEffect(() => {
+    const onDocDown = (e: MouseEvent) => {
+      const el = rootRef.current;
+      const trigger = ignoreRef?.current;
+      const target = e.target as Node;
+      if (el && !el.contains(target) && !(trigger && trigger.contains(target))) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const t = window.setTimeout(() => {
+      document.addEventListener('mousedown', onDocDown);
+      window.addEventListener('keydown', onKey);
+    }, 0);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('mousedown', onDocDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose, ignoreRef]);
 
   const filteredStd = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -71,6 +98,7 @@ export function EmojiPicker({
 
   const inner = (
     <div
+      ref={rootRef}
       className={
         fixedStyle
           ? 'w-80 max-h-96 bg-bg-subtle border border-border rounded-lg shadow-2xl flex flex-col z-50 animate-fade-in-up'
@@ -134,13 +162,7 @@ export function EmojiPicker({
                       className="hover:bg-bg-sunken rounded p-1 flex items-center justify-center"
                       onClick={() => onSelect(e.char)}
                     >
-                      <img
-                        src={toTwemojiUrl(e.char)}
-                        alt={e.char}
-                        loading="lazy"
-                        draggable={false}
-                        className="w-7 h-7 select-none"
-                      />
+                      <TwemojiGridImg char={e.char} />
                     </button>
                   ))}
                 </div>
@@ -153,4 +175,21 @@ export function EmojiPicker({
   );
 
   return fixedStyle ? createPortal(inner, document.body) : inner;
+}
+
+// Small grid <img> that falls back to the native glyph if the Twemoji SVG
+// is missing — keeps the picker grid free of broken-image icons.
+function TwemojiGridImg({ char }: { char: string }) {
+  const [errored, setErrored] = useState(false);
+  if (errored) return <span className="text-xl leading-none select-none">{char}</span>;
+  return (
+    <img
+      src={toTwemojiUrl(char)}
+      alt={char}
+      loading="lazy"
+      draggable={false}
+      className="w-7 h-7 select-none"
+      onError={() => setErrored(true)}
+    />
+  );
 }

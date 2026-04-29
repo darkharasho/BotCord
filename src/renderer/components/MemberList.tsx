@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { Avatar } from './Avatar';
 import type { ChannelMemberSummary, PresenceStatus } from '../../shared/domain';
 
 const STATUS_COLOR: Record<PresenceStatus, string> = {
@@ -129,9 +130,12 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
       title={`@${member.username}${member.topRole ? ` · ${member.topRole.name}` : ''}`}
     >
       <div className="relative shrink-0">
-        {member.avatarUrl
-          ? <img src={member.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
-          : <div className="w-8 h-8 rounded-full bg-bg-input flex items-center justify-center text-[10px] font-semibold">{member.displayName.slice(0, 2).toUpperCase()}</div>}
+        <Avatar
+          src={member.avatarUrl}
+          alt=""
+          className="w-8 h-8 rounded-full"
+          fallback={<div className="w-8 h-8 rounded-full bg-bg-input flex items-center justify-center text-[10px] font-semibold">{member.displayName.slice(0, 2).toUpperCase()}</div>}
+        />
         <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-[3px] ring-bg`} />
       </div>
       <span

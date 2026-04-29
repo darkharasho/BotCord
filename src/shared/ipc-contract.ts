@@ -5,6 +5,22 @@ import type {
 } from './domain';
 import type { Result } from './errors';
 
+export type SystemContextMenuPayload = {
+  x: number;
+  y: number;
+  selectionText: string;
+  misspelledWord: string;
+  dictionarySuggestions: string[];
+  editFlags: {
+    canPaste: boolean;
+    canCut: boolean;
+    canCopy: boolean;
+    canSelectAll: boolean;
+    canUndo: boolean;
+    canRedo: boolean;
+  };
+};
+
 export interface BotcordApi {
   bot: {
     getStatus(): Promise<BotStatus>;
@@ -36,6 +52,10 @@ export interface BotcordApi {
     history(channelId: string, opts: { before?: string; limit: number }): Promise<Result<MessageSummary[]>>;
     delete(channelId: string, messageId: string): Promise<Result<void>>;
     bulkDelete(channelId: string, messageIds: string[]): Promise<Result<{ deleted: string[] }>>;
+    edit(channelId: string, messageId: string, content: string): Promise<Result<MessageSummary>>;
+    listPinned(channelId: string): Promise<Result<MessageSummary[]>>;
+    pin(channelId: string, messageId: string): Promise<Result<void>>;
+    unpin(channelId: string, messageId: string): Promise<Result<void>>;
     createForumPost(forumId: string, payload: CreateForumPostPayload): Promise<Result<ForumPostSummary>>;
     toggleReaction(channelId: string, messageId: string, emoji: { id: string | null; name: string; animated?: boolean }): Promise<Result<void>>;
     fetchReactionUsers(channelId: string, messageId: string, emoji: { id: string | null; name: string }): Promise<Result<{ id: string; displayName: string; avatarUrl: string | null }[]>>;
@@ -60,10 +80,16 @@ export interface BotcordApi {
     onGuildEmojisUpdate(cb: (p: { guildId: string; emojis: GuildEmoji[] }) => void): () => void;
     onForumPostUpdate(cb: (p: { forumId: string; post: ForumPostSummary }) => void): () => void;
     onForumPostDelete(cb: (p: { forumId: string; postId: string }) => void): () => void;
+    onTypingStart(cb: (p: { channelId: string; userId: string; displayName: string; startedAt: number }) => void): () => void;
+    onSystemContextMenu(cb: (p: SystemContextMenuPayload) => void): () => void;
   };
   system: {
     appVersion(): Promise<string>;
     openExternal(url: string): Promise<void>;
+    editAction(action: 'cut' | 'copy' | 'paste' | 'selectAll' | 'undo' | 'redo'): Promise<void>;
+    replaceMisspelling(word: string): Promise<void>;
+    addToDictionary(word: string): Promise<void>;
+    copyText(text: string): Promise<void>;
   };
   window: {
     minimize(): Promise<void>;
@@ -96,6 +122,10 @@ export const IPC_CHANNELS = {
   'messages.history': 'messages.history',
   'messages.delete': 'messages.delete',
   'messages.bulkDelete': 'messages.bulkDelete',
+  'messages.edit': 'messages.edit',
+  'messages.listPinned': 'messages.listPinned',
+  'messages.pin': 'messages.pin',
+  'messages.unpin': 'messages.unpin',
   'messages.createForumPost': 'messages.createForumPost',
   'messages.toggleReaction': 'messages.toggleReaction',
   'messages.fetchReactionUsers': 'messages.fetchReactionUsers',
@@ -106,6 +136,10 @@ export const IPC_CHANNELS = {
   'prefs.set': 'prefs.set',
   'system.appVersion': 'system.appVersion',
   'system.openExternal': 'system.openExternal',
+  'system.editAction': 'system.editAction',
+  'system.replaceMisspelling': 'system.replaceMisspelling',
+  'system.addToDictionary': 'system.addToDictionary',
+  'system.copyText': 'system.copyText',
   'window.minimize': 'window.minimize',
   'window.toggleMaximize': 'window.toggleMaximize',
   'window.close': 'window.close',
@@ -122,6 +156,8 @@ export const IPC_CHANNELS = {
   'event.guildEmojisUpdate': 'event.guildEmojisUpdate',
   'event.forumPostUpdate': 'event.forumPostUpdate',
   'event.forumPostDelete': 'event.forumPostDelete',
+  'event.typingStart': 'event.typingStart',
+  'event.systemContextMenu': 'event.systemContextMenu',
 } as const;
 
 export type IpcChannel = keyof typeof IPC_CHANNELS;

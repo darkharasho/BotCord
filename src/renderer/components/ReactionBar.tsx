@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconX } from '@tabler/icons-react';
 import { api } from '../lib/api';
-import { toTwemojiUrl } from '../lib/twemoji';
+import { TwemojiOne } from '../lib/twemoji';
 import type { MessageSummary, ReactionSummary } from '../../shared/domain';
 
 type ReactionUser = { id: string; displayName: string; avatarUrl: string | null };
@@ -112,12 +112,9 @@ function ReactionPill({
             ? 'bg-accent/15 border-accent/40 text-fg hover:bg-accent/25 hover:border-accent/60'
             : 'bg-white/[0.04] border-white/[0.06] text-fg-muted hover:bg-white/[0.08] hover:border-white/[0.12] hover:text-fg'}`}
       >
-        <img
-          src={url ?? toTwemojiUrl(reaction.emojiName)}
-          alt={reaction.emojiName}
-          draggable={false}
-          className="w-[20px] h-[20px] select-none"
-        />
+        {url
+          ? <img src={url} alt={reaction.emojiName} draggable={false} className="w-[20px] h-[20px] select-none" />
+          : <TwemojiOne char={reaction.emojiName} className="w-[20px] h-[20px] select-none" />}
         <span className="font-medium tabular-nums">{reaction.count}</span>
       </button>
 
@@ -171,12 +168,9 @@ function ReactionTooltip({
       onMouseLeave={onLeave}
     >
       <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-bg-sunken border border-white/[0.08] shadow-xl text-[12px] text-fg max-w-[360px]">
-        <img
-          src={url ?? toTwemojiUrl(reaction.emojiName)}
-          alt=""
-          draggable={false}
-          className="w-8 h-8 shrink-0 select-none"
-        />
+        {url
+          ? <img src={url} alt="" draggable={false} className="w-8 h-8 shrink-0 select-none" />
+          : <TwemojiOne char={reaction.emojiName} className="w-8 h-8 shrink-0 select-none" fallbackClassName="text-[28px] leading-none shrink-0" />}
         <span className="truncate">
           <span className="text-fg-muted">:{reaction.emojiName}:</span>
           <span className="text-fg-muted"> reacted by </span>
@@ -218,12 +212,9 @@ function ReactionVotersModal({
       >
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <img
-              src={url ?? toTwemojiUrl(reaction.emojiName)}
-              alt=""
-              draggable={false}
-              className="w-6 h-6 shrink-0 select-none"
-            />
+            {url
+              ? <img src={url} alt="" draggable={false} className="w-6 h-6 shrink-0 select-none" />
+              : <TwemojiOne char={reaction.emojiName} className="w-6 h-6 shrink-0 select-none" fallbackClassName="text-[20px] leading-none shrink-0" />}
 
             <h2 className="text-[15px] font-semibold text-fg truncate">
               <span className="text-fg-muted">:{reaction.emojiName}:</span> · {users.length} {users.length === 1 ? 'person' : 'people'}

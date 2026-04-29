@@ -15,6 +15,7 @@ import {
   GUILD_EMOJIS_UPDATE_CHANNEL,
   FORUM_POST_UPDATE_CHANNEL,
   FORUM_POST_DELETE_CHANNEL,
+  TYPING_START_CHANNEL,
 } from '../events/gateway-events';
 import type { TokenVault } from '../vault/token-vault';
 
@@ -158,6 +159,25 @@ export function createClientManager(vault: TokenVault): ClientManager {
     };
     c.on(Events.MessagePollVoteAdd, (vote) => { void broadcastPollVote(vote as unknown as { message: Message }); });
     c.on(Events.MessagePollVoteRemove, (vote) => { void broadcastPollVote(vote as unknown as { message: Message }); });
+
+    // Typing indicator. Discord sends one event when typing starts; the
+    // typing state expires after ~10s on the receiving side, so the
+    // renderer manages its own timeout.
+    c.on(Events.TypingStart, (typing) => {
+      const t = typing as unknown as {
+        channel: { id: string };
+        user: { id: string; username: string; globalName?: string | null };
+        member?: { displayName: string } | null;
+        startedTimestamp: number;
+      };
+      const displayName = t.member?.displayName ?? t.user.globalName ?? t.user.username;
+      broadcast(TYPING_START_CHANNEL, {
+        channelId: t.channel.id,
+        userId: t.user.id,
+        displayName,
+        startedAt: t.startedTimestamp,
+      });
+    });
     // Forum post lifecycle. A forum post is a thread whose parent is a
     // ForumChannel. We forward create/update/delete on those threads only;
     // regular text-channel threads are not surfaced here (the channel list
@@ -391,6 +411,7 @@ export function summarizeMessage(m: Message): MessageSummary {
     authorRoleColor,
     authorTopRoleName,
     authorRoleIcons,
+    authorIsBot: m.author.bot ?? false,
     content: m.content,
     createdAt: m.createdTimestamp,
     editedAt: m.editedTimestamp,
@@ -403,6 +424,7 @@ export function summarizeMessage(m: Message): MessageSummary {
     systemKind: classifySystemMessage(m.type, m.system),
     poll: projectPoll(m.poll),
     reactions: projectReactions(m),
+    pinned: m.pinned ?? false,
   };
 }
 

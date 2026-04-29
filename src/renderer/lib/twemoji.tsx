@@ -2,8 +2,13 @@
 // (the same pack Discord ships). We point at the community-maintained
 // `jdecked/twemoji` fork on jsDelivr since Twitter stopped publishing
 // updates upstream. SVGs are vector so size is set via CSS / em-units.
+//
+// Coverage is good but not perfect — some Unicode 15+ emoji and certain
+// sequence variations aren't in the asset set. We try a couple of common
+// filename variants on a single emoji, then fall back to the native glyph
+// rather than rendering a broken-image icon.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 const CDN = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg';
 
@@ -20,27 +25,82 @@ const EMOJI_RE = (() => {
   }
 })();
 
-// Convert an emoji grapheme to its Twemoji filename. Codepoints are joined
-// by `-`, with the variation selector U+FE0F stripped (Twemoji omits it
-// from filenames). Keycap sequences (e.g. 1️⃣) keep U+20E3 verbatim.
-export function toTwemojiPath(emoji: string): string {
+// Twemoji filename rule: ZWJ sequences keep all codepoints (including
+// U+FE0F variation selectors); non-ZWJ sequences strip U+FE0F. This
+// matches Twitter's canonical `toCodePoint` algorithm and resolves the
+// majority of mismatches that produce broken images.
+function buildPath(emoji: string, stripFe0f: boolean): string {
   const cps: string[] = [];
   for (const ch of emoji) {
     const cp = ch.codePointAt(0);
     if (cp === undefined) continue;
-    if (cp === 0xfe0f) continue;
+    if (stripFe0f && cp === 0xfe0f) continue;
     cps.push(cp.toString(16));
   }
   return cps.join('-');
+}
+
+export function toTwemojiPath(emoji: string): string {
+  // ZWJ sequences keep FE0F; everything else strips it.
+  const containsZWJ = emoji.includes('‍');
+  return buildPath(emoji, !containsZWJ);
 }
 
 export function toTwemojiUrl(emoji: string): string {
   return `${CDN}/${toTwemojiPath(emoji)}.svg`;
 }
 
+// Single emoji <img> with a 2-step filename fallback (alternate FE0F
+// stripping) and finally a native-text fallback so a missing SVG never
+// surfaces as a broken image icon.
+function TwemojiImg({ emoji, keyId }: { emoji: string; keyId: string }) {
+  // 0: primary URL, 1: alternate FE0F variant, 2: native fallback.
+  const [step, setStep] = useState(0);
+  const containsZWJ = emoji.includes('‍');
+  const primary = buildPath(emoji, !containsZWJ);
+  const alternate = buildPath(emoji, containsZWJ); // flipped
+  const path = step === 0 ? primary : alternate;
+  if (step >= 2 || !path) {
+    return <span key={keyId} className="inline-block align-text-bottom">{emoji}</span>;
+  }
+  return (
+    <img
+      key={keyId}
+      src={`${CDN}/${path}.svg`}
+      alt={emoji}
+      draggable={false}
+      className="inline-block align-text-bottom select-none"
+      style={{ width: '1.2em', height: '1.2em' }}
+      onError={() => setStep(s => s + 1)}
+    />
+  );
+}
+
+// Renders a single emoji character with native-text fallback when the
+// Twemoji asset is missing. Takes the same className used for the <img>
+// so the fallback span sizes correctly.
+export function TwemojiOne({ char, className, fallbackClassName }: { char: string; className?: string; fallbackClassName?: string }) {
+  const [step, setStep] = useState(0);
+  const containsZWJ = char.includes('‍');
+  const primary = buildPath(char, !containsZWJ);
+  const alternate = buildPath(char, containsZWJ);
+  const path = step === 0 ? primary : alternate;
+  if (step >= 2 || !path) {
+    return <span className={fallbackClassName ?? className}>{char}</span>;
+  }
+  return (
+    <img
+      src={`${CDN}/${path}.svg`}
+      alt={char}
+      draggable={false}
+      className={className}
+      onError={() => setStep(s => s + 1)}
+    />
+  );
+}
+
 // Walks `text`, splitting on emoji graphemes and emitting a flat array of
-// strings (plain text) and JSX nodes (emoji <img>). Sized at 1.2em so they
-// sit visually balanced in any surrounding font size.
+// strings (plain text) and JSX nodes (emoji <img>).
 export function renderTwemoji(text: string, keyPrefix = ''): ReactNode[] {
   if (!text) return [];
   const out: ReactNode[] = [];
@@ -50,16 +110,7 @@ export function renderTwemoji(text: string, keyPrefix = ''): ReactNode[] {
     const start = match.index ?? 0;
     const emoji = match[0];
     if (start > lastIdx) out.push(text.slice(lastIdx, start));
-    out.push(
-      <img
-        key={`${keyPrefix}-${i}`}
-        src={toTwemojiUrl(emoji)}
-        alt={emoji}
-        draggable={false}
-        className="inline-block align-text-bottom select-none"
-        style={{ width: '1.2em', height: '1.2em' }}
-      />
-    );
+    out.push(<TwemojiImg key={`${keyPrefix}-${i}`} keyId={`${keyPrefix}-${i}`} emoji={emoji} />);
     lastIdx = start + emoji.length;
     i += 1;
   }

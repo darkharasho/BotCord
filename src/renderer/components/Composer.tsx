@@ -59,6 +59,7 @@ export function Composer({
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
   const [gifOpen, setGifOpen] = useExclusivePopover();
+  const emojiTriggerRef = useRef<HTMLButtonElement>(null);
   // displayName → user id, populated when an @ autocomplete is accepted.
   // Resolved back to <@id> at send time.
   const mentionMap = useRef<Map<string, string>>(new Map());
@@ -424,7 +425,7 @@ export function Composer({
               </>
             )}
           </div>
-          <div className="relative flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0 group/input">
             <div
               ref={overlayRef}
               aria-hidden
@@ -433,7 +434,9 @@ export function Composer({
               {highlightFragments.map((f, i) =>
                 f.kind === 'mention'
                   ? <span key={i} className="bg-accent/30 text-[#8593ce]">{f.text}</span>
-                  : <span key={i} className="text-fg">{f.text}</span>
+                  : f.kind === 'link'
+                    ? <span key={i} className="text-link group-hover/input:underline">{f.text}</span>
+                    : <span key={i} className="text-fg">{f.text}</span>
               )}
               {/* trailing space so cursor at EOL has measurable height */}
               {'​'}
@@ -450,6 +453,7 @@ export function Composer({
               disabled={offline || busy}
               placeholder={channelId ? 'Message…' : 'Select a channel'}
               rows={1}
+              spellCheck
               className="relative w-full bg-transparent placeholder:text-fg-dim text-[15px] leading-[22px] py-3 resize-none disabled:opacity-50 outline-none"
               style={{ color: 'transparent', caretColor: 'rgb(242,243,245)' }}
             />
@@ -470,6 +474,7 @@ export function Composer({
           </div>
           <div className="relative shrink-0">
             <button
+              ref={emojiTriggerRef}
               onClick={() => setEmojiOpen(!emojiOpen)}
               disabled={offline || busy}
               className="text-fg-muted hover:text-fg w-10 h-[46px] flex items-center justify-center disabled:opacity-40"
@@ -484,6 +489,7 @@ export function Composer({
                   insertAtCursor(m ? `:${m[1]}:` : token);
                 }}
                 onClose={() => setEmojiOpen(false)}
+                ignoreRef={emojiTriggerRef}
               />
             )}
           </div>
@@ -506,10 +512,31 @@ type EmojiCandidate =
   | { key: string; kind: 'custom'; name: string; id: string; animated: boolean; url: string }
   | { key: string; kind: 'standard'; name: string; char: string };
 
-type HighlightFragment = { kind: 'text' | 'mention'; text: string };
+type HighlightFragment = { kind: 'text' | 'mention' | 'link'; text: string };
 
+const URL_RE = /\bhttps?:\/\/[^\s<>"`]+/g;
+
+// Build the overlay fragments from `text`. Mentions (resolved via the
+// mentions map) and bare http(s) URLs are extracted as their own kinds so
+// the overlay can color them. We walk in two passes: first split by
+// mentions, then within each non-mention chunk, split by URLs.
 function buildHighlightFragments(text: string, mentions: Map<string, string>): HighlightFragment[] {
-  if (mentions.size === 0) return [{ kind: 'text', text }];
+  const splitLinks = (chunk: string): HighlightFragment[] => {
+    const out: HighlightFragment[] = [];
+    let last = 0;
+    URL_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = URL_RE.exec(chunk)) !== null) {
+      if (m.index > last) out.push({ kind: 'text', text: chunk.slice(last, m.index) });
+      out.push({ kind: 'link', text: m[0] });
+      last = m.index + m[0].length;
+    }
+    if (last < chunk.length) out.push({ kind: 'text', text: chunk.slice(last) });
+    return out;
+  };
+
+  if (mentions.size === 0) return splitLinks(text);
+
   // Match @ followed by any of the known names (longest first so 'John Smith' wins over 'John').
   const names = Array.from(mentions.keys()).sort((a, b) => b.length - a.length);
   const escaped = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -518,11 +545,11 @@ function buildHighlightFragments(text: string, mentions: Map<string, string>): H
   let lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    if (m.index > lastIndex) out.push({ kind: 'text', text: text.slice(lastIndex, m.index) });
+    if (m.index > lastIndex) out.push(...splitLinks(text.slice(lastIndex, m.index)));
     out.push({ kind: 'mention', text: m[0] });
     lastIndex = m.index + m[0].length;
   }
-  if (lastIndex < text.length) out.push({ kind: 'text', text: text.slice(lastIndex) });
+  if (lastIndex < text.length) out.push(...splitLinks(text.slice(lastIndex)));
   return out;
 }
 

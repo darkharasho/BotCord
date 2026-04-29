@@ -3,8 +3,10 @@ import { MessageList } from '../../components/MessageList';
 import { Composer } from '../../components/Composer';
 import { MemberList } from '../../components/MemberList';
 import { ForumPostHeader } from '../../components/ForumPostHeader';
-import { IconHash, IconSearch, IconUsers, IconX, IconArrowLeft } from '@tabler/icons-react';
+import { TypingIndicator } from '../../components/TypingIndicator';
+import { IconHash, IconSearch, IconUsers, IconX, IconArrowLeft, IconPinned } from '@tabler/icons-react';
 import { api } from '../../lib/api';
+import { PinnedMessagesPopover } from '../../components/PinnedMessagesPopover';
 
 export function ChannelView({ channelId, guildId, channelName, backToForum }: {
   channelId: string | null;
@@ -15,6 +17,8 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
   const [showMembers, setShowMembers] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [jumpTarget, setJumpTarget] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<{ messageId: string; authorDisplayName: string } | null>(null);
   const memberPrefHydrated = useRef(false);
 
@@ -31,7 +35,7 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
   }, [showMembers]);
 
   // Reset transient header state when switching channels.
-  useEffect(() => { setSearch(''); setSearchOpen(false); setReplyTo(null); }, [channelId]);
+  useEffect(() => { setSearch(''); setSearchOpen(false); setPinnedOpen(false); setJumpTarget(null); setReplyTo(null); }, [channelId]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-bg border-t border-l border-white/[0.04] overflow-hidden">
@@ -84,6 +88,24 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
             <IconSearch size={18} stroke={1.75} />
           </button>
         )}
+        {channelId && (
+          <div className="relative">
+            <button
+              onClick={() => setPinnedOpen(o => !o)}
+              className={`p-1 rounded hover:bg-hover ${pinnedOpen ? 'text-fg' : 'text-fg-dim hover:text-fg'}`}
+              title="Pinned messages"
+            >
+              <IconPinned size={18} stroke={1.75} />
+            </button>
+            {pinnedOpen && (
+              <PinnedMessagesPopover
+                channelId={channelId}
+                onClose={() => setPinnedOpen(false)}
+                onJump={(id) => { setJumpTarget(id); setPinnedOpen(false); }}
+              />
+            )}
+          </div>
+        )}
         <button
           onClick={() => setShowMembers(s => !s)}
           className={`p-1 rounded hover:bg-hover ${showMembers ? 'text-fg' : 'text-fg-dim hover:text-fg'}`}
@@ -101,7 +123,10 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
             header={backToForum && guildId && channelId
               ? <ForumPostHeader guildId={guildId} forumId={backToForum.id} postId={channelId} fallbackTitle={channelName ?? ''} />
               : null}
+            jumpToMessageId={jumpTarget}
+            onJumpComplete={() => setJumpTarget(null)}
           />
+          <TypingIndicator channelId={channelId} />
           <Composer
             channelId={channelId}
             guildId={guildId}

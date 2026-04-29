@@ -9,4 +9,5 @@ export const REQUIRED_INTENTS = [
   GatewayIntentBits.GuildVoiceStates,
   GatewayIntentBits.GuildMessageReactions,
   GatewayIntentBits.GuildMessagePolls,
+  GatewayIntentBits.GuildMessageTyping,
 ];

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { MessageSummary } from '../../shared/domain';
 import { useChannelMessages } from '../lib/use-channel-messages';
+import { useBotIdentity } from '../lib/use-bot-identity';
 import { MessageGroup } from './MessageGroup';
 import { SystemMessageRow } from './SystemMessageRow';
 import { MessageSkeleton } from './MessageSkeleton';
@@ -85,7 +86,7 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   return groups;
 }
 
-export function MessageList({ channelId, filter, onReply, header }: {
+export function MessageList({ channelId, filter, onReply, header, jumpToMessageId, onJumpComplete }: {
   channelId: string | null;
   filter?: string;
   onReply?: ((m: MessageSummary) => void) | undefined;
@@ -93,8 +94,13 @@ export function MessageList({ channelId, filter, onReply, header }: {
   // container — used by ChannelView to show a forum-post intro for threads
   // under a forum parent.
   header?: ReactNode;
+  // When set, scroll the message with this id into view and briefly flash
+  // it. Caller bumps the value (e.g. from a pinned-list "Jump" click).
+  jumpToMessageId?: string | null;
+  onJumpComplete?: () => void;
 }) {
   const { messages: allMessages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
+  const bot = useBotIdentity();
   const trimmed = filter?.trim().toLowerCase() ?? '';
   const messages = trimmed.length > 0
     ? allMessages.filter(m =>
@@ -129,11 +135,35 @@ export function MessageList({ channelId, filter, onReply, header }: {
     return () => ro.disconnect();
   }, []);
 
-  // Reset on channel switch — stay "just switched" until messages render and we pin to bottom.
+  // Jump to a specific message: scroll its row into view and apply a
+  // short-lived highlight class. If the row isn't in the DOM (loaded from
+  // older history we don't have), we silently noop — extending to fetch
+  // older pages is a follow-up.
+  useEffect(() => {
+    if (!jumpToMessageId) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.querySelector(`[data-message-id="${jumpToMessageId}"]`) as HTMLElement | null;
+    if (!target) { onJumpComplete?.(); return; }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('bc-jump-flash');
+    const t = window.setTimeout(() => {
+      target.classList.remove('bc-jump-flash');
+      onJumpComplete?.();
+    }, 1600);
+    return () => window.clearTimeout(t);
+  }, [jumpToMessageId, onJumpComplete]);
+
+  // Reset on channel switch. We keep `justSwitchedRef` true for a window
+  // (~800ms) so that async-loaded content (images, embeds, the forum-post
+  // header, etc.) keeps re-pinning to the bottom while it's still settling
+  // — otherwise the user lands above the latest message and has to scroll.
   useEffect(() => {
     justSwitchedRef.current = true;
     setPendingNew(0);
     previousLength.current = 0;
+    const t = window.setTimeout(() => { justSwitchedRef.current = false; }, 800);
+    return () => window.clearTimeout(t);
   }, [channelId]);
 
   useLayoutEffect(() => {
@@ -152,20 +182,31 @@ export function MessageList({ channelId, filter, onReply, header }: {
       return;
     }
 
-    // After channel switch, keep pinning to bottom until at least one message has rendered.
+    // While we're still in the post-switch settle window, keep pinning to
+    // the bottom on every render. The timeout in the channel-switch effect
+    // clears the flag once content has had time to settle.
     if (justSwitchedRef.current) {
       el.scrollTop = el.scrollHeight;
-      if (messages.length > 0) justSwitchedRef.current = false;
       previousLength.current = messages.length;
       return;
     }
 
-    // New live messages: scroll if user is near bottom, otherwise show pending pill.
+    // New live messages. If the latest one is from our bot (i.e. we just
+    // sent it), always smooth-scroll to it so the user sees their own
+    // message animate into view. Otherwise keep the existing "near bottom"
+    // pin and surface a pending-new pill when the user is reading older.
     if (messages.length > previousLength.current) {
       const newCount = messages.length - previousLength.current;
-      const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 100;
-      if (nearBottom) el.scrollTop = el.scrollHeight;
-      else setPendingNew(p => p + newCount);
+      const last = messages[messages.length - 1];
+      const fromBot = bot && last?.authorId === bot.id;
+      if (fromBot) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        setPendingNew(0);
+      } else {
+        const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 100;
+        if (nearBottom) el.scrollTop = el.scrollHeight;
+        else setPendingNew(p => p + newCount);
+      }
     }
     previousLength.current = messages.length;
   }, [messages, channelId]);
@@ -210,7 +251,7 @@ export function MessageList({ channelId, filter, onReply, header }: {
           className="absolute bottom-3 right-4 px-3 py-1 bg-accent text-white rounded-full text-xs shadow-lg hover:bg-accent-hover animate-fade-in-up transition-colors"
           onClick={() => {
             const el = scrollRef.current;
-            if (el) el.scrollTop = el.scrollHeight;
+            if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
             setPendingNew(0);
           }}
         >

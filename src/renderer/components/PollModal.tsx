@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import type { PollAnswer } from '../../shared/domain';
 import { IconX, IconPlus, IconTrash, IconChevronDown, IconMoodSmile } from '@tabler/icons-react';
 import { EmojiPicker } from './EmojiPicker';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
-import { toTwemojiUrl } from '../lib/twemoji';
+import { TwemojiOne } from '../lib/twemoji';
 
 const DURATIONS: { hours: number; label: string }[] = [
   { hours: 1, label: '1 hour' },
@@ -28,7 +28,7 @@ function AnswerEmojiPreview({ token }: { token: string }) {
     const ext = m[1] === 'a' ? 'gif' : 'png';
     return <img src={`https://cdn.discordapp.com/emojis/${m[3]}.${ext}`} alt={m[2]} className="w-5 h-5" />;
   }
-  return <img src={toTwemojiUrl(token)} alt={token} draggable={false} className="w-5 h-5 select-none" />;
+  return <TwemojiOne char={token} className="w-5 h-5 select-none" fallbackClassName="text-[18px] leading-none" />;
 }
 
 const inputBase =
@@ -44,6 +44,7 @@ export function PollModal({ channelId, guildId, onClose }: { channelId: string; 
   const [busy, setBusy] = useState(false);
   const [pickerForIdx, setPickerForIdx] = useState<number | null>(null);
   const [pickerRect, setPickerRect] = useState<DOMRect | null>(null);
+  const pickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const guildEmojis = useGuildEmojis(pickerForIdx === null ? null : guildId);
 
   const updateAnswer = (i: number, text: string) => {
@@ -143,9 +144,11 @@ export function PollModal({ channelId, guildId, onClose }: { channelId: string; 
                       is set, click clears (matches Discord). */}
                   <button
                     type="button"
+                    ref={pickerForIdx === i ? pickerTriggerRef : undefined}
                     onClick={(e) => {
                       if (a.emoji) { clearAnswerEmoji(i); return; }
                       if (pickerForIdx === i) { setPickerForIdx(null); return; }
+                      pickerTriggerRef.current = e.currentTarget;
                       setPickerRect(e.currentTarget.getBoundingClientRect());
                       setPickerForIdx(i);
                     }}
@@ -176,12 +179,12 @@ export function PollModal({ channelId, guildId, onClose }: { channelId: string; 
 
                   {pickerForIdx === i && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setPickerForIdx(null)} />
                       <EmojiPicker
                         guildEmojis={guildEmojis}
                         onSelect={(token) => setAnswerEmoji(i, token)}
                         onClose={() => setPickerForIdx(null)}
                         anchorRect={pickerRect}
+                        ignoreRef={pickerTriggerRef}
                       />
                     </>
                   )}
