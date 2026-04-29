@@ -28,6 +28,13 @@ const api: BotcordApi = {
     getMember: (guildId, userId) => invoke(IPC_CHANNELS['guilds.getMember'], guildId, userId),
     getForum: (guildId, forumId) => invoke(IPC_CHANNELS['guilds.getForum'], guildId, forumId),
     listArchivedForumPosts: (guildId, forumId) => invoke(IPC_CHANNELS['guilds.listArchivedForumPosts'], guildId, forumId),
+    listGuildRoles: (guildId) => invoke(IPC_CHANNELS['guilds.listGuildRoles'], guildId),
+    getBotCapabilities: (guildId, targetUserId) => invoke(IPC_CHANNELS['guilds.getBotCapabilities'], guildId, targetUserId),
+    assignRole: (guildId, userId, roleId) => invoke(IPC_CHANNELS['guilds.assignRole'], guildId, userId, roleId),
+    removeRole: (guildId, userId, roleId) => invoke(IPC_CHANNELS['guilds.removeRole'], guildId, userId, roleId),
+    kickMember: (guildId, userId, reason) => invoke(IPC_CHANNELS['guilds.kickMember'], guildId, userId, reason),
+    banMember: (guildId, userId, opts) => invoke(IPC_CHANNELS['guilds.banMember'], guildId, userId, opts),
+    timeoutMember: (guildId, userId, durationMs, reason) => invoke(IPC_CHANNELS['guilds.timeoutMember'], guildId, userId, durationMs, reason),
   },
   messages: {
     send: (channelId, content, opts) => invoke(IPC_CHANNELS['messages.send'], channelId, content, opts),
