@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import type { ChannelSummary } from '../../shared/domain';
 import { CategoryGroup } from './CategoryGroup';
@@ -16,19 +16,31 @@ export function ChannelList({
 }: { guildId: string | null; selected: string | null; onSelect: (id: string) => void; unreadIds?: Set<string> }) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const loaded = useRef(false);
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
 
+  // Hydrate from prefs once, then mark loaded so the persistence effect can
+  // start saving without overwriting the just-loaded value.
   useEffect(() => {
     api.prefs.get('collapsedCategoryIds').then(res => {
       if (res.ok && Array.isArray(res.data)) setCollapsed(new Set(res.data));
+      loaded.current = true;
     });
   }, []);
 
+  // Persist immediately on toggle once we've hydrated. No debounce so a fast
+  // app close still captures the latest state.
   useEffect(() => {
-    const handle = setTimeout(() => {
-      api.prefs.set('collapsedCategoryIds', Array.from(collapsed));
-    }, 300);
-    return () => clearTimeout(handle);
+    if (!loaded.current) return;
+    api.prefs.set('collapsedCategoryIds', Array.from(collapsed));
   }, [collapsed]);
+
+  // Belt-and-braces: also flush on unmount in case the renderer unmounts
+  // before the IPC ack returns from the previous effect.
+  useEffect(() => () => {
+    api.prefs.set('collapsedCategoryIds', Array.from(collapsedRef.current));
+  }, []);
 
   useEffect(() => {
     if (!guildId) { setChannels([]); return; }
