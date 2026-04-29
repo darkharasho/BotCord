@@ -1,6 +1,16 @@
-import { BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import { join } from 'path';
+import { existsSync } from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
+
+function findIconPath(): string | undefined {
+  const candidates = [
+    join(app.getAppPath(), 'public', 'botcord-icon.png'),
+    join(__dirname, '../../public/botcord-icon.png'),
+    join(__dirname, '../renderer/botcord-icon.png'),
+  ];
+  return candidates.find(p => existsSync(p));
+}
 
 export function createMainWindow(): BrowserWindow {
   const isMac = process.platform === 'darwin';
@@ -23,6 +33,8 @@ export function createMainWindow(): BrowserWindow {
     },
   };
   if (isMac) opts.trafficLightPosition = { x: 12, y: 9 };
+  const iconPath = findIconPath();
+  if (iconPath) opts.icon = iconPath;
   const win = new BrowserWindow(opts);
 
   win.once('ready-to-show', () => win.show());
