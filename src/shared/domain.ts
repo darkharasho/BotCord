@@ -147,3 +147,12 @@ export type SendAttachment = {
   mimeType: string;
   bytes: Uint8Array;
 };
+
+export type PollAnswer = { text: string; emoji?: string };
+
+export type PollPayload = {
+  question: string;
+  answers: PollAnswer[];
+  durationHours: number;
+  allowMultiselect: boolean;
+};

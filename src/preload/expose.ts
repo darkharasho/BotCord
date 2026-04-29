@@ -31,6 +31,7 @@ const api: BotcordApi = {
       invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content),
     sendWithAttachments: (channelId, content, attachments) =>
       invoke(IPC_CHANNELS['messages.sendWithAttachments'], channelId, content, attachments),
+    sendPoll: (channelId, poll) => invoke(IPC_CHANNELS['messages.sendPoll'], channelId, poll),
     history: (channelId, opts) => invoke(IPC_CHANNELS['messages.history'], channelId, opts),
     delete: (channelId, messageId) => invoke(IPC_CHANNELS['messages.delete'], channelId, messageId),
     bulkDelete: (channelId, ids) => invoke(IPC_CHANNELS['messages.bulkDelete'], channelId, ids),

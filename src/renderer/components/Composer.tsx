@@ -7,7 +7,8 @@ import { AutocompletePopover, type AutocompleteItem } from './AutocompletePopove
 import { STANDARD_EMOJI } from '../lib/emoji-data';
 import { pushToast } from './Toaster';
 import type { GatewayState, GuildEmoji, MemberSummary } from '../../shared/domain';
-import { IconCirclePlus, IconMoodSmile, IconSend2 } from '@tabler/icons-react';
+import { IconCirclePlus, IconMoodSmile, IconSend2, IconUpload, IconChartBar } from '@tabler/icons-react';
+import { PollModal } from './PollModal';
 
 const MAX_FILES = 10;
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -46,6 +47,8 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   const [gateway, setGateway] = useState<GatewayState>({ status: 'connecting' });
   const [dragOver, setDragOver] = useState(false);
   const [autocomplete, setAutocomplete] = useState<AutocompleteState>(null);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   // Always load guild emojis when available so `:` autocomplete works without opening the picker.
   const guildEmojis = useGuildEmojis(guildId);
@@ -261,12 +264,36 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
         )}
         <AttachmentTray files={files} onRemove={(i) => setFiles(prev => prev.filter((_, idx) => idx !== i))} />
         <div className="flex items-end gap-1 px-2">
-          <button
-            onClick={onPick}
-            disabled={offline || busy}
-            className="text-fg-muted hover:text-fg w-10 h-11 flex items-center justify-center disabled:opacity-40 shrink-0"
-            title="Attach files"
-          ><IconCirclePlus size={22} stroke={1.75} /></button>
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setPlusMenuOpen(o => !o)}
+              disabled={offline || busy}
+              className="text-fg-muted hover:text-fg w-10 h-11 flex items-center justify-center disabled:opacity-40"
+              title="Add"
+            ><IconCirclePlus size={22} stroke={1.75} /></button>
+            {plusMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setPlusMenuOpen(false)} />
+                <div className="absolute bottom-full left-0 mb-2 w-56 bg-bg-subtle border border-border rounded-lg shadow-2xl z-40 overflow-hidden">
+                  <button
+                    onClick={() => { setPlusMenuOpen(false); onPick(); }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-hover"
+                  >
+                    <IconUpload size={18} stroke={1.75} className="text-fg-muted" />
+                    Upload a file
+                  </button>
+                  <button
+                    onClick={() => { setPlusMenuOpen(false); setPollOpen(true); }}
+                    disabled={!channelId}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-hover disabled:opacity-40"
+                  >
+                    <IconChartBar size={18} stroke={1.75} className="text-fg-muted" />
+                    Create a poll
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <textarea
             ref={taRef}
             value={text}
@@ -303,6 +330,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
           )}
         </div>
       </div>
+      {pollOpen && channelId && <PollModal channelId={channelId} onClose={() => setPollOpen(false)} />}
     </div>
   );
 }

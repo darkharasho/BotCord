@@ -2,12 +2,24 @@ import { ipcMain } from 'electron';
 import { EmbedBuilder, AttachmentBuilder, type Message } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { EmbedPayload, MessageSummary, SendAttachment } from '../../shared/domain';
+import type { EmbedPayload, MessageSummary, PollPayload, SendAttachment } from '../../shared/domain';
 import { summarizeMessage } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
+type SendOpts = {
+  content?: string | undefined;
+  embeds?: EmbedBuilder[];
+  files?: AttachmentBuilder[];
+  poll?: {
+    question: { text: string };
+    answers: Array<{ text: string; emoji?: string }>;
+    duration: number;
+    allowMultiselect: boolean;
+  };
+};
+
 type SendableChannel = {
-  send: (opts: { content?: string | undefined; embeds?: EmbedBuilder[]; files?: AttachmentBuilder[] }) => Promise<Message>;
+  send: (opts: SendOpts) => Promise<Message>;
   messages: {
     fetch: ((opts: { limit: number; before?: string }) => Promise<Map<string, Message>>) &
            ((id: string) => Promise<Message>);
@@ -97,6 +109,33 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({
         content: content.length > 0 ? content : undefined,
         files,
+      });
+      return ok(summarizeMessage(msg));
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['messages.sendPoll'], async (_, channelId: unknown, payload: unknown): Promise<Result<MessageSummary>> => {
+    if (typeof channelId !== 'string' || typeof payload !== 'object' || payload === null) return err('INTERNAL', 'invalid arguments');
+    const p = payload as PollPayload;
+    if (typeof p.question !== 'string' || p.question.trim().length === 0) return err('INTERNAL', 'poll question is required');
+    if (!Array.isArray(p.answers) || p.answers.length < 2 || p.answers.length > 10) return err('INTERNAL', 'poll requires 2-10 answers');
+    for (const a of p.answers) {
+      if (typeof a?.text !== 'string' || a.text.trim().length === 0) return err('INTERNAL', 'each poll answer needs text');
+    }
+    if (typeof p.durationHours !== 'number' || p.durationHours < 1 || p.durationHours > 32 * 24) return err('INTERNAL', 'invalid poll duration');
+
+    const got = await requireSendableChannel(channelId);
+    if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
+    try {
+      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({
+        poll: {
+          question: { text: p.question.trim() },
+          answers: p.answers.map(a => a.emoji ? { text: a.text.trim(), emoji: a.emoji } : { text: a.text.trim() }),
+          duration: p.durationHours,
+          allowMultiselect: !!p.allowMultiselect,
+        },
       });
       return ok(summarizeMessage(msg));
     } catch (e) {
