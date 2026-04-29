@@ -1,6 +1,6 @@
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
-import { IconCornerUpLeft, IconCornerDownRight } from '@tabler/icons-react';
+import { IconCornerUpLeft } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
 
 function mentionsBot(m: MessageSummary, botId: string | undefined): boolean {
@@ -77,8 +77,12 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
 
 function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyTo']> }) {
   return (
-    <div className="flex items-center gap-2 -mx-4 pl-12 pr-4 mb-0.5 text-[13px] text-fg-muted overflow-hidden">
-      <IconCornerDownRight size={14} stroke={2} className="text-fg-dim shrink-0" />
+    <div className="relative flex items-center gap-1.5 pl-[72px] pr-4 pt-1 -mb-1 text-[13px] text-fg-muted">
+      {/* Discord-style elbow line: vertical from avatar top, curving right into the preview. */}
+      <span
+        aria-hidden
+        className="absolute left-[36px] bottom-0 w-[36px] h-3 border-l-2 border-t-2 border-white/[0.12] rounded-tl-md"
+      />
       {replyTo.authorAvatarUrl && (
         <img src={replyTo.authorAvatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
       )}
