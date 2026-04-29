@@ -104,7 +104,7 @@ function HoverActions({ message, onReply }: { message: MessageSummary; onReply?:
         className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
         title="Reply"
       >
-        <IconCornerUpLeft size={18} stroke={1.75} />
+        <IconCornerUpLeft size={18} stroke={1.75} className="scale-x-[-1]" />
       </button>
     </div>
   );
