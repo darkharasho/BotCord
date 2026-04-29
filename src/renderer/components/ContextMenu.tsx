@@ -59,12 +59,23 @@ export function ContextMenuHost() {
 
 const MIN_W = 200;
 const SUBMENU_DELAY_MS = 120;
+const SUBMENU_CLOSE_DELAY_MS = 200;
 
 function ContextMenu({ items, pos }: { items: ContextMenuEntry[]; pos: Position }) {
   const ref = useRef<HTMLDivElement>(null);
   const [resolvedPos, setResolvedPos] = useState<Position>(pos);
   const [openSub, setOpenSub] = useState<{ index: number; rect: DOMRect } | null>(null);
   const hoverTimer = useRef<number | null>(null);
+  const closeTimer = useRef<number | null>(null);
+
+  // Fix #1: clear both timers on unmount so stale callbacks never touch
+  // setOpenSub on an already-unmounted component.
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current != null) window.clearTimeout(hoverTimer.current);
+      if (closeTimer.current != null) window.clearTimeout(closeTimer.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -77,14 +88,30 @@ function ContextMenu({ items, pos }: { items: ContextMenuEntry[]; pos: Position 
     setResolvedPos({ x, y });
   }, [pos, items]);
 
+  // --- open-timer helpers ---
+  const cancelOpenSub = () => {
+    if (hoverTimer.current != null) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+  };
   const scheduleOpenSub = (index: number, target: HTMLElement) => {
-    if (hoverTimer.current != null) window.clearTimeout(hoverTimer.current);
+    cancelOpenSub();
+    cancelCloseSub(); // opening a new sub cancels any pending close
     hoverTimer.current = window.setTimeout(() => {
       setOpenSub({ index, rect: target.getBoundingClientRect() });
     }, SUBMENU_DELAY_MS);
   };
-  const cancelOpenSub = () => {
-    if (hoverTimer.current != null) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null; }
+
+  // --- close-timer helpers (Fix #2) ---
+  // eslint-disable-next-line prefer-const -- declared before use in scheduleOpenSub above, hoisted via function declaration
+  function cancelCloseSub() {
+    if (closeTimer.current != null) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+  }
+  const scheduleCloseSub = () => {
+    cancelOpenSub(); // cancel any pending open when we're scheduling a close
+    if (closeTimer.current != null) return; // already scheduled
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      setOpenSub(null);
+    }, SUBMENU_CLOSE_DELAY_MS);
   };
 
   return (
@@ -107,7 +134,17 @@ function ContextMenu({ items, pos }: { items: ContextMenuEntry[]; pos: Position 
               role="menuitem"
               disabled={entry.disabled}
               title={entry.disabled ? entry.title : undefined}
-              onMouseEnter={(e) => hasSub && !entry.disabled ? scheduleOpenSub(i, e.currentTarget) : (cancelOpenSub(), setOpenSub(null))}
+              onMouseEnter={(e) => {
+                if (hasSub && !entry.disabled) {
+                  scheduleOpenSub(i, e.currentTarget);
+                } else {
+                  // Fix #2: don't immediately close an open submenu — schedule a
+                  // delayed close so diagonal cursor movement into the submenu can
+                  // cancel it before it fires.
+                  cancelOpenSub();
+                  scheduleCloseSub();
+                }
+              }}
               onMouseLeave={cancelOpenSub}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
@@ -138,13 +175,34 @@ function ContextMenu({ items, pos }: { items: ContextMenuEntry[]; pos: Position 
         // Position to the right of the parent item, falling back to the left.
         const x = openSub.rect.right + 2;
         const y = openSub.rect.top;
-        return createPortal(<Submenu items={entry.submenu} pos={{ x, y }} fallbackLeft={openSub.rect.left} />, document.body);
+        return createPortal(
+          <Submenu
+            items={entry.submenu}
+            pos={{ x, y }}
+            fallbackLeft={openSub.rect.left}
+            onMouseEnter={cancelCloseSub}
+            onMouseLeave={scheduleCloseSub}
+          />,
+          document.body,
+        );
       })()}
     </>
   );
 }
 
-function Submenu({ items, pos, fallbackLeft }: { items: ContextMenuEntry[]; pos: Position; fallbackLeft: number }) {
+function Submenu({
+  items,
+  pos,
+  fallbackLeft,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  items: ContextMenuEntry[];
+  pos: Position;
+  fallbackLeft: number;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [resolvedPos, setResolvedPos] = useState<Position>(pos);
 
@@ -163,6 +221,8 @@ function Submenu({ items, pos, fallbackLeft }: { items: ContextMenuEntry[]; pos:
     <div
       ref={ref}
       role="menu"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className="fixed z-[62] min-w-[200px] py-1.5 border border-white/[0.08] rounded-md shadow-2xl animate-pop-in origin-top-left max-h-[60vh] overflow-y-auto"
       style={{ left: resolvedPos.x, top: resolvedPos.y, minWidth: MIN_W, backgroundColor: '#28282d' }}
     >
