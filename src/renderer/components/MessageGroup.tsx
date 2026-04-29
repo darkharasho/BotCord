@@ -1,6 +1,14 @@
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
 import { IconArrowBackUp, IconCornerDownRight } from '@tabler/icons-react';
+import { useBotIdentity } from '../lib/use-bot-identity';
+
+function mentionsBot(m: MessageSummary, botId: string | undefined): boolean {
+  if (!botId) return false;
+  return m.mentions.some(x => x.type === 'user' && x.id === botId);
+}
+
+const MENTION_ROW = 'before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-warn bg-warn/[0.06] hover:bg-warn/[0.10]';
 
 function formatHeaderTimestamp(ts: number): string {
   const d = new Date(ts);
@@ -22,10 +30,12 @@ function formatGutterTimestamp(ts: number): string {
 export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]; onReply?: ((m: MessageSummary) => void) | undefined }) {
   if (messages.length === 0) return null;
   const head = messages[0]!;
+  const bot = useBotIdentity();
+  const headHighlight = mentionsBot(head, bot?.id) ? MENTION_ROW : 'hover:bg-hover/40';
   return (
     <div className="mt-4 first:mt-2 px-4">
       {head.replyTo && <ReplyPreview replyTo={head.replyTo} />}
-      <div className="relative flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group">
+      <div className={`relative flex gap-4 -mx-4 px-4 py-0.5 group ${headHighlight}`}>
         <HoverActions message={head} onReply={onReply} />
         <div className="w-10 shrink-0 pt-0.5">
           {head.authorAvatarUrl
@@ -50,7 +60,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
         <div
           key={m.id}
           data-message-id={m.id}
-          className="relative flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group"
+          className={`relative flex gap-4 -mx-4 px-4 py-0.5 group ${mentionsBot(m, bot?.id) ? MENTION_ROW : 'hover:bg-hover/40'}`}
         >
           <HoverActions message={m} onReply={onReply} />
           <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-[21px] whitespace-nowrap tracking-tight">
