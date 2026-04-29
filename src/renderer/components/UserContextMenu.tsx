@@ -113,13 +113,23 @@ function buildRoleSubmenu({
     const aboveBot = r.position >= botTop;
     const title = aboveBot ? "Role is at or above the bot's highest role" : undefined;
     const icon: ReactNode = (
-      <span className="inline-flex items-center gap-1.5">
+      <span className="inline-flex items-center gap-2">
         <span
           aria-hidden
-          className={`w-3 text-center text-[12px] leading-none ${assigned ? 'text-ok' : 'text-transparent'}`}
-        >✓</span>
+          className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border transition-colors ${
+            assigned
+              ? 'bg-accent border-accent'
+              : 'bg-transparent border-white/30'
+          }`}
+        >
+          {assigned && (
+            <svg viewBox="0 0 16 16" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 8 7 12 13 4" />
+            </svg>
+          )}
+        </span>
         <span
-          className="inline-block w-2.5 h-2.5 rounded-full"
+          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
           style={r.color ? { backgroundColor: r.color } : { backgroundColor: 'rgba(255,255,255,0.2)' }}
         />
       </span>
