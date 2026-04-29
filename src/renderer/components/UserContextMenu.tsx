@@ -112,18 +112,24 @@ function buildRoleSubmenu({
     const assigned = target.assignedRoleIds.has(r.id);
     const aboveBot = r.position >= botTop;
     const title = aboveBot ? "Role is at or above the bot's highest role" : undefined;
-    const dot: ReactNode = (
-      <span
-        className="inline-block w-2.5 h-2.5 rounded-full"
-        style={r.color ? { backgroundColor: r.color } : { backgroundColor: 'rgba(255,255,255,0.2)' }}
-      />
+    const icon: ReactNode = (
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className={`w-3 text-center text-[12px] leading-none ${assigned ? 'text-ok' : 'text-transparent'}`}
+        >✓</span>
+        <span
+          className="inline-block w-2.5 h-2.5 rounded-full"
+          style={r.color ? { backgroundColor: r.color } : { backgroundColor: 'rgba(255,255,255,0.2)' }}
+        />
+      </span>
     );
     return {
       type: 'item',
-      label: `${assigned ? '✓ ' : '   '}${r.name}`,
+      label: r.name,
       disabled: aboveBot,
       ...(title ? { title } : {}),
-      icon: dot,
+      icon,
       onClick: () => onToggleRole(r.id, assigned),
     };
   });
