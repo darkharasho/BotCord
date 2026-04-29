@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { EmbedBuilder, AttachmentBuilder, type Message } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { EmbedPayload, MessageSummary, PollPayload, SendAttachment } from '../../shared/domain';
+import type { EmbedPayload, MessageSummary, PollPayload, PollVoter, SendAttachment } from '../../shared/domain';
 import { summarizeMessage } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
@@ -151,6 +151,37 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
         },
       });
       return ok(summarizeMessage(msg));
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['messages.fetchPollVoters'], async (_, channelId: unknown, messageId: unknown, answerId: unknown): Promise<Result<PollVoter[]>> => {
+    if (typeof channelId !== 'string' || typeof messageId !== 'string' || typeof answerId !== 'number') {
+      return err('INTERNAL', 'invalid arguments');
+    }
+    const got = await requireSendableChannel(channelId);
+    if ('ok' in got && got.ok === false) return got as Result<PollVoter[]>;
+    const channel = (got as { ok: true; channel: SendableChannel }).channel;
+    try {
+      const msg = await channel.messages.fetch(messageId);
+      const poll = (msg as unknown as { poll: { answers: Map<number, { fetchVoters: (opts?: { limit?: number }) => Promise<Map<string, { id: string; username: string; globalName: string | null; displayAvatarURL: (o?: { size: number }) => string }>> }> } | null }).poll;
+      if (!poll) return err('NOT_FOUND', 'No poll on this message');
+      const answer = poll.answers.get(answerId);
+      if (!answer) return err('NOT_FOUND', `Answer ${answerId} not found`);
+      const voters = await answer.fetchVoters({ limit: 100 });
+      const guild = (msg as unknown as { guild: { members: { cache: Map<string, { displayName: string; displayHexColor: string }> } } | null }).guild;
+      const out: PollVoter[] = Array.from(voters.values()).map(u => {
+        const member = guild?.members.cache.get(u.id);
+        return {
+          id: u.id,
+          displayName: member?.displayName ?? u.globalName ?? u.username,
+          username: u.username,
+          avatarUrl: u.displayAvatarURL({ size: 64 }),
+          roleColor: member?.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : null,
+        };
+      });
+      return ok(out);
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }

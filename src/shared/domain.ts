@@ -83,6 +83,14 @@ export type SystemMessageKind =
   | 'recipient_add'
   | 'other';
 
+export type PollVoter = {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+  roleColor: string | null;
+};
+
 export type PollSummary = {
   question: string;
   answers: Array<{ id: number; text: string; emoji: string | null; voteCount: number }>;

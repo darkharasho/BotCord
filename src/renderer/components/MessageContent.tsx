@@ -48,7 +48,7 @@ export function MessageContent({ message }: { message: MessageSummary }) {
           ? <InlineMediaEmbed key={i} embed={e} />
           : <EmbedCard key={i} embed={e} />
       )}
-      {message.poll && <PollCard poll={message.poll} />}
+      {message.poll && <PollCard poll={message.poll} channelId={message.channelId} messageId={message.id} />}
     </div>
   );
 }

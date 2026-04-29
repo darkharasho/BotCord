@@ -1,6 +1,6 @@
 import type {
   BotIdentity, BotStatus, ChannelMemberSummary, ChannelSummary, DraftInput, DraftRow,
-  EmbedPayload, GatewayState, GuildEmoji, GuildSummary, MemberSummary, MessageSummary, PollPayload, Prefs, SendAttachment,
+  EmbedPayload, GatewayState, GuildEmoji, GuildSummary, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
 
@@ -29,6 +29,7 @@ export interface BotcordApi {
       opts?: { replyToMessageId?: string },
     ): Promise<Result<MessageSummary>>;
     sendPoll(channelId: string, poll: PollPayload): Promise<Result<MessageSummary>>;
+    fetchPollVoters(channelId: string, messageId: string, answerId: number): Promise<Result<PollVoter[]>>;
     history(channelId: string, opts: { before?: string; limit: number }): Promise<Result<MessageSummary[]>>;
     delete(channelId: string, messageId: string): Promise<Result<void>>;
     bulkDelete(channelId: string, messageIds: string[]): Promise<Result<{ deleted: string[] }>>;
@@ -81,6 +82,7 @@ export const IPC_CHANNELS = {
   'messages.sendEmbed': 'messages.sendEmbed',
   'messages.sendWithAttachments': 'messages.sendWithAttachments',
   'messages.sendPoll': 'messages.sendPoll',
+  'messages.fetchPollVoters': 'messages.fetchPollVoters',
   'messages.history': 'messages.history',
   'messages.delete': 'messages.delete',
   'messages.bulkDelete': 'messages.bulkDelete',
