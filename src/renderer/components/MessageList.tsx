@@ -113,9 +113,17 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [pendingNew, setPendingNew] = useState(0);
+  const [pendingDir, setPendingDir] = useState<'up' | 'down'>('down');
+  const [scrolledAway, setScrolledAway] = useState(false);
+  const firstPendingIdRef = useRef<string | null>(null);
   const previousLength = useRef(0);
   const justSwitchedRef = useRef(true);
   const anchorRef = useRef<{ id: string; top: number } | null>(null);
+  // Timestamp until which the ResizeObserver should keep pinning to the
+  // bottom regardless of the "near bottom" threshold. Set whenever we just
+  // scrolled to the bottom for a new message, so tall attachments (images,
+  // embeds) loading in afterwards don't strand the user above the message.
+  const stickBottomUntilRef = useRef(0);
 
   // Re-pin to bottom when content height grows after the initial scroll
   // (images/attachments loading, embeds expanding). If the user is reading
@@ -126,7 +134,7 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
     if (!scroller || !content) return;
     const ro = new ResizeObserver(() => {
       if (anchorRef.current) return;
-      if (justSwitchedRef.current) {
+      if (justSwitchedRef.current || Date.now() < stickBottomUntilRef.current) {
         scroller.scrollTop = scroller.scrollHeight;
         return;
       }
@@ -170,6 +178,8 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
   useEffect(() => {
     justSwitchedRef.current = true;
     setPendingNew(0);
+    setScrolledAway(false);
+    firstPendingIdRef.current = null;
     previousLength.current = 0;
     const t = window.setTimeout(() => { justSwitchedRef.current = false; }, 800);
     return () => window.clearTimeout(t);
@@ -210,11 +220,24 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
       const fromBot = bot && last?.authorId === bot.id;
       if (fromBot) {
         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        stickBottomUntilRef.current = Date.now() + 1500;
+        firstPendingIdRef.current = null;
         setPendingNew(0);
       } else {
         const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 100;
-        if (nearBottom) el.scrollTop = el.scrollHeight;
-        else setPendingNew(p => p + newCount);
+        if (nearBottom) {
+          el.scrollTop = el.scrollHeight;
+          stickBottomUntilRef.current = Date.now() + 1500;
+        } else {
+          // Remember the first new message so we can point the pill at it.
+          // New live messages always append below, so direction is 'down' here.
+          if (!firstPendingIdRef.current) {
+            const firstNew = messages[previousLength.current];
+            if (firstNew) firstPendingIdRef.current = firstNew.id;
+          }
+          setPendingDir('down');
+          setPendingNew(p => p + newCount);
+        }
       }
     }
     previousLength.current = messages.length;
@@ -229,8 +252,32 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
       if (target) anchorRef.current = { id: oldest.id, top: target.getBoundingClientRect().top };
       await loadOlder();
     }
-    if (el.scrollHeight - (el.scrollTop + el.clientHeight) < 100) {
+    const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+    const atBottom = distanceFromBottom < 100;
+
+    // Re-evaluate direction: if the first unseen message has scrolled above
+    // the viewport, flip the pill to the top. If the user reached the
+    // bottom, clear the unseen state.
+    const firstId = firstPendingIdRef.current;
+    if (firstId) {
+      const target = el.querySelector(`[data-message-id="${firstId}"]`) as HTMLElement | null;
+      if (target) {
+        const tr = target.getBoundingClientRect();
+        const sr = el.getBoundingClientRect();
+        if (tr.bottom < sr.top) setPendingDir('up');
+        else if (tr.top > sr.bottom) setPendingDir('down');
+      }
+    }
+
+    if (atBottom) {
+      firstPendingIdRef.current = null;
       setPendingNew(0);
+      setScrolledAway(false);
+    } else {
+      setScrolledAway(true);
+      // When scrolled up without any new arrivals to point at, default the
+      // pill to the bottom direction (jump to present).
+      if (!firstPendingIdRef.current) setPendingDir('down');
     }
   };
 
@@ -255,16 +302,33 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
           )}
         </div>
       </div>
-      {pendingNew > 0 && (
+      {(scrolledAway || pendingNew > 0) && (
         <button
-          className="absolute bottom-3 right-4 px-3 py-1 bg-accent text-white rounded-full text-xs shadow-lg hover:bg-accent-hover animate-fade-in-up transition-colors"
+          className={`absolute left-1/2 -translate-x-1/2 px-3 py-1 bg-accent text-white rounded-full text-xs shadow-lg hover:bg-accent-hover animate-fade-in-up transition-colors flex items-center gap-1.5 ${
+            pendingDir === 'up' ? 'top-3' : 'bottom-3'
+          }`}
           onClick={() => {
             const el = scrollRef.current;
-            if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+            if (!el) return;
+            if (pendingDir === 'up') {
+              const firstId = firstPendingIdRef.current;
+              const target = firstId
+                ? el.querySelector(`[data-message-id="${firstId}"]`) as HTMLElement | null
+                : null;
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              else el.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+            }
+            firstPendingIdRef.current = null;
             setPendingNew(0);
+            setScrolledAway(false);
           }}
         >
-          ↓ Jump to present ({pendingNew} new)
+          <span aria-hidden>{pendingDir === 'up' ? '↑' : '↓'}</span>
+          {pendingDir === 'up'
+            ? (pendingNew > 0 ? `New messages (${pendingNew})` : 'New messages')
+            : (pendingNew > 0 ? `Jump to present (${pendingNew} new)` : 'Jump to present')}
         </button>
       )}
     </div>

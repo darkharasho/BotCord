@@ -11,6 +11,8 @@ import {
   IconMicrophoneOff,
   IconHeadphonesOff,
   IconUsers,
+  IconChevronUp,
+  IconChevronDown,
 } from '@tabler/icons-react';
 import type { Icon } from '@tabler/icons-react';
 
@@ -30,6 +32,8 @@ export function ChannelList({
   const loaded = useRef(false);
   const collapsedRef = useRef(collapsed);
   collapsedRef.current = collapsed;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [unreadOffscreen, setUnreadOffscreen] = useState<{ above: boolean; below: boolean }>({ above: false, below: false });
 
   // Hydrate from prefs once, then mark loaded so the persistence effect can
   // start saving without overwriting the just-loaded value.
@@ -65,6 +69,42 @@ export function ChannelList({
     const unsub = api.events.onChannelUpdate((c) => { if (c.guildId === guildId) load(); });
     return () => { active = false; unsub(); };
   }, [guildId]);
+
+  // Track whether any unread channel button is scrolled outside the visible
+  // area of the channel-list scroller. Powers the "↑ NEW UNREADS" pills
+  // that surface offscreen unread channels.
+  const recomputeUnreadOffscreen = () => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const sr = scroller.getBoundingClientRect();
+    const buttons = scroller.querySelectorAll<HTMLElement>('[data-unread-channel]');
+    let above = false;
+    let below = false;
+    buttons.forEach(btn => {
+      const r = btn.getBoundingClientRect();
+      if (r.bottom <= sr.top + 1) above = true;
+      else if (r.top >= sr.bottom - 1) below = true;
+    });
+    setUnreadOffscreen(prev => (prev.above === above && prev.below === below) ? prev : { above, below });
+  };
+
+  useEffect(() => {
+    recomputeUnreadOffscreen();
+  }, [channels, unreadIds, collapsed]);
+
+  const scrollToOffscreenUnread = (direction: 'up' | 'down') => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const sr = scroller.getBoundingClientRect();
+    const buttons = Array.from(scroller.querySelectorAll<HTMLElement>('[data-unread-channel]'));
+    const offscreen = buttons.filter(btn => {
+      const r = btn.getBoundingClientRect();
+      return direction === 'up' ? r.bottom <= sr.top + 1 : r.top >= sr.bottom - 1;
+    });
+    if (offscreen.length === 0) return;
+    const target = direction === 'up' ? offscreen[offscreen.length - 1]! : offscreen[0]!;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   const grouped = useMemo(() => {
     const categories = channels.filter(c => c.type === 'category').sort((a, b) => a.position - b.position);
@@ -114,6 +154,7 @@ export function ChannelList({
           <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-fg rounded-r-full animate-fade-in" />
         )}
         <button
+          {...(isUnread ? { 'data-unread-channel': c.id } : {})}
           onClick={() => onSelect(c.id)}
           className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5 transition-colors duration-150
             ${indent ? 'pl-7' : ''}
@@ -152,7 +193,24 @@ export function ChannelList({
 
   const membersSelected = view === 'members';
   return (
-    <div className="h-full overflow-y-auto px-2 pt-2 pb-4">
+    <div className="h-full relative">
+      {unreadOffscreen.above && (
+        <button
+          onClick={() => scrollToOffscreenUnread('up')}
+          className="absolute z-10 top-2 inset-x-0 mx-auto w-fit px-2.5 py-1 bg-selected text-fg-muted rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg hover:text-fg animate-fade-in-down transition-colors flex items-center gap-1"
+        >
+          <IconChevronUp size={12} stroke={2.5} aria-hidden /> New unreads
+        </button>
+      )}
+      {unreadOffscreen.below && (
+        <button
+          onClick={() => scrollToOffscreenUnread('down')}
+          className="absolute z-10 bottom-2 inset-x-0 mx-auto w-fit px-2.5 py-1 bg-selected text-fg-muted rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg hover:text-fg animate-fade-in-up transition-colors flex items-center gap-1"
+        >
+          <IconChevronDown size={12} stroke={2.5} aria-hidden /> New unreads
+        </button>
+      )}
+      <div ref={scrollRef} onScroll={recomputeUnreadOffscreen} className="h-full overflow-y-auto px-2 pt-2 pb-4">
       <button
         onClick={onSelectMembers}
         className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5 transition-colors duration-150 mb-1
@@ -182,6 +240,7 @@ export function ChannelList({
           </CategoryGroup>
         );
       })}
+      </div>
     </div>
   );
 }
