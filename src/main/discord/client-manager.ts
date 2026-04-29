@@ -1,6 +1,6 @@
 import { Client, Events, Partials } from 'discord.js';
 import type { Message } from 'discord.js';
-import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, SystemMessageKind } from '../../shared/domain';
+import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, SystemMessageKind, PollSummary } from '../../shared/domain';
 import { MessageType } from 'discord.js';
 import { REQUIRED_INTENTS } from './intents';
 import {
@@ -268,6 +268,30 @@ export function summarizeMessage(m: Message): MessageSummary {
       ? { id: m.reference.messageId, authorTag: '' }
       : null,
     systemKind: classifySystemMessage(m.type, m.system),
+    poll: projectPoll(m.poll),
+  };
+}
+
+function projectPoll(p: { question: { text: string | null }; answers: Map<number, { id: number; text: string | null; emoji: { name: string | null; id: string | null; animated: boolean | null } | null; voteCount: number }>; allowMultiselect: boolean; expiresTimestamp: number | null; resultsFinalized: boolean } | null): PollSummary | null {
+  if (!p) return null;
+  const answers = Array.from(p.answers.values()).map(a => ({
+    id: a.id,
+    text: a.text ?? '',
+    emoji: a.emoji
+      ? (a.emoji.id
+          ? `<${a.emoji.animated ? 'a' : ''}:${a.emoji.name ?? 'emoji'}:${a.emoji.id}>`
+          : a.emoji.name ?? null)
+      : null,
+    voteCount: a.voteCount,
+  }));
+  const totalVotes = answers.reduce((sum, a) => sum + a.voteCount, 0);
+  return {
+    question: p.question.text ?? '',
+    answers,
+    totalVotes,
+    allowMultiselect: p.allowMultiselect,
+    expiresAt: p.expiresTimestamp,
+    resultsFinalized: p.resultsFinalized,
   };
 }
 

@@ -3,6 +3,7 @@ import { Markdown } from './Markdown';
 import { EmbedCard } from './EmbedCard';
 import { InlineMediaEmbed } from './InlineMediaEmbed';
 import { AttachmentInline } from './AttachmentInline';
+import { PollCard } from './PollCard';
 
 function isMediaOnlyEmbed(e: MessageEmbedSummary): boolean {
   // Tenor/Giphy and bare image/gif links arrive as type=gifv|image|video
@@ -47,6 +48,7 @@ export function MessageContent({ message }: { message: MessageSummary }) {
           ? <InlineMediaEmbed key={i} embed={e} />
           : <EmbedCard key={i} embed={e} />
       )}
+      {message.poll && <PollCard poll={message.poll} />}
     </div>
   );
 }

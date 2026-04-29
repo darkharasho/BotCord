@@ -83,6 +83,15 @@ export type SystemMessageKind =
   | 'recipient_add'
   | 'other';
 
+export type PollSummary = {
+  question: string;
+  answers: Array<{ id: number; text: string; emoji: string | null; voteCount: number }>;
+  totalVotes: number;
+  allowMultiselect: boolean;
+  expiresAt: number | null;
+  resultsFinalized: boolean;
+};
+
 export type MessageSummary = {
   id: string;
   channelId: string;
@@ -103,6 +112,7 @@ export type MessageSummary = {
   mentions: ResolvedMention[];
   replyTo: { id: string; authorTag: string } | null;
   systemKind: SystemMessageKind | null;
+  poll: PollSummary | null;
 };
 
 export type EmbedPayload = {
