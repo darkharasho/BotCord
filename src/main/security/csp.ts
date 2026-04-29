@@ -2,7 +2,7 @@ import { session } from 'electron';
 
 const PROD_CSP = [
   "default-src 'self'",
-  "img-src 'self' https: data:",
+  "img-src 'self' https: data: blob:",
   "media-src 'self' https: data: blob:",
   "connect-src 'none'",
   "script-src 'self'",
@@ -15,7 +15,7 @@ const PROD_CSP = [
 
 const DEV_CSP = [
   "default-src 'self' http://localhost:* ws://localhost:*",
-  "img-src 'self' https: data:",
+  "img-src 'self' https: data: blob:",
   "media-src 'self' https: data: blob:",
   "connect-src 'self' http://localhost:* ws://localhost:*",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*",
