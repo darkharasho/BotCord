@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { MembersToolbar } from './members/MembersToolbar';
 import { MembersTable, type SortKey } from './members/MembersTable';
+import { MembersBulkBar } from './members/MembersBulkBar';
 import type { AllMembersEntry, GuildRole } from '../../shared/domain';
 
 export function MembersDirectory({ guildId }: { guildId: string | null }) {
@@ -143,6 +144,27 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
           else { setSortKey(k); setSortDir('desc'); }
         }}
         rolesById={rolesById}
+      />
+      <MembersBulkBar
+        guildId={guildId}
+        selectedIds={Array.from(selected).filter(id => {
+          const e = entries.find(en => en.id === id);
+          return e ? !e.isBot : false;
+        })}
+        roles={roles}
+        onClear={() => setSelected(new Set())}
+        onActionComplete={() => {
+          setSelected(new Set());
+          // Refresh cached members so role changes / kicks / bans are reflected.
+          cache.current.delete(guildId);
+          api.guilds.listAllMembers(guildId).then(res => {
+            if (res.ok) {
+              cache.current.set(guildId, res.data);
+              setEntries(res.data.entries);
+              setIntentMissing(res.data.intentMissing);
+            }
+          });
+        }}
       />
     </main>
   );
