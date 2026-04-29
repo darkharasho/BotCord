@@ -14,6 +14,7 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
     const canGroup = prev
       && !prev.systemKind
       && !m.systemKind
+      && !m.replyTo // replies always start a fresh group so the preview + avatar render
       && prev.authorId === m.authorId
       && (m.createdAt - prev.createdAt) < GROUP_WINDOW_MS;
     if (canGroup) {
