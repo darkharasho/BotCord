@@ -44,6 +44,31 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     return { guild, target, role };
   }
 
+  async function assertCanModerate(
+    guildId: string,
+    targetUserId: string,
+    requiredFlag: bigint,
+    permName: string,
+  ): Promise<{ target: GuildMember } | Result<never>> {
+    const client = manager.getClient();
+    if (!client || !client.isReady() || !client.user) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+    const botMember = guild.members.cache.get(client.user.id) ?? await guild.members.fetch(client.user.id).catch(() => null);
+    if (!botMember) return err('NOT_FOUND', 'Bot member not found in guild');
+    if (!botMember.permissions.has(requiredFlag)) {
+      return err('FORBIDDEN', `Bot is missing the ${permName} permission`);
+    }
+    let target: GuildMember | undefined = guild.members.cache.get(targetUserId);
+    if (!target) { try { target = await guild.members.fetch(targetUserId); } catch { /* fall through */ } }
+    if (!target) return err('NOT_FOUND', `Member ${targetUserId} not found`);
+    if (target.id === botMember.id) return err('FORBIDDEN', 'Cannot perform this action on the bot itself');
+    if (target.roles.highest.position >= botMember.roles.highest.position) {
+      return err('FORBIDDEN', "Target's highest role is at or above the bot's highest role");
+    }
+    return { target };
+  }
+
   ipcMain.handle(IPC_CHANNELS['guilds.assignRole'], async (_, guildId: unknown, userId: unknown, roleId: unknown): Promise<Result<void>> => {
     if (typeof guildId !== 'string' || typeof userId !== 'string' || typeof roleId !== 'string') return err('INTERNAL', 'guildId, userId, roleId required');
     const guard = await assertCanManageRoleOnTarget(guildId, userId, roleId);
@@ -343,5 +368,51 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       { id: target.id,    permissionsBitfield: target.permissions.bitfield,    topRolePosition: target.roles.highest.position },
     );
     return ok(caps);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.kickMember'], async (_, guildId: unknown, userId: unknown, reason: unknown): Promise<Result<void>> => {
+    if (typeof guildId !== 'string' || typeof userId !== 'string') return err('INTERNAL', 'guildId and userId required');
+    const r = typeof reason === 'string' && reason.length > 0 ? reason.slice(0, 512) : undefined;
+    const guard = await assertCanModerate(guildId, userId, PermissionsBitField.Flags.KickMembers, 'Kick Members');
+    if (!('target' in guard)) return guard;
+    try {
+      await guard.target.kick(r);
+      return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : 'Failed to kick member');
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.banMember'], async (_, guildId: unknown, userId: unknown, opts: unknown): Promise<Result<void>> => {
+    if (typeof guildId !== 'string' || typeof userId !== 'string') return err('INTERNAL', 'guildId and userId required');
+    const o = (opts && typeof opts === 'object' ? opts : {}) as { reason?: string; deleteMessageSeconds?: number };
+    const reason = typeof o.reason === 'string' && o.reason.length > 0 ? o.reason.slice(0, 512) : undefined;
+    const dms = typeof o.deleteMessageSeconds === 'number' && o.deleteMessageSeconds >= 0 && o.deleteMessageSeconds <= 604800
+      ? Math.floor(o.deleteMessageSeconds)
+      : 0;
+    const guard = await assertCanModerate(guildId, userId, PermissionsBitField.Flags.BanMembers, 'Ban Members');
+    if (!('target' in guard)) return guard;
+    try {
+      await guard.target.ban({ ...(reason !== undefined ? { reason } : {}), deleteMessageSeconds: dms });
+      return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : 'Failed to ban member');
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.timeoutMember'], async (_, guildId: unknown, userId: unknown, durationMs: unknown, reason: unknown): Promise<Result<void>> => {
+    if (typeof guildId !== 'string' || typeof userId !== 'string') return err('INTERNAL', 'guildId and userId required');
+    if (typeof durationMs !== 'number' || durationMs <= 0 || durationMs > 28 * 24 * 60 * 60 * 1000) {
+      return err('INTERNAL', 'durationMs must be > 0 and <= 28 days');
+    }
+    const r = typeof reason === 'string' && reason.length > 0 ? reason.slice(0, 512) : undefined;
+    const guard = await assertCanModerate(guildId, userId, PermissionsBitField.Flags.ModerateMembers, 'Timeout Members');
+    if (!('target' in guard)) return guard;
+    try {
+      await guard.target.timeout(Math.floor(durationMs), r);
+      return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : 'Failed to timeout member');
+    }
   });
 }
