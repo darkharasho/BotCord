@@ -2,8 +2,9 @@ import { ipcMain } from 'electron';
 import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember, type ForumChannel, type MediaChannel } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, MemberDetail, MemberRole, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary } from '../../shared/domain';
+import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, MemberDetail, MemberRole, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary, GuildRole, BotCapabilities } from '../../shared/domain';
 import { projectChannel, projectGuildEmojis, voiceMembersFor, projectForumChannel, fetchArchivedForumPosts } from '../discord/client-manager';
+import { computeBotCapabilities } from '../discord/permissions';
 import type { IpcDeps } from './index';
 
 function scoreMatch(m: GuildMember, q: string): number {
@@ -249,5 +250,48 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
     return ok(await fetchArchivedForumPosts(guild, forumId));
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.listGuildRoles'], async (_, guildId: unknown): Promise<Result<GuildRole[]>> => {
+    if (typeof guildId !== 'string') return err('INTERNAL', 'guildId must be a string');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+
+    const roles: GuildRole[] = Array.from(guild.roles.cache.values())
+      .filter(r => r.id !== guild.id) // exclude @everyone
+      .sort((a, b) => b.position - a.position)
+      .map(r => ({
+        id: r.id,
+        name: r.name,
+        color: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : null,
+        position: r.position,
+        managed: r.managed,
+        iconUrl: r.iconURL({ size: 32 }),
+        unicodeEmoji: r.unicodeEmoji ?? null,
+      }));
+    return ok(roles);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.getBotCapabilities'], async (_, guildId: unknown, targetUserId: unknown): Promise<Result<BotCapabilities>> => {
+    if (typeof guildId !== 'string' || typeof targetUserId !== 'string') return err('INTERNAL', 'guildId and targetUserId required');
+    const client = manager.getClient();
+    if (!client || !client.isReady() || !client.user) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+
+    const botMember = guild.members.cache.get(client.user.id) ?? await guild.members.fetch(client.user.id).catch(() => null);
+    if (!botMember) return err('NOT_FOUND', 'Bot member not found in guild');
+
+    let target: GuildMember | undefined = guild.members.cache.get(targetUserId);
+    if (!target) { try { target = await guild.members.fetch(targetUserId); } catch { /* fall through */ } }
+    if (!target) return err('NOT_FOUND', `Member ${targetUserId} not found`);
+
+    const caps = computeBotCapabilities(
+      { id: botMember.id, permissionsBitfield: botMember.permissions.bitfield, topRolePosition: botMember.roles.highest.position },
+      { id: target.id,    permissionsBitfield: target.permissions.bitfield,    topRolePosition: target.roles.highest.position },
+    );
+    return ok(caps);
   });
 }
