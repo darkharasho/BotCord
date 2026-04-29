@@ -1,10 +1,69 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { MessageSummary } from '../../shared/domain';
 import { useChannelMessages } from '../lib/use-channel-messages';
 import { MessageGroup } from './MessageGroup';
 import { SystemMessageRow } from './SystemMessageRow';
+import { MessageSkeleton } from './MessageSkeleton';
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+// Stable per-day key derived in local time so messages on the same calendar
+// day always share a separator regardless of the user's timezone offset.
+function dayKeyOf(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function formatDateLabel(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString(undefined, sameYear
+    ? { month: 'long', day: 'numeric' }
+    : { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function DateSeparator({ ts }: { ts: number }) {
+  return (
+    <div
+      role="separator"
+      aria-label={formatDateLabel(ts)}
+      className="relative flex items-center justify-center my-4 px-4 select-none"
+    >
+      <span aria-hidden className="absolute inset-x-4 top-1/2 h-px bg-white/[0.08]" />
+      <span className="relative bg-bg px-2 text-[11px] font-semibold text-fg-muted uppercase tracking-wider">
+        {formatDateLabel(ts)}
+      </span>
+    </div>
+  );
+}
+
+function renderGroupsWithDateSeparators(
+  groups: MessageSummary[][],
+  onReply?: ((m: MessageSummary) => void) | undefined,
+): ReactNode[] {
+  const out: ReactNode[] = [];
+  let lastDayKey: string | null = null;
+  groups.forEach((g, gi) => {
+    const head = g[0]!;
+    const dayKey = dayKeyOf(head.createdAt);
+    if (dayKey !== lastDayKey) {
+      out.push(<DateSeparator key={`d-${dayKey}`} ts={head.createdAt} />);
+      lastDayKey = dayKey;
+    }
+    if (head.systemKind) {
+      out.push(<SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />);
+    } else {
+      out.push(<MessageGroup key={`g-${gi}-${head.id}`} messages={g} onReply={onReply} />);
+    }
+  });
+  return out;
+}
 
 function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   const groups: MessageSummary[][] = [];
@@ -26,7 +85,15 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   return groups;
 }
 
-export function MessageList({ channelId, filter, onReply }: { channelId: string | null; filter?: string; onReply?: ((m: MessageSummary) => void) | undefined }) {
+export function MessageList({ channelId, filter, onReply, header }: {
+  channelId: string | null;
+  filter?: string;
+  onReply?: ((m: MessageSummary) => void) | undefined;
+  // Optional content to render above the first message inside the scroll
+  // container — used by ChannelView to show a forum-post intro for threads
+  // under a forum parent.
+  header?: ReactNode;
+}) {
   const { messages: allMessages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
   const trimmed = filter?.trim().toLowerCase() ?? '';
   const messages = trimmed.length > 0
@@ -125,21 +192,22 @@ export function MessageList({ channelId, filter, onReply }: { channelId: string 
     <div className="flex-1 min-h-0 flex flex-col relative">
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto">
         <div ref={contentRef}>
+          {header}
           {error && <div className="p-3 text-danger text-sm">{error}</div>}
-          {loading && messages.length === 0 && <div className="p-3 text-fg-muted text-sm">Loading…</div>}
+          {loading && messages.length === 0 && <MessageSkeleton count={6} />}
           {!hasMore && messages.length > 0 && (
             <div className="text-center text-[10px] text-fg-muted py-2">— Beginning of channel history —</div>
           )}
-          {groups.map((g, gi) => {
-            const head = g[0]!;
-            if (head.systemKind) return <SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />;
-            return <MessageGroup key={`g-${gi}-${head.id}`} messages={g} onReply={onReply} />;
-          })}
+          {messages.length > 0 && (
+            <div key={channelId} className="animate-fade-in">
+              {renderGroupsWithDateSeparators(groups, onReply)}
+            </div>
+          )}
         </div>
       </div>
       {pendingNew > 0 && (
         <button
-          className="absolute bottom-3 right-4 px-3 py-1 bg-accent text-white rounded-full text-xs shadow-lg hover:bg-accent-hover"
+          className="absolute bottom-3 right-4 px-3 py-1 bg-accent text-white rounded-full text-xs shadow-lg hover:bg-accent-hover animate-fade-in-up transition-colors"
           onClick={() => {
             const el = scrollRef.current;
             if (el) el.scrollTop = el.scrollHeight;

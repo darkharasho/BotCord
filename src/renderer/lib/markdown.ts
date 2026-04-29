@@ -8,6 +8,7 @@ export type MdNode =
   | { type: 'code_inline'; value: string }
   | { type: 'code_block'; lang: string | null; value: string }
   | { type: 'blockquote'; children: MdNode[] }
+  | { type: 'heading'; level: 1 | 2 | 3; children: MdNode[] }
   | { type: 'link'; url: string; children: MdNode[] }
   | { type: 'mention_user'; id: string }
   | { type: 'mention_channel'; id: string }
@@ -46,7 +47,25 @@ export function parseMarkdown(input: string): MdNode[] {
       continue;
     }
 
-    // Find the next block-level boundary (code fence or blockquote start)
+    // ATX-style heading (Discord supports #, ##, ###). Only valid at the
+    // start of a line and must be followed by a space — `#emoji` isn't a
+    // header. Captures whole-line content; inline (including emoji) is
+    // parsed recursively so `# 🎉 Title` keeps the glyph inside the header.
+    if (i === 0 || input[i - 1] === '\n') {
+      const headingMatch = /^(#{1,3}) ([^\n]*)/.exec(input.slice(i));
+      if (headingMatch) {
+        const level = headingMatch[1]!.length as 1 | 2 | 3;
+        const lineText = headingMatch[2]!;
+        out.push({ type: 'heading', level, children: parseInline(lineText) });
+        i += headingMatch[0].length;
+        // Consume the trailing newline so the heading doesn't emit a stray
+        // line_break right after it.
+        if (input[i] === '\n') i += 1;
+        continue;
+      }
+    }
+
+    // Find the next block-level boundary (code fence, blockquote, or heading)
     let nextBlock = input.length;
     const nextCode = input.indexOf('```', i);
     if (nextCode !== -1 && nextCode < nextBlock) nextBlock = nextCode;
@@ -54,6 +73,12 @@ export function parseMarkdown(input: string): MdNode[] {
     if (bq !== -1 && bq + 1 < nextBlock) nextBlock = bq + 1;
     // Handle blockquote at position 0
     if (i === 0 && input.startsWith('> ')) nextBlock = i;
+    // Headings: scan for `\n#`, `\n##`, `\n###` followed by a space.
+    const headingBoundary = /\n(#{1,3}) /.exec(input.slice(i));
+    if (headingBoundary && headingBoundary.index !== undefined) {
+      const abs = i + headingBoundary.index + 1; // position of the `#`
+      if (abs < nextBlock) nextBlock = abs;
+    }
 
     const segment = input.slice(i, nextBlock);
     if (segment.length > 0) out.push(...parseInline(segment));
@@ -143,17 +168,60 @@ function parseInline(text: string, opts: { preserveNewlines?: boolean } = {}): M
       }
     }
 
-    // Auto-link bare URLs
+    // Markdown link: [text](url) — parsed before auto-link so the bracket
+    // form wins when it overlaps with a bare URL inside the parens. URL is
+    // walked with paren-depth tracking so wiki-style links like
+    // `[wiki](https://en.wikipedia.org/wiki/Foo_(bar))` keep both `)`s.
+    if (c === '[') {
+      const labelEnd = findMatchingBracket(text, i, '[', ']');
+      if (labelEnd !== -1 && text[labelEnd + 1] === '(') {
+        const urlStart = labelEnd + 2;
+        const urlEnd = findClosingParen(text, urlStart);
+        if (urlEnd !== -1) {
+          const label = text.slice(i + 1, labelEnd);
+          const url = text.slice(urlStart, urlEnd).trim();
+          if (url.length > 0) {
+            flushBuf();
+            out.push({
+              type: 'link',
+              url,
+              children: parseInline(label, opts),
+            });
+            i = urlEnd + 1;
+            continue;
+          }
+        }
+      }
+    }
+
+    // Suppressed link: <https://url> — Discord uses these to hide embeds.
+    // We render them as a normal link without the angle brackets.
+    if (c === '<' && (text.startsWith('<http://', i) || text.startsWith('<https://', i))) {
+      const close = text.indexOf('>', i);
+      if (close !== -1) {
+        const url = text.slice(i + 1, close);
+        if (/^https?:\/\/\S+$/.test(url)) {
+          flushBuf();
+          out.push({ type: 'link', url, children: [{ type: 'text', value: url }] });
+          i = close + 1;
+          continue;
+        }
+      }
+    }
+
+    // Auto-link bare URLs. Trim trailing punctuation so a sentence-ending
+    // period or closing paren doesn't get sucked into the href.
     if (c === 'h' && (text.startsWith('https://', i) || text.startsWith('http://', i))) {
       const m = /^https?:\/\/[^\s<>]+/.exec(text.slice(i));
       if (m) {
+        const trimmed = trimTrailingPunctuation(m[0]);
         flushBuf();
         out.push({
           type: 'link',
-          url: m[0],
-          children: [{ type: 'text', value: m[0] }],
+          url: trimmed,
+          children: [{ type: 'text', value: trimmed }],
         });
-        i += m[0].length;
+        i += trimmed.length;
         continue;
       }
     }
@@ -196,4 +264,53 @@ function parseInline(text: string, opts: { preserveNewlines?: boolean } = {}): M
 
   flushBuf();
   return out;
+}
+
+// Walks `text` from `start` (the char *after* the opening paren) until a
+// matching `)` at depth 0. Tracks nested parens so URLs containing balanced
+// parens (Wikipedia, MDN section IDs, etc.) survive intact. Bails on `\n`
+// since markdown links don't span line breaks.
+function findClosingParen(text: string, start: number): number {
+  let depth = 1;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (c === '\n') return -1;
+    if (c === '(') depth++;
+    else if (c === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+// Walks `text` from `start` (which sits on `open`), respecting nested
+// brackets, and returns the index of the matching `close`, or -1.
+function findMatchingBracket(text: string, start: number, open: string, close: string): number {
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (c === '\\') { i++; continue; }
+    if (c === open) depth++;
+    else if (c === close) {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+// Discord trims a small set of trailing punctuation off bare URLs so that
+// "see https://example.com." doesn't include the period in the link.
+const TRAILING_PUNCT = /[.,;:!?'")\]]+$/;
+function trimTrailingPunctuation(url: string): string {
+  let trimmed = url.replace(TRAILING_PUNCT, '');
+  // Re-balance parens so URLs like https://en.wikipedia.org/wiki/Foo_(bar)
+  // keep their final `)` if there was a matching `(` earlier in the URL.
+  const opens = (trimmed.match(/\(/g) ?? []).length;
+  const closes = (trimmed.match(/\)/g) ?? []).length;
+  if (closes < opens && url.length > trimmed.length && url[trimmed.length] === ')') {
+    trimmed += ')';
+  }
+  return trimmed;
 }

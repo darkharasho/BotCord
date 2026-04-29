@@ -25,6 +25,8 @@ const api: BotcordApi = {
     listEmojis: (guildId) => invoke(IPC_CHANNELS['guilds.listEmojis'], guildId),
     searchMembers: (guildId, query, opts) => invoke(IPC_CHANNELS['guilds.searchMembers'], guildId, query, opts),
     listChannelMembers: (guildId, channelId) => invoke(IPC_CHANNELS['guilds.listChannelMembers'], guildId, channelId),
+    getForum: (guildId, forumId) => invoke(IPC_CHANNELS['guilds.getForum'], guildId, forumId),
+    listArchivedForumPosts: (guildId, forumId) => invoke(IPC_CHANNELS['guilds.listArchivedForumPosts'], guildId, forumId),
   },
   messages: {
     send: (channelId, content, opts) => invoke(IPC_CHANNELS['messages.send'], channelId, content, opts),
@@ -37,6 +39,9 @@ const api: BotcordApi = {
     history: (channelId, opts) => invoke(IPC_CHANNELS['messages.history'], channelId, opts),
     delete: (channelId, messageId) => invoke(IPC_CHANNELS['messages.delete'], channelId, messageId),
     bulkDelete: (channelId, ids) => invoke(IPC_CHANNELS['messages.bulkDelete'], channelId, ids),
+    createForumPost: (forumId, payload) => invoke(IPC_CHANNELS['messages.createForumPost'], forumId, payload),
+    toggleReaction: (channelId, messageId, emoji) => invoke(IPC_CHANNELS['messages.toggleReaction'], channelId, messageId, emoji),
+    fetchReactionUsers: (channelId, messageId, emoji) => invoke(IPC_CHANNELS['messages.fetchReactionUsers'], channelId, messageId, emoji),
   },
   drafts: {
     list: () => invoke(IPC_CHANNELS['drafts.list']),
@@ -56,6 +61,8 @@ const api: BotcordApi = {
     onMessageUpdate: (cb) => subscribe(IPC_CHANNELS['event.messageUpdate'], cb as (p: unknown) => void),
     onMessageDelete: (cb) => subscribe(IPC_CHANNELS['event.messageDelete'], cb as (p: unknown) => void),
     onGuildEmojisUpdate: (cb) => subscribe(IPC_CHANNELS['event.guildEmojisUpdate'], cb as (p: unknown) => void),
+    onForumPostUpdate: (cb) => subscribe(IPC_CHANNELS['event.forumPostUpdate'], cb as (p: unknown) => void),
+    onForumPostDelete: (cb) => subscribe(IPC_CHANNELS['event.forumPostDelete'], cb as (p: unknown) => void),
   },
   system: {
     appVersion: () => invoke(IPC_CHANNELS['system.appVersion']),

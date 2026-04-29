@@ -4,6 +4,7 @@ import { EmbedCard } from './EmbedCard';
 import { InlineMediaEmbed } from './InlineMediaEmbed';
 import { AttachmentInline } from './AttachmentInline';
 import { PollCard } from './PollCard';
+import { ReactionBar } from './ReactionBar';
 
 function isMediaOnlyEmbed(e: MessageEmbedSummary): boolean {
   // Tenor/Giphy and bare image/gif links arrive as type=gifv|image|video.
@@ -51,9 +52,10 @@ export function MessageContent({ message }: { message: MessageSummary }) {
       {message.embeds.map((e, i) =>
         isMediaOnlyEmbed(e)
           ? <InlineMediaEmbed key={i} embed={e} />
-          : <EmbedCard key={i} embed={e} />
+          : <EmbedCard key={i} embed={e} mentions={message.mentions} />
       )}
-      {message.poll && <PollCard poll={message.poll} channelId={message.channelId} messageId={message.id} />}
+      {message.poll && <PollCard poll={message.poll} channelId={message.channelId} messageId={message.id} mentions={message.mentions} />}
+      <ReactionBar message={message} />
     </div>
   );
 }

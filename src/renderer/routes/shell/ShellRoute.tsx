@@ -5,6 +5,7 @@ import { BotIdentityFooter } from '../../components/BotIdentityFooter';
 import { SettingsPanel } from '../../components/SettingsPanel';
 import { Toaster } from '../../components/Toaster';
 import { ChannelView } from './ChannelView';
+import { ForumView } from './ForumView';
 import { api } from '../../lib/api';
 import { useUnreads } from '../../lib/use-unreads';
 import type { ChannelSummary, GuildSummary } from '../../../shared/domain';
@@ -21,8 +22,18 @@ export function ShellRoute() {
     api.guilds.listChannels(guild.id).then(res => { if (res.ok) setChannels(res.data); });
   }, [guild]);
 
-  const channelName = channels.find(c => c.id === channelId)?.name ?? null;
+  const selectedChannel = channels.find(c => c.id === channelId) ?? null;
+  const channelName = selectedChannel?.name ?? null;
   const unreads = useUnreads(channelId);
+
+  // Surface a back-to-forum breadcrumb when viewing a forum post (a thread
+  // whose parent is a forum channel in the cache).
+  const parentChannel = selectedChannel?.parentId
+    ? channels.find(c => c.id === selectedChannel.parentId) ?? null
+    : null;
+  const backToForum = selectedChannel?.type === 'thread' && parentChannel?.type === 'forum'
+    ? { id: parentChannel.id, name: parentChannel.name, onClick: () => setChannelId(parentChannel.id) }
+    : undefined;
 
   return (
     <div className="h-full flex bg-bg-sunken">
@@ -43,7 +54,21 @@ export function ShellRoute() {
         </div>
         <BotIdentityFooter onOpenSettings={() => setSettingsOpen(true)} />
       </aside>
-      <ChannelView channelId={channelId} guildId={guild?.id ?? null} channelName={channelName} />
+      {selectedChannel?.type === 'forum' ? (
+        <ForumView
+          guildId={guild?.id ?? null}
+          forumId={selectedChannel.id}
+          forumName={selectedChannel.name}
+          onSelectPost={setChannelId}
+        />
+      ) : (
+        <ChannelView
+          channelId={channelId}
+          guildId={guild?.id ?? null}
+          channelName={channelName}
+          {...(backToForum ? { backToForum } : {})}
+        />
+      )}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <Toaster />
     </div>

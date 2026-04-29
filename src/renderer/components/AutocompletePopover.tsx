@@ -29,7 +29,7 @@ export function AutocompletePopover({
 
   return (
     <div className="absolute bottom-full left-0 right-0 mb-2 z-40">
-      <div className="mx-auto max-w-[640px] bg-bg-subtle border border-border rounded-lg shadow-2xl overflow-hidden">
+      <div className="mx-auto max-w-[640px] bg-bg-subtle border border-border rounded-lg shadow-2xl overflow-hidden animate-fade-in-up origin-bottom">
         <div className="px-3 py-2 text-[11px] uppercase font-semibold text-fg-dim border-b border-border">
           {title}
         </div>

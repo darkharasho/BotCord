@@ -1,6 +1,7 @@
 import type {
-  BotIdentity, BotStatus, ChannelMemberSummary, ChannelSummary, DraftInput, DraftRow,
-  EmbedPayload, GatewayState, GuildEmoji, GuildSummary, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
+  BotIdentity, BotStatus, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
+  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildSummary,
+  MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
 
@@ -18,6 +19,8 @@ export interface BotcordApi {
     listEmojis(guildId: string): Promise<Result<GuildEmoji[]>>;
     searchMembers(guildId: string, query: string, opts?: { limit?: number; channelId?: string }): Promise<Result<MemberSummary[]>>;
     listChannelMembers(guildId: string, channelId: string): Promise<Result<ChannelMemberSummary[]>>;
+    getForum(guildId: string, forumId: string): Promise<Result<ForumChannelDetail>>;
+    listArchivedForumPosts(guildId: string, forumId: string): Promise<Result<ForumPostSummary[]>>;
   };
   messages: {
     send(channelId: string, content: string, opts?: { replyToMessageId?: string }): Promise<Result<MessageSummary>>;
@@ -33,6 +36,9 @@ export interface BotcordApi {
     history(channelId: string, opts: { before?: string; limit: number }): Promise<Result<MessageSummary[]>>;
     delete(channelId: string, messageId: string): Promise<Result<void>>;
     bulkDelete(channelId: string, messageIds: string[]): Promise<Result<{ deleted: string[] }>>;
+    createForumPost(forumId: string, payload: CreateForumPostPayload): Promise<Result<ForumPostSummary>>;
+    toggleReaction(channelId: string, messageId: string, emoji: { id: string | null; name: string; animated?: boolean }): Promise<Result<void>>;
+    fetchReactionUsers(channelId: string, messageId: string, emoji: { id: string | null; name: string }): Promise<Result<{ id: string; displayName: string; avatarUrl: string | null }[]>>;
   };
   drafts: {
     list(): Promise<Result<DraftRow[]>>;
@@ -52,6 +58,8 @@ export interface BotcordApi {
     onMessageUpdate(cb: (p: { channelId: string; message: MessageSummary }) => void): () => void;
     onMessageDelete(cb: (p: { channelId: string; messageId: string }) => void): () => void;
     onGuildEmojisUpdate(cb: (p: { guildId: string; emojis: GuildEmoji[] }) => void): () => void;
+    onForumPostUpdate(cb: (p: { forumId: string; post: ForumPostSummary }) => void): () => void;
+    onForumPostDelete(cb: (p: { forumId: string; postId: string }) => void): () => void;
   };
   system: {
     appVersion(): Promise<string>;
@@ -78,6 +86,8 @@ export const IPC_CHANNELS = {
   'guilds.listEmojis': 'guilds.listEmojis',
   'guilds.searchMembers': 'guilds.searchMembers',
   'guilds.listChannelMembers': 'guilds.listChannelMembers',
+  'guilds.getForum': 'guilds.getForum',
+  'guilds.listArchivedForumPosts': 'guilds.listArchivedForumPosts',
   'messages.send': 'messages.send',
   'messages.sendEmbed': 'messages.sendEmbed',
   'messages.sendWithAttachments': 'messages.sendWithAttachments',
@@ -86,6 +96,9 @@ export const IPC_CHANNELS = {
   'messages.history': 'messages.history',
   'messages.delete': 'messages.delete',
   'messages.bulkDelete': 'messages.bulkDelete',
+  'messages.createForumPost': 'messages.createForumPost',
+  'messages.toggleReaction': 'messages.toggleReaction',
+  'messages.fetchReactionUsers': 'messages.fetchReactionUsers',
   'drafts.list': 'drafts.list',
   'drafts.upsert': 'drafts.upsert',
   'drafts.delete': 'drafts.delete',
@@ -107,6 +120,8 @@ export const IPC_CHANNELS = {
   'event.messageUpdate': 'event.messageUpdate',
   'event.messageDelete': 'event.messageDelete',
   'event.guildEmojisUpdate': 'event.guildEmojisUpdate',
+  'event.forumPostUpdate': 'event.forumPostUpdate',
+  'event.forumPostDelete': 'event.forumPostDelete',
 } as const;
 
 export type IpcChannel = keyof typeof IPC_CHANNELS;

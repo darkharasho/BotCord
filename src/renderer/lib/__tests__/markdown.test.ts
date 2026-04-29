@@ -102,4 +102,34 @@ describe('parseMarkdown', () => {
       ]},
     ]);
   });
+
+  it('parses [text](url) markdown links', () => {
+    expect(parseMarkdown('see [the docs](https://example.com) please')).toEqual([
+      { type: 'text', value: 'see ' },
+      { type: 'link', url: 'https://example.com', children: [{ type: 'text', value: 'the docs' }] },
+      { type: 'text', value: ' please' },
+    ]);
+  });
+
+  it('keeps balanced parens inside markdown link URLs', () => {
+    expect(parseMarkdown('[wiki](https://en.wikipedia.org/wiki/Foo_(bar))')).toEqual([
+      { type: 'link', url: 'https://en.wikipedia.org/wiki/Foo_(bar)', children: [{ type: 'text', value: 'wiki' }] },
+    ]);
+  });
+
+  it('parses suppressed-embed links <https://...>', () => {
+    expect(parseMarkdown('see <https://example.com> please')).toEqual([
+      { type: 'text', value: 'see ' },
+      { type: 'link', url: 'https://example.com', children: [{ type: 'text', value: 'https://example.com' }] },
+      { type: 'text', value: ' please' },
+    ]);
+  });
+
+  it('trims sentence-ending punctuation off bare URLs', () => {
+    expect(parseMarkdown('go to https://example.com.')).toEqual([
+      { type: 'text', value: 'go to ' },
+      { type: 'link', url: 'https://example.com', children: [{ type: 'text', value: 'https://example.com' }] },
+      { type: 'text', value: '.' },
+    ]);
+  });
 });

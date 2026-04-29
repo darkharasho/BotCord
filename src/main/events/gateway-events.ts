@@ -15,3 +15,5 @@ export const MESSAGE_CREATE_CHANNEL = IPC_CHANNELS['event.messageCreate'];
 export const MESSAGE_UPDATE_CHANNEL = IPC_CHANNELS['event.messageUpdate'];
 export const MESSAGE_DELETE_CHANNEL = IPC_CHANNELS['event.messageDelete'];
 export const GUILD_EMOJIS_UPDATE_CHANNEL = IPC_CHANNELS['event.guildEmojisUpdate'];
+export const FORUM_POST_UPDATE_CHANNEL = IPC_CHANNELS['event.forumPostUpdate'];
+export const FORUM_POST_DELETE_CHANNEL = IPC_CHANNELS['event.forumPostDelete'];

@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron';
-import { EmbedBuilder, AttachmentBuilder, type Message } from 'discord.js';
+import { EmbedBuilder, AttachmentBuilder, ChannelType, type Message, type ForumChannel, type MediaChannel } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { EmbedPayload, MessageSummary, PollPayload, PollVoter, SendAttachment } from '../../shared/domain';
-import { summarizeMessage } from '../discord/client-manager';
+import type { CreateForumPostPayload, EmbedPayload, ForumPostSummary, MessageSummary, PollPayload, PollVoter, SendAttachment } from '../../shared/domain';
+import { projectForumPost, summarizeMessage } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
 type SendOpts = {
@@ -229,6 +229,97 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       const msg = await (got as { ok: true; channel: SendableChannel }).channel.messages.fetch(messageId);
       await msg.delete();
       return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['messages.fetchReactionUsers'], async (_, channelId: unknown, messageId: unknown, emoji: unknown): Promise<Result<{ id: string; displayName: string; avatarUrl: string | null }[]>> => {
+    if (typeof channelId !== 'string' || typeof messageId !== 'string') return err('INTERNAL', 'channelId and messageId required');
+    const e = (emoji && typeof emoji === 'object' ? emoji : null) as { id?: unknown; name?: unknown } | null;
+    if (!e || typeof e.name !== 'string') return err('INTERNAL', 'emoji.name required');
+    const cacheKey = typeof e.id === 'string' && e.id.length > 0 ? e.id : e.name;
+
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const ch = client.channels.cache.get(channelId);
+    if (!ch || !('messages' in ch)) return err('NOT_FOUND', `Channel ${channelId} not found`);
+    try {
+      const msg = await (ch as { messages: { fetch: (id: string) => Promise<Message> } }).messages.fetch(messageId);
+      const reaction = msg.reactions.cache.get(cacheKey);
+      if (!reaction) return ok([]);
+      const users = await reaction.users.fetch({ limit: 100 });
+      const guild = msg.guild;
+      const out = Array.from(users.values()).map(u => {
+        const member = guild?.members.cache.get(u.id);
+        const displayName = member?.displayName ?? (u as unknown as { globalName?: string | null }).globalName ?? u.username;
+        return { id: u.id, displayName, avatarUrl: u.displayAvatarURL({ size: 64 }) };
+      });
+      return ok(out);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['messages.toggleReaction'], async (_, channelId: unknown, messageId: unknown, emoji: unknown): Promise<Result<void>> => {
+    if (typeof channelId !== 'string' || typeof messageId !== 'string') return err('INTERNAL', 'channelId and messageId required');
+    const e = (emoji && typeof emoji === 'object' ? emoji : null) as { id?: unknown; name?: unknown; animated?: unknown } | null;
+    if (!e || typeof e.name !== 'string' || e.name.length === 0) return err('INTERNAL', 'emoji.name required');
+    const emojiId = typeof e.id === 'string' && e.id.length > 0 ? e.id : null;
+    const emojiName = e.name;
+    // discord.js accepts a unicode char OR `<:name:id>` / `<a:name:id>` for
+    // custom emoji as the resolvable. The reactions cache also keys on these.
+    const animated = e.animated === true;
+    const resolvable = emojiId
+      ? `${animated ? 'a' : ''}:${emojiName}:${emojiId}`
+      : emojiName;
+    const cacheKey = emojiId ?? emojiName;
+
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const ch = client.channels.cache.get(channelId);
+    if (!ch || !('messages' in ch)) return err('NOT_FOUND', `Channel ${channelId} not found`);
+    try {
+      const msg = await (ch as { messages: { fetch: (id: string) => Promise<Message> } }).messages.fetch(messageId);
+      const existing = msg.reactions.cache.get(cacheKey);
+      if (existing && existing.me) {
+        // Remove the bot's own reaction. Use users.remove() with the bot id
+        // since reaction.remove() removes ALL users (admin-only behavior).
+        await existing.users.remove(client.user!.id);
+      } else {
+        await msg.react(resolvable);
+      }
+      return ok(undefined);
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['messages.createForumPost'], async (_, forumId: unknown, payload: unknown): Promise<Result<ForumPostSummary>> => {
+    if (typeof forumId !== 'string') return err('INTERNAL', 'forumId must be a string');
+    const p = (payload && typeof payload === 'object' ? payload : {}) as Partial<CreateForumPostPayload>;
+    const name = typeof p.name === 'string' ? p.name.trim() : '';
+    const content = typeof p.content === 'string' ? p.content : '';
+    const appliedTagIds = Array.isArray(p.appliedTagIds)
+      ? p.appliedTagIds.filter((v): v is string => typeof v === 'string')
+      : [];
+    if (name.length === 0 || name.length > 100) return err('INTERNAL', 'name must be 1–100 characters');
+    if (content.trim().length === 0) return err('INTERNAL', 'content is required');
+
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const ch = client.channels.cache.get(forumId);
+    if (!ch || (ch.type !== ChannelType.GuildForum && ch.type !== ChannelType.GuildMedia)) {
+      return err('NOT_FOUND', `Forum ${forumId} not found`);
+    }
+    try {
+      const forum = ch as ForumChannel | MediaChannel;
+      const thread = await forum.threads.create({
+        name,
+        message: { content },
+        appliedTags: appliedTagIds,
+      });
+      return ok(projectForumPost(thread));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }

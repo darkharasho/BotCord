@@ -64,12 +64,32 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
           {n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}
         </blockquote>
       );
+    case 'heading': {
+      // Match Discord's heading scale; render as a block via display:block
+      // so the heading sits on its own line within the message wrapper.
+      const cls = n.level === 1
+        ? 'block text-[24px] leading-[1.25] font-bold text-fg mt-4 first:mt-0 mb-1'
+        : n.level === 2
+        ? 'block text-[20px] leading-[1.25] font-bold text-fg mt-3 first:mt-0 mb-1'
+        : 'block text-[16px] leading-[1.25] font-bold text-fg mt-2 first:mt-0 mb-1';
+      return (
+        <span key={key} className={cls}>
+          {n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}
+        </span>
+      );
+    }
     case 'link':
       return (
-        <a key={key} href={n.url} className="text-accent hover:underline" onClick={(e) => {
-          e.preventDefault();
-          window.botcord.system.openExternal(n.url);
-        }}>
+        <a
+          key={key}
+          href={n.url}
+          title={n.url}
+          className="text-link hover:underline break-all"
+          onClick={(e) => {
+            e.preventDefault();
+            window.botcord.system.openExternal(n.url);
+          }}
+        >
           {n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}
         </a>
       );
@@ -85,21 +105,47 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
       const m = mentions.find(x => x.type === 'role' && x.id === n.id);
       return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
-    case 'custom_emoji': {
-      const ext = n.animated ? 'gif' : 'png';
-      const sizeCls = jumbo ? 'w-12 h-12' : 'w-5 h-5';
-      return (
-        <img
-          key={key}
-          src={`https://cdn.discordapp.com/emojis/${n.id}.${ext}`}
-          alt={`:${n.name}:`}
-          title={`:${n.name}:`}
-          className={`inline-block align-text-bottom ${sizeCls}`}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).replaceWith(document.createTextNode(`:${n.name}:`)); }}
-        />
-      );
-    }
+    case 'custom_emoji':
+      return <CustomEmoji key={key} id={n.id} name={n.name} animated={n.animated} jumbo={jumbo} />;
   }
+}
+
+// Themed hover preview for custom guild emojis. Mirrors the reaction-pill
+// look + the poll-vote tooltip pattern: cursor-anchored, fixed-positioned
+// chip floating above the mouse with the emoji preview and its `:name:`.
+function CustomEmoji({ id, name, animated, jumbo }: { id: string; name: string; animated: boolean; jumbo: boolean }) {
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const ext = animated ? 'gif' : 'png';
+  const url = `https://cdn.discordapp.com/emojis/${id}.${ext}`;
+  const style = jumbo
+    ? { width: '48px', height: '48px' }
+    : { width: '1.375em', height: '1.375em' };
+  return (
+    <>
+      <img
+        src={url}
+        alt={`:${name}:`}
+        className="inline-block align-text-bottom"
+        style={style}
+        onMouseMove={(e) => setCursor({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => setCursor(null)}
+        onError={(e) => { (e.currentTarget as HTMLImageElement).replaceWith(document.createTextNode(`:${name}:`)); }}
+      />
+      {cursor && (
+        <span
+          className="fixed z-50 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-sunken border border-white/[0.08] shadow-xl text-[12px] text-fg pointer-events-none animate-fade-in whitespace-nowrap"
+          style={{
+            left: cursor.x,
+            top: cursor.y - 12,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <img src={url} alt="" className="w-5 h-5" />
+          <span className="text-fg-muted">:{name}:</span>
+        </span>
+      )}
+    </>
+  );
 }
 
 function Spoiler({ children }: { children: ReactNode }) {

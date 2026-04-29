@@ -58,7 +58,7 @@ export function GifPicker({ onSelect, onClose }: { onSelect: (url: string) => vo
   }, [query]);
 
   return (
-    <div className="absolute bottom-full right-0 mb-2 w-[420px] max-h-[480px] bg-bg-subtle border border-white/[0.06] rounded-lg shadow-2xl flex flex-col z-50">
+    <div className="absolute bottom-full right-0 mb-2 w-[420px] max-h-[480px] bg-bg-subtle border border-white/[0.06] rounded-lg shadow-2xl flex flex-col z-50 animate-fade-in-up origin-bottom-right">
       <div className="px-3 py-2 border-b border-white/[0.06] flex items-center gap-2">
         <IconSearch size={14} stroke={2} className="text-fg-dim shrink-0" />
         <input

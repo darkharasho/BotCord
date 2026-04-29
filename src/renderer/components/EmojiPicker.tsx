@@ -1,17 +1,36 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { STANDARD_EMOJI, EMOJI_CATEGORIES } from '../lib/emoji-data';
 import type { GuildEmoji } from '../../shared/domain';
 
 type Tab = 'standard' | 'server';
 
+// Tailwind classes that control where the picker docks. Positions other than
+// the default put the entrance origin somewhere other than bottom-right,
+// hence the matching `origin-*` and `animate-*` classes.
+const POSITIONS = {
+  bottomRight: 'absolute bottom-full right-0 mb-2 origin-bottom-right animate-fade-in-up',
+  topRight:    'absolute top-full right-0 mt-2 origin-top-right animate-fade-in-down',
+  topLeft:     'absolute top-full left-0 mt-2 origin-top-left animate-fade-in-down',
+} as const;
+type PickerPosition = keyof typeof POSITIONS;
+
 export function EmojiPicker({
   guildEmojis,
   onSelect,
   onClose,
+  position = 'bottomRight',
+  anchorRect,
 }: {
   guildEmojis: GuildEmoji[];
   onSelect: (token: string) => void;
   onClose: () => void;
+  position?: PickerPosition;
+  // When provided, the picker renders into a body-level portal, fixed-
+  // positioned beneath the supplied rect. Use this when the trigger sits
+  // inside a clipping container (modal body, scroll area) where absolute
+  // positioning would get cut off.
+  anchorRect?: DOMRect | null;
 }) {
   const [tab, setTab] = useState<Tab>(guildEmojis.length > 0 ? 'server' : 'standard');
   const [query, setQuery] = useState('');
@@ -28,8 +47,36 @@ export function EmojiPicker({
     return guildEmojis.filter(e => e.name.toLowerCase().includes(q));
   }, [guildEmojis, query]);
 
-  return (
-    <div className="absolute bottom-full right-0 mb-2 w-80 max-h-96 bg-bg-subtle border border-border rounded-lg shadow-2xl flex flex-col z-50">
+  // Fixed-position mode: portal to body with viewport coords so the picker
+  // escapes any clipping ancestor (modal body, scroll area).
+  const fixedStyle = anchorRect
+    ? (() => {
+        const PICKER_W = 320; // w-80
+        const PICKER_H = 384; // max-h-96
+        const margin = 8;
+        // Prefer below the anchor; flip up when there's not enough room.
+        const spaceBelow = window.innerHeight - anchorRect.bottom;
+        const top = spaceBelow >= PICKER_H + margin
+          ? anchorRect.bottom + margin
+          : Math.max(margin, anchorRect.top - PICKER_H - margin);
+        // Keep the picker on-screen horizontally.
+        const left = Math.min(
+          Math.max(margin, anchorRect.left),
+          window.innerWidth - PICKER_W - margin,
+        );
+        return { position: 'fixed' as const, top, left };
+      })()
+    : null;
+
+  const inner = (
+    <div
+      className={
+        fixedStyle
+          ? 'w-80 max-h-96 bg-bg-subtle border border-border rounded-lg shadow-2xl flex flex-col z-50 animate-fade-in-up'
+          : `${POSITIONS[position]} w-80 max-h-96 bg-bg-subtle border border-border rounded-lg shadow-2xl flex flex-col z-50`
+      }
+      style={fixedStyle ?? undefined}
+    >
       <div className="flex border-b border-border">
         <button
           className={`flex-1 px-3 py-2 text-xs font-semibold ${tab === 'server' ? 'bg-bg-sunken text-fg' : 'text-fg-muted hover:text-fg'}`}
@@ -97,4 +144,6 @@ export function EmojiPicker({
       </div>
     </div>
   );
+
+  return fixedStyle ? createPortal(inner, document.body) : inner;
 }

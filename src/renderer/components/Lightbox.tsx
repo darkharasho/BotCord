@@ -27,13 +27,13 @@ export function Lightbox() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/85 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/85 flex items-center justify-center z-50 animate-fade-in"
       onClick={() => setUrl(null)}
     >
       <img
         src={url}
         alt=""
-        className="max-w-[90vw] max-h-[85vh] object-contain rounded shadow-2xl"
+        className="max-w-[90vw] max-h-[85vh] object-contain rounded shadow-2xl animate-lightbox-in"
         onClick={(e) => e.stopPropagation()}
       />
       <div className="absolute top-4 right-4 flex items-center gap-2">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
-import type { ChannelSummary } from '../../shared/domain';
+import type { ChannelSummary, VoiceMemberSummary } from '../../shared/domain';
 import { CategoryGroup } from './CategoryGroup';
 import {
   IconHash,
@@ -8,6 +8,8 @@ import {
   IconSpeakerphone,
   IconMessages,
   IconCornerDownRight,
+  IconMicrophoneOff,
+  IconHeadphonesOff,
 } from '@tabler/icons-react';
 import type { Icon } from '@tabler/icons-react';
 
@@ -86,14 +88,15 @@ export function ChannelList({
     const Glyph = kindGlyph(c.type);
     const isSelected = selected === c.id;
     const isUnread = !isSelected && unreadIds?.has(c.id);
+    const voiceMembers = c.type === 'voice' ? (c.voiceMembers ?? []) : [];
     return (
       <div key={c.id} className="relative">
         {isUnread && (
-          <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-fg rounded-r-full" />
+          <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-fg rounded-r-full animate-fade-in" />
         )}
         <button
           onClick={() => onSelect(c.id)}
-          className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5
+          className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5 transition-colors duration-150
             ${indent ? 'pl-7' : ''}
             ${isSelected
               ? 'bg-selected text-fg'
@@ -104,6 +107,13 @@ export function ChannelList({
           <Glyph size={20} stroke={1.75} className={isUnread ? 'text-fg shrink-0' : 'text-fg-dim shrink-0'} />
           <span className="truncate">{c.name}</span>
         </button>
+        {voiceMembers.length > 0 && (
+          <ul className="mt-0.5 space-y-px">
+            {voiceMembers.map(m => (
+              <VoiceMemberRow key={m.id} member={m} indent={indent} />
+            ))}
+          </ul>
+        )}
       </div>
     );
   };
@@ -114,7 +124,8 @@ export function ChannelList({
   const renderChannelWithThreads = (c: ChannelSummary) => (
     <div key={c.id}>
       {renderChannel(c)}
-      {childrenOfTextChannel(c.id)
+      {/* Forum threads are posts and live in the forum view, not the sidebar. */}
+      {c.type !== 'forum' && childrenOfTextChannel(c.id)
         .filter(t => t.type === 'thread')
         .map(t => renderChannel(t, true))}
     </div>
@@ -139,6 +150,36 @@ export function ChannelList({
         );
       })}
     </div>
+  );
+}
+
+// One row under a voice channel listing a connected member. Mirrors Discord:
+// small avatar, display name, mute/deaf icons on the right when applicable.
+// `indent` matches the parent channel button's left padding so members align
+// just past the channel's icon column.
+function VoiceMemberRow({ member, indent }: { member: VoiceMemberSummary; indent: boolean }) {
+  const muted = member.selfMute || member.serverMute;
+  const deafened = member.selfDeaf || member.serverDeaf;
+  // Server-enforced mute/deaf renders in danger red; self-muted is muted-fg.
+  const muteColor = member.serverMute ? 'text-danger' : 'text-fg-dim';
+  const deafColor = member.serverDeaf ? 'text-danger' : 'text-fg-dim';
+  return (
+    <li
+      className={`flex items-center gap-2 px-2 py-1 rounded text-fg-muted hover:bg-hover hover:text-fg transition-colors duration-150 animate-fade-in
+        ${indent ? 'pl-12' : 'pl-7'}`}
+    >
+      {member.avatarUrl
+        ? <img src={member.avatarUrl} alt="" className="w-[18px] h-[18px] rounded-full shrink-0" />
+        : <div className="w-[18px] h-[18px] rounded-full bg-bg-input shrink-0" />}
+      <span
+        className="flex-1 truncate text-[14px] leading-4"
+        style={member.roleColor ? { color: member.roleColor } : undefined}
+      >
+        {member.displayName}
+      </span>
+      {muted && <IconMicrophoneOff size={14} stroke={2} className={`${muteColor} shrink-0`} />}
+      {deafened && <IconHeadphonesOff size={14} stroke={2} className={`${deafColor} shrink-0`} />}
+    </li>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
+import { useExclusivePopover } from '../lib/use-exclusive-popover';
 import { EmojiPicker } from './EmojiPicker';
 import { AttachmentTray } from './AttachmentTray';
 import { AutocompletePopover, type AutocompleteItem } from './AutocompletePopover';
@@ -51,13 +52,13 @@ export function Composer({
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
-  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useExclusivePopover();
   const [gateway, setGateway] = useState<GatewayState>({ status: 'connecting' });
   const [dragOver, setDragOver] = useState(false);
   const [autocomplete, setAutocomplete] = useState<AutocompleteState>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
-  const [gifOpen, setGifOpen] = useState(false);
+  const [gifOpen, setGifOpen] = useExclusivePopover();
   // displayName → user id, populated when an @ autocomplete is accepted.
   // Resolved back to <@id> at send time.
   const mentionMap = useRef<Map<string, string>>(new Map());
@@ -392,7 +393,7 @@ export function Composer({
           />
         )}
         <AttachmentTray files={files} onRemove={(i) => setFiles(prev => prev.filter((_, idx) => idx !== i))} />
-        <div className="flex items-end gap-1 px-2">
+        <div className="flex items-center gap-1 px-2">
           <div className="relative shrink-0">
             <button
               onClick={() => setPlusMenuOpen(o => !o)}
@@ -455,7 +456,7 @@ export function Composer({
           </div>
           <div className="relative shrink-0">
             <button
-              onClick={() => setGifOpen(o => !o)}
+              onClick={() => setGifOpen(!gifOpen)}
               disabled={offline || busy || !channelId}
               className="text-fg-muted hover:text-fg w-10 h-[46px] flex items-center justify-center disabled:opacity-40 font-bold text-[11px] tracking-widest"
               title="GIF"
@@ -469,7 +470,7 @@ export function Composer({
           </div>
           <div className="relative shrink-0">
             <button
-              onClick={() => setEmojiOpen(o => !o)}
+              onClick={() => setEmojiOpen(!emojiOpen)}
               disabled={offline || busy}
               className="text-fg-muted hover:text-fg w-10 h-[46px] flex items-center justify-center disabled:opacity-40"
               title="Emoji"
@@ -496,7 +497,7 @@ export function Composer({
           )}
         </div>
       </div>
-      {pollOpen && channelId && <PollModal channelId={channelId} onClose={() => setPollOpen(false)} />}
+      {pollOpen && channelId && <PollModal channelId={channelId} guildId={guildId} onClose={() => setPollOpen(false)} />}
     </div>
   );
 }

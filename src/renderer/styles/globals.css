@@ -7,6 +7,21 @@ body {
   @apply bg-bg text-fg font-sans antialiased;
   margin: 0;
 }
+
+/* Consistent keyboard-focus ring across the app. Pointer focus stays quiet
+   so we only light up when the user is actually navigating with the keyboard. */
+@layer base {
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  button:disabled, [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* Scrollbars: invisible by default; the thumb fades in when the user
    hovers the scrollable container. Matches Discord's overlay style. */
 *::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
@@ -14,3 +29,38 @@ body {
 *:hover::-webkit-scrollbar-thumb { background: #3a3d46; background-clip: padding-box; border: 2px solid transparent; }
 *::-webkit-scrollbar-thumb:hover { background: #4a4d56; background-clip: padding-box; }
 [style*="scrollbar-width: none"]::-webkit-scrollbar { display: none; }
+
+/* Skeleton shimmer: a soft moving highlight over the placeholder color.
+   `background-size: 200% 100%` lets the keyframes pan the gradient across.
+   Used together with `animate-shimmer`. */
+.bc-shimmer {
+  background-color: theme('colors.bg.subtle');
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.04) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+}
+
+/* Tooltip: fade in after a short delay so quick mouse passes don't flash. */
+@keyframes bc-tooltip-in {
+  0%   { opacity: 0; transform: var(--bc-tooltip-from, translateY(2px)); }
+  100% { opacity: 1; transform: var(--bc-tooltip-to, translateY(0)); }
+}
+.bc-tooltip {
+  animation: bc-tooltip-in 140ms ease-out 220ms both;
+}
+
+/* Respect users who prefer reduced motion — kill all entrance animations. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

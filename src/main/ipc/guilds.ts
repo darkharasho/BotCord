@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron';
-import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember } from 'discord.js';
+import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember, type ForumChannel, type MediaChannel } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMemberSummary, PresenceStatus, RoleIcon } from '../../shared/domain';
-import { projectChannel, projectGuildEmojis } from '../discord/client-manager';
+import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary } from '../../shared/domain';
+import { projectChannel, projectGuildEmojis, voiceMembersFor, projectForumChannel, fetchArchivedForumPosts } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
 function scoreMatch(m: GuildMember, q: string): number {
@@ -45,7 +45,7 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       parentId: 'parentId' in c ? (c.parentId ?? null) : null,
       position: 'position' in c ? c.position : 0,
       topic: 'topic' in c ? (c.topic ?? null) : null,
-    }));
+    }, voiceMembersFor(c)));
     return ok(channels);
   });
 
@@ -162,5 +162,33 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       });
     }
     return ok(out);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.getForum'], async (_, guildId: unknown, forumId: unknown): Promise<Result<ForumChannelDetail>> => {
+    if (typeof guildId !== 'string' || typeof forumId !== 'string') return err('INTERNAL', 'guildId and forumId required');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+    const ch = guild.channels.cache.get(forumId);
+    if (!ch || (ch.type !== ChannelType.GuildForum && ch.type !== ChannelType.GuildMedia)) {
+      return err('NOT_FOUND', `Forum ${forumId} not found`);
+    }
+    // Always fetch active threads. The cache is populated lazily by gateway
+    // events (mainly pinned posts on guild ready), so checking for empty
+    // misses the case where pinned threads are cached but regular active
+    // posts aren't. fetchActive() is paginated server-side and cheap.
+    const forum = ch as ForumChannel | MediaChannel;
+    try { await forum.threads.fetchActive(); } catch { /* fall back to whatever's cached */ }
+    return ok(projectForumChannel(forum));
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.listArchivedForumPosts'], async (_, guildId: unknown, forumId: unknown): Promise<Result<ForumPostSummary[]>> => {
+    if (typeof guildId !== 'string' || typeof forumId !== 'string') return err('INTERNAL', 'guildId and forumId required');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+    return ok(await fetchArchivedForumPosts(guild, forumId));
   });
 }

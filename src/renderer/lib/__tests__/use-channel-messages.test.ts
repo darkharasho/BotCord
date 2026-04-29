@@ -6,7 +6,7 @@ const mkMsg = (id: string, channelId: string, createdAt = id.length): MessageSum
   id, channelId, guildId: null, authorId: 'u1', authorTag: 'u1', authorDisplayName: 'u1', authorAvatarUrl: null,
   authorRoleColor: null, authorTopRoleName: null,
   content: id, createdAt, editedAt: null, hasEmbeds: false, hasAttachments: false,
-  attachments: [], embeds: [], mentions: [], replyTo: null, systemKind: null, poll: null,
+  attachments: [], embeds: [], mentions: [], replyTo: null, systemKind: null, poll: null, reactions: [],
 });
 
 let messageCreateCb: ((p: { channelId: string; message: MessageSummary }) => void) | null = null;

@@ -1,8 +1,17 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
 import { Markdown } from './Markdown';
-import { IconCornerUpLeft } from '@tabler/icons-react';
+import { IconCornerUpLeft, IconMoodPlus } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
+import { useGuildEmojis } from '../lib/use-guild-emojis';
+import { useExclusivePopover } from '../lib/use-exclusive-popover';
+import { EmojiPicker } from './EmojiPicker';
+import { api } from '../lib/api';
+
+// Approximate height of the EmojiPicker popover (max-h-96). Used to decide
+// whether to open above or below the trigger when space is tight.
+const PICKER_HEIGHT = 384;
 
 function mentionsBot(m: MessageSummary, botId: string | undefined): boolean {
   if (!botId) return false;
@@ -95,7 +104,7 @@ function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyT
       </span>
       <span className="text-fg-dim truncate min-w-0 leading-tight">
         {replyTo.content
-          ? <Markdown source={replyTo.content.split('\n')[0]!.slice(0, 200)} mentions={replyTo.mentions ?? []} />
+          ? <Markdown source={replyTo.content.split('\n')[0]!.slice(0, 200)} mentions={replyTo.mentions ?? []} jumbo={false} />
           : (replyTo.authorDisplayName ? '' : 'Original message')}
       </span>
     </div>
@@ -103,16 +112,72 @@ function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyT
 }
 
 function HoverActions({ message, onReply }: { message: MessageSummary; onReply?: ((m: MessageSummary) => void) | undefined }) {
-  if (!onReply) return null;
+  const [pickerOpen, setPickerOpen] = useExclusivePopover();
+  const guildEmojis = useGuildEmojis(pickerOpen ? message.guildId : null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [pickerSide, setPickerSide] = useState<'topRight' | 'bottomRight'>('topRight');
+
+  // On open, measure the trigger's viewport position and flip the picker
+  // above the message if there isn't enough room beneath it.
+  useLayoutEffect(() => {
+    if (!pickerOpen) return;
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    if (spaceBelow < PICKER_HEIGHT && spaceAbove > spaceBelow) {
+      setPickerSide('bottomRight');
+    } else {
+      setPickerSide('topRight');
+    }
+  }, [pickerOpen]);
+
+  // Parse a Composer-style emoji token back into the structured form the
+  // reaction IPC expects. EmojiPicker emits unicode chars or `<:name:id>` /
+  // `<a:name:id>` for custom emoji.
+  const handlePick = async (token: string) => {
+    setPickerOpen(false);
+    const custom = /^<(a?):([^:]+):(\d+)>$/.exec(token);
+    const emoji = custom
+      ? { id: custom[3]!, name: custom[2]!, animated: custom[1] === 'a' }
+      : { id: null, name: token, animated: false };
+    await api.messages.toggleReaction(message.channelId, message.id, emoji);
+  };
+
+  // Force the actions container visible while the picker is open so a moving
+  // mouse doesn't dismiss its anchor.
+  const visibility = pickerOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
+
   return (
-    <div className="absolute -top-3 right-4 opacity-0 group-hover:opacity-100 z-10 bg-bg-subtle border border-white/[0.06] rounded shadow-lg flex">
-      <button
-        onClick={() => onReply(message)}
-        className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
-        title="Reply"
-      >
-        <IconCornerUpLeft size={18} stroke={1.75} className="scale-x-[-1]" />
-      </button>
+    <div className={`absolute -top-3 right-4 ${visibility} z-10 flex`}>
+      <div className="bg-bg-subtle border border-white/[0.06] rounded shadow-lg flex">
+        <button
+          ref={triggerRef}
+          onClick={() => setPickerOpen(!pickerOpen)}
+          className={`w-8 h-8 flex items-center justify-center hover:bg-hover rounded ${pickerOpen ? 'text-fg' : 'text-fg-muted hover:text-fg'}`}
+          title="Add reaction"
+        >
+          <IconMoodPlus size={18} stroke={1.75} />
+        </button>
+        {onReply && (
+          <button
+            onClick={() => onReply(message)}
+            className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
+            title="Reply"
+          >
+            <IconCornerUpLeft size={18} stroke={1.75} className="scale-x-[-1]" />
+          </button>
+        )}
+      </div>
+      {pickerOpen && (
+        <EmojiPicker
+          guildEmojis={guildEmojis}
+          onSelect={handlePick}
+          onClose={() => setPickerOpen(false)}
+          position={pickerSide}
+        />
+      )}
     </div>
   );
 }

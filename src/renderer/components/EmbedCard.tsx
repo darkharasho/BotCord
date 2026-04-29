@@ -1,4 +1,4 @@
-import type { MessageEmbedSummary } from '../../shared/domain';
+import type { MessageEmbedSummary, ResolvedMention } from '../../shared/domain';
 import { Markdown } from './Markdown';
 import { openLightbox } from './Lightbox';
 
@@ -19,7 +19,7 @@ function formatEmbedTimestamp(ts: number): string {
     + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
+export function EmbedCard({ embed, mentions }: { embed: MessageEmbedSummary; mentions?: ResolvedMention[] }) {
   const accent = embed.color != null
     ? `#${embed.color.toString(16).padStart(6, '0')}`
     : '#202225';
@@ -51,8 +51,10 @@ export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
             )}
             <div className="text-[14px] font-semibold text-fg truncate">
               {embed.author.url
-                ? <a href="#" onClick={(e) => { e.preventDefault(); openExternal(embed.author!.url!); }} className="hover:underline">{embed.author.name}</a>
-                : embed.author.name}
+                ? <a href="#" onClick={(e) => { e.preventDefault(); openExternal(embed.author!.url!); }} className="hover:underline">
+                    <Markdown source={embed.author.name} mentions={mentions ?? []} jumbo={false} />
+                  </a>
+                : <Markdown source={embed.author.name} mentions={mentions ?? []} jumbo={false} />}
             </div>
           </div>
         )}
@@ -60,14 +62,16 @@ export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
         {embed.title && (
           <div className="text-[15px] font-semibold leading-snug">
             {embed.url
-              ? <a href="#" onClick={(e) => { e.preventDefault(); openExternal(embed.url!); }} className="text-accent hover:underline">{embed.title}</a>
-              : <span className="text-fg">{embed.title}</span>}
+              ? <a href="#" onClick={(e) => { e.preventDefault(); openExternal(embed.url!); }} className="text-link hover:underline">
+                  <Markdown source={embed.title} mentions={mentions ?? []} jumbo={false} />
+                </a>
+              : <span className="text-fg"><Markdown source={embed.title} mentions={mentions ?? []} jumbo={false} /></span>}
           </div>
         )}
 
         {embed.description && (
           <div className="text-[14px] text-fg whitespace-pre-wrap leading-snug">
-            <Markdown source={embed.description} />
+            <Markdown source={embed.description} mentions={mentions ?? []} jumbo={false} />
           </div>
         )}
 
@@ -75,9 +79,11 @@ export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
           <div className="grid grid-cols-6 gap-2 mt-1">
             {embed.fields.map((f, i) => (
               <div key={i} className={f.inline ? 'col-span-3 min-w-0' : 'col-span-6'}>
-                <div className="text-[13px] font-semibold text-fg">{f.name}</div>
+                <div className="text-[13px] font-semibold text-fg">
+                  <Markdown source={f.name} mentions={mentions ?? []} jumbo={false} />
+                </div>
                 <div className="text-[13px] text-fg-muted whitespace-pre-wrap leading-snug">
-                  <Markdown source={f.value} />
+                  <Markdown source={f.value} mentions={mentions ?? []} jumbo={false} />
                 </div>
               </div>
             ))}
@@ -113,7 +119,7 @@ export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
               <img src={embed.footer.iconUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
             )}
             <span className="truncate">
-              {embed.footer?.text}
+              {embed.footer?.text && <Markdown source={embed.footer.text} mentions={mentions ?? []} jumbo={false} />}
               {embed.footer?.text && embed.timestamp && <span className="mx-1.5 text-fg-dim">•</span>}
               {embed.timestamp && formatEmbedTimestamp(embed.timestamp)}
             </span>

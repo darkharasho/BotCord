@@ -8,6 +8,63 @@ export type GuildSummary = {
 export type ChannelKind =
   | 'text' | 'announcement' | 'forum' | 'voice' | 'category' | 'thread' | 'other';
 
+export type ForumTag = {
+  id: string;
+  name: string;
+  // Custom guild emoji ID (with name) or a unicode emoji char.
+  emojiId: string | null;
+  emojiName: string | null;
+  emojiUnicode: string | null;
+  moderated: boolean;
+};
+
+export type ForumPostSummary = {
+  // The thread channel ID — clicking a post opens it as a normal thread.
+  id: string;
+  forumId: string;
+  guildId: string;
+  name: string;
+  ownerId: string;
+  ownerDisplayName: string | null;
+  ownerAvatarUrl: string | null;
+  ownerRoleColor: string | null;
+  createdAt: number;
+  lastActivityAt: number;
+  messageCount: number;
+  archived: boolean;
+  locked: boolean;
+  pinned: boolean;
+  appliedTagIds: string[];
+};
+
+export type ForumChannelDetail = {
+  forumId: string;
+  guildId: string;
+  name: string;
+  topic: string | null;
+  availableTags: ForumTag[];
+  posts: ForumPostSummary[];
+  // True when the forum is configured to require at least one tag per post.
+  requireTag: boolean;
+};
+
+export type CreateForumPostPayload = {
+  name: string;
+  content: string;
+  appliedTagIds: string[];
+};
+
+export type VoiceMemberSummary = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  roleColor: string | null;
+  selfMute: boolean;
+  selfDeaf: boolean;
+  serverMute: boolean;
+  serverDeaf: boolean;
+};
+
 export type ChannelSummary = {
   id: string;
   guildId: string;
@@ -16,6 +73,9 @@ export type ChannelSummary = {
   parentId: string | null;
   position: number;
   topic: string | null;
+  // Populated only for voice channels. `null` everywhere else so consumers
+  // don't need to special-case the field.
+  voiceMembers: VoiceMemberSummary[] | null;
 };
 
 export type MessageAttachment = {
@@ -45,6 +105,17 @@ export type MessageEmbedSummary = {
 };
 
 export type ResolvedMention = { type: 'user' | 'channel' | 'role'; id: string; name: string };
+
+export type ReactionSummary = {
+  // Custom guild emoji ID, or null for unicode reactions.
+  emojiId: string | null;
+  // Unicode char for unicode reactions, or the custom emoji's name.
+  emojiName: string;
+  animated: boolean;
+  count: number;
+  // Whether the bot itself has reacted with this emoji.
+  me: boolean;
+};
 
 export type GuildEmoji = {
   id: string;
@@ -131,6 +202,7 @@ export type MessageSummary = {
   } | null;
   systemKind: SystemMessageKind | null;
   poll: PollSummary | null;
+  reactions: ReactionSummary[];
 };
 
 export type EmbedPayload = {

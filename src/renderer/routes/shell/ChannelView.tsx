@@ -2,10 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { MessageList } from '../../components/MessageList';
 import { Composer } from '../../components/Composer';
 import { MemberList } from '../../components/MemberList';
-import { IconHash, IconSearch, IconUsers, IconX } from '@tabler/icons-react';
+import { ForumPostHeader } from '../../components/ForumPostHeader';
+import { IconHash, IconSearch, IconUsers, IconX, IconArrowLeft } from '@tabler/icons-react';
 import { api } from '../../lib/api';
 
-export function ChannelView({ channelId, guildId, channelName }: { channelId: string | null; guildId: string | null; channelName: string | null }) {
+export function ChannelView({ channelId, guildId, channelName, backToForum }: {
+  channelId: string | null;
+  guildId: string | null;
+  channelName: string | null;
+  backToForum?: { id: string; name: string; onClick: () => void };
+}) {
   const [showMembers, setShowMembers] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -30,8 +36,25 @@ export function ChannelView({ channelId, guildId, channelName }: { channelId: st
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-bg border-t border-l border-white/[0.04] overflow-hidden">
       <div className="h-12 flex items-center px-4 shrink-0 border-b border-white/[0.04] gap-2">
-        <IconHash size={22} stroke={2} className="text-fg-dim shrink-0" />
-        <span className="font-semibold text-fg text-base truncate">{channelName ?? 'Select a channel'}</span>
+        {backToForum ? (
+          <>
+            <button
+              onClick={backToForum.onClick}
+              className="flex items-center gap-1 text-fg-dim hover:text-fg transition-colors duration-150 group shrink-0 min-w-0"
+              title={`Back to ${backToForum.name}`}
+            >
+              <IconArrowLeft size={16} stroke={2} className="shrink-0" />
+              <span className="text-[13px] truncate max-w-[180px]">{backToForum.name}</span>
+            </button>
+            <span className="text-fg-dim/60 shrink-0">/</span>
+            <span className="font-semibold text-fg text-base truncate">{channelName ?? ''}</span>
+          </>
+        ) : (
+          <>
+            <IconHash size={22} stroke={2} className="text-fg-dim shrink-0" />
+            <span className="font-semibold text-fg text-base truncate">{channelName ?? 'Select a channel'}</span>
+          </>
+        )}
         <div className="flex-1" />
         {searchOpen ? (
           <div className="flex items-center bg-bg-input rounded h-7 px-2 gap-1.5 w-56">
@@ -75,6 +98,9 @@ export function ChannelView({ channelId, guildId, channelName }: { channelId: st
             channelId={channelId}
             filter={search}
             onReply={(message) => setReplyTo({ messageId: message.id, authorDisplayName: message.authorDisplayName })}
+            header={backToForum && guildId && channelId
+              ? <ForumPostHeader guildId={guildId} forumId={backToForum.id} postId={channelId} fallbackTitle={channelName ?? ''} />
+              : null}
           />
           <Composer
             channelId={channelId}

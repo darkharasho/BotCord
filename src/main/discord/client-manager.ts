@@ -1,6 +1,6 @@
-import { Client, Events, Partials } from 'discord.js';
-import type { Message } from 'discord.js';
-import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, SystemMessageKind, PollSummary } from '../../shared/domain';
+import { Client, Events, Partials, ChannelType, ChannelFlagsBitField, SnowflakeUtil } from 'discord.js';
+import type { Message, VoiceBasedChannel, GuildBasedChannel, ForumChannel, ThreadChannel, MediaChannel, Guild } from 'discord.js';
+import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, SystemMessageKind, PollSummary, ReactionSummary, VoiceMemberSummary, ForumTag, ForumPostSummary, ForumChannelDetail } from '../../shared/domain';
 import { MessageType } from 'discord.js';
 import { REQUIRED_INTENTS } from './intents';
 import {
@@ -13,6 +13,8 @@ import {
   MESSAGE_UPDATE_CHANNEL,
   MESSAGE_DELETE_CHANNEL,
   GUILD_EMOJIS_UPDATE_CHANNEL,
+  FORUM_POST_UPDATE_CHANNEL,
+  FORUM_POST_DELETE_CHANNEL,
 } from '../events/gateway-events';
 import type { TokenVault } from '../vault/token-vault';
 
@@ -80,8 +82,23 @@ export function createClientManager(vault: TokenVault): ClientManager {
     });
     c.on(Events.GuildCreate, (g) => broadcast(GUILD_UPDATE_CHANNEL, toGuildSummary(g)));
     c.on(Events.GuildUpdate, (_, g) => broadcast(GUILD_UPDATE_CHANNEL, toGuildSummary(g)));
-    c.on(Events.ChannelCreate, (ch) => broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch))));
-    c.on(Events.ChannelUpdate, (_, ch) => broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch))));
+    c.on(Events.ChannelCreate, (ch) => broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch), voiceMembersFor(ch as GuildBasedChannel))));
+    c.on(Events.ChannelUpdate, (_, ch) => broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch), voiceMembersFor(ch as GuildBasedChannel))));
+    c.on(Events.VoiceStateUpdate, (oldState, newState) => {
+      // A voice state change may affect up to two channels: the one the user
+      // left (oldState.channel) and the one they joined (newState.channel).
+      // Mute/deafen/server-mute/etc. on the same channel collapses to one.
+      const seen = new Set<string>();
+      const touched: VoiceBasedChannel[] = [];
+      for (const ch of [oldState.channel, newState.channel]) {
+        if (!ch || seen.has(ch.id)) continue;
+        seen.add(ch.id);
+        touched.push(ch);
+      }
+      for (const ch of touched) {
+        broadcast(CHANNEL_UPDATE_CHANNEL, projectChannel(coerceChannel(ch), voiceMembersFor(ch)));
+      }
+    });
     c.on(Events.MessageCreate, (m) => {
       broadcast(MESSAGE_CREATE_CHANNEL, { channelId: m.channelId, message: summarizeMessage(m) });
     });
@@ -97,6 +114,68 @@ export function createClientManager(vault: TokenVault): ClientManager {
     c.on(Events.MessageDelete, (m) => {
       broadcast(MESSAGE_DELETE_CHANNEL, { channelId: m.channelId, messageId: m.id });
     });
+
+    // Reactions don't trigger MessageUpdate, so we project the affected
+    // message ourselves and reuse the existing message-update channel —
+    // the renderer already listens and merges by id. Partial messages get
+    // fetched first so the summary is complete (mentions/embeds/etc).
+    const broadcastReactionUpdate = async (reaction: { message: Message }) => {
+      let msg = reaction.message;
+      if (msg.partial) {
+        try { msg = await msg.fetch(); } catch { return; }
+      }
+      broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: msg.channelId, message: summarizeMessage(msg) });
+    };
+    c.on(Events.MessageReactionAdd, (r) => { void broadcastReactionUpdate(r as unknown as { message: Message }); });
+    c.on(Events.MessageReactionRemove, (r) => { void broadcastReactionUpdate(r as unknown as { message: Message }); });
+    c.on(Events.MessageReactionRemoveAll, (m) => {
+      const msg = m as Message;
+      if (msg.partial) {
+        msg.fetch().then(full => broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: full.channelId, message: summarizeMessage(full) })).catch(() => { /* ignore */ });
+        return;
+      }
+      broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: msg.channelId, message: summarizeMessage(msg) });
+    });
+    c.on(Events.MessageReactionRemoveEmoji, (r) => { void broadcastReactionUpdate(r as unknown as { message: Message }); });
+
+    // Poll votes don't fire MessageUpdate either. Re-summarize the parent
+    // message and reuse the same renderer channel — discord.js mutates the
+    // poll cache before the event fires, so summarizeMessage sees fresh
+    // counts. Partials are fetched first the same way as reactions.
+    const broadcastPollVote = async (vote: { message: Message } | { messageId?: string; channel?: { messages: { fetch: (id: string) => Promise<Message> } } }) => {
+      const v = vote as { message?: Message; messageId?: string; channel?: { messages: { fetch: (id: string) => Promise<Message> } } };
+      let msg: Message | null = v.message ?? null;
+      if (msg && msg.partial) {
+        try { msg = await msg.fetch(); } catch { return; }
+      }
+      // Some discord.js builds expose the vote payload without `.message`;
+      // fall back to fetching by messageId via the channel.
+      if (!msg && v.messageId && v.channel) {
+        try { msg = await v.channel.messages.fetch(v.messageId); } catch { return; }
+      }
+      if (!msg) return;
+      broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: msg.channelId, message: summarizeMessage(msg) });
+    };
+    c.on(Events.MessagePollVoteAdd, (vote) => { void broadcastPollVote(vote as unknown as { message: Message }); });
+    c.on(Events.MessagePollVoteRemove, (vote) => { void broadcastPollVote(vote as unknown as { message: Message }); });
+    // Forum post lifecycle. A forum post is a thread whose parent is a
+    // ForumChannel. We forward create/update/delete on those threads only;
+    // regular text-channel threads are not surfaced here (the channel list
+    // already handles them via ChannelCreate/Update).
+    c.on(Events.ThreadCreate, (thread) => {
+      const post = projectForumPostIfApplicable(thread);
+      if (post) broadcast(FORUM_POST_UPDATE_CHANNEL, { forumId: post.forumId, post });
+    });
+    c.on(Events.ThreadUpdate, (_old, threadNew) => {
+      const post = projectForumPostIfApplicable(threadNew);
+      if (post) broadcast(FORUM_POST_UPDATE_CHANNEL, { forumId: post.forumId, post });
+    });
+    c.on(Events.ThreadDelete, (thread) => {
+      const parent = thread.parent;
+      if (!parent || parent.type !== ChannelType.GuildForum) return;
+      broadcast(FORUM_POST_DELETE_CHANNEL, { forumId: parent.id, postId: thread.id });
+    });
+
     c.on(Events.GuildEmojiCreate, (e) => {
       const guild = e.guild;
       broadcast(GUILD_EMOJIS_UPDATE_CHANNEL, { guildId: guild.id, emojis: projectGuildEmojis(guild.id, guild.emojis.cache.values()) });
@@ -159,7 +238,10 @@ export function createClientManager(vault: TokenVault): ClientManager {
   };
 }
 
-export function projectChannel(ch: { id: string; guildId: string | null; name: string | null; type: number; parentId: string | null; position?: number; topic?: string | null }): ChannelSummary {
+export function projectChannel(
+  ch: { id: string; guildId: string | null; name: string | null; type: number; parentId: string | null; position?: number; topic?: string | null },
+  voiceMembers: VoiceMemberSummary[] | null = null,
+): ChannelSummary {
   return {
     id: ch.id,
     guildId: ch.guildId ?? '',
@@ -168,7 +250,31 @@ export function projectChannel(ch: { id: string; guildId: string | null; name: s
     parentId: ch.parentId ?? null,
     position: ch.position ?? 0,
     topic: ch.topic ?? null,
+    voiceMembers,
   };
+}
+
+// Snapshot of who is currently connected to a voice/stage channel. Returns
+// null for any non-voice channel so consumers can pass through unconditionally.
+export function voiceMembersFor(ch: GuildBasedChannel | VoiceBasedChannel | null | undefined): VoiceMemberSummary[] | null {
+  if (!ch) return null;
+  if (ch.type !== ChannelType.GuildVoice && ch.type !== ChannelType.GuildStageVoice) return null;
+  const voice = ch as VoiceBasedChannel;
+  return Array.from(voice.members.values())
+    .map(m => {
+      const v = m.voice;
+      return {
+        id: m.id,
+        displayName: m.displayName,
+        avatarUrl: m.user.displayAvatarURL({ size: 64 }),
+        roleColor: m.displayHexColor && m.displayHexColor !== '#000000' ? m.displayHexColor : null,
+        selfMute: v.selfMute ?? false,
+        selfDeaf: v.selfDeaf ?? false,
+        serverMute: v.serverMute ?? false,
+        serverDeaf: v.serverDeaf ?? false,
+      } satisfies VoiceMemberSummary;
+    })
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 function coerceChannel(ch: { id: string; type: number }): { id: string; guildId: string | null; name: string | null; type: number; parentId: string | null; position?: number; topic?: string | null } {
@@ -233,6 +339,21 @@ export function summarizeMessage(m: Message): MessageSummary {
   m.mentions.channels.forEach(c => mentions.push({ type: 'channel', id: c.id, name: 'name' in c && typeof c.name === 'string' ? c.name : 'channel' }));
   m.mentions.roles.forEach(r => mentions.push({ type: 'role', id: r.id, name: r.name }));
 
+  // Discord's `m.mentions.*` only covers the content text; embed bodies can
+  // reference IDs that aren't pinged. Scan every text-bearing field of the
+  // message (content + embeds) and resolve any extra IDs from the guild
+  // cache so the renderer shows display names everywhere.
+  const embedTexts: string[] = [];
+  for (const e of m.embeds) {
+    if (e.title) embedTexts.push(e.title);
+    if (e.description) embedTexts.push(e.description);
+    if (e.author?.name) embedTexts.push(e.author.name);
+    if (e.footer?.text) embedTexts.push(e.footer.text);
+    for (const f of e.fields) { embedTexts.push(f.name); embedTexts.push(f.value); }
+  }
+  resolveMentionPatterns(m.content, m.guild, mentions);
+  for (const t of embedTexts) resolveMentionPatterns(t, m.guild, mentions);
+
   const authorTag = `${m.author.username}${m.author.discriminator && m.author.discriminator !== '0' ? '#' + m.author.discriminator : ''}`;
   const authorDisplayName =
     (m.member && typeof m.member.displayName === 'string' && m.member.displayName.length > 0 ? m.member.displayName : null)
@@ -271,7 +392,68 @@ export function summarizeMessage(m: Message): MessageSummary {
     replyTo: projectReplyTo(m),
     systemKind: classifySystemMessage(m.type, m.system),
     poll: projectPoll(m.poll),
+    reactions: projectReactions(m),
   };
+}
+
+// Scans `text` for Discord mention tokens (<@id>, <@!id>, <@&id>, <#id>)
+// and pushes resolved entries into `out`, deduplicated by type+id. Looks up
+// names from the guild's member/channel/role caches; falls back to user
+// caches and finally to a generic placeholder so the renderer never sees a
+// raw snowflake. Tokens already present in `out` are skipped so existing
+// authoritative names from `m.mentions.*` win.
+function resolveMentionPatterns(text: string, guild: Message['guild'], out: ResolvedMention[]): void {
+  if (!text) return;
+  const has = (type: ResolvedMention['type'], id: string): boolean =>
+    out.some(x => x.type === type && x.id === id);
+
+  // <@id> or <@!id>
+  for (const match of text.matchAll(/<@!?(\d+)>/g)) {
+    const id = match[1]!;
+    if (has('user', id)) continue;
+    const member = guild?.members.cache.get(id);
+    if (member) {
+      out.push({ type: 'user', id, name: member.displayName });
+      continue;
+    }
+    const user = guild?.client.users.cache.get(id);
+    if (user) {
+      const u = user as unknown as { globalName?: string | null; username: string };
+      out.push({ type: 'user', id, name: u.globalName ?? u.username });
+      continue;
+    }
+    out.push({ type: 'user', id, name: 'unknown-user' });
+  }
+  // <@&id>
+  for (const match of text.matchAll(/<@&(\d+)>/g)) {
+    const id = match[1]!;
+    if (has('role', id)) continue;
+    const role = guild?.roles.cache.get(id);
+    out.push({ type: 'role', id, name: role?.name ?? 'unknown-role' });
+  }
+  // <#id>
+  for (const match of text.matchAll(/<#(\d+)>/g)) {
+    const id = match[1]!;
+    if (has('channel', id)) continue;
+    const ch = guild?.channels.cache.get(id);
+    const name = ch && 'name' in ch && typeof ch.name === 'string' ? ch.name : 'channel';
+    out.push({ type: 'channel', id, name });
+  }
+}
+
+function projectReactions(m: Message): ReactionSummary[] {
+  const out: ReactionSummary[] = [];
+  for (const r of m.reactions.cache.values()) {
+    const e = r.emoji;
+    out.push({
+      emojiId: e.id ?? null,
+      emojiName: e.name ?? '',
+      animated: e.animated ?? false,
+      count: r.count,
+      me: r.me ?? false,
+    });
+  }
+  return out;
 }
 
 function projectReplyTo(m: Message): MessageSummary['replyTo'] {
@@ -340,6 +522,99 @@ function classifySystemMessage(type: MessageType, isSystem: boolean | null): Sys
     case MessageType.ThreadStarterMessage: return 'thread_create';
     case MessageType.RecipientAdd: return 'recipient_add';
     default: return isSystem ? 'other' : null;
+  }
+}
+
+export function projectForumTag(t: { id: string; name: string; emoji?: { id?: string | null; name?: string | null } | null; moderated?: boolean }): ForumTag {
+  const emoji = t.emoji ?? null;
+  const emojiId = emoji?.id ?? null;
+  const emojiName = emoji?.name ?? null;
+  // Discord packs unicode emoji into `name` (with `id` null) and custom
+  // guild emoji into `id`. Splitting them here keeps the renderer logic flat.
+  return {
+    id: t.id,
+    name: t.name,
+    emojiId,
+    emojiName: emojiId ? emojiName : null,
+    emojiUnicode: emojiId ? null : emojiName,
+    moderated: t.moderated ?? false,
+  };
+}
+
+export function projectForumPost(thread: ThreadChannel): ForumPostSummary {
+  const parent = thread.parent;
+  const guildId = thread.guild?.id ?? parent?.guild?.id ?? '';
+  const owner = thread.ownerId ? thread.guild?.members.cache.get(thread.ownerId) : undefined;
+  const ownerUser = owner?.user ?? (thread.ownerId ? thread.client.users.cache.get(thread.ownerId) : undefined);
+  // discord.js exposes thread.lastMessageId — derive an "active at" timestamp
+  // from the snowflake when there's no explicit archived/created marker handy.
+  let lastActivityAt = thread.createdTimestamp ?? Date.now();
+  if (thread.archiveTimestamp) lastActivityAt = thread.archiveTimestamp;
+  else if (thread.lastMessageId) {
+    try { lastActivityAt = Number(SnowflakeUtil.timestampFrom(thread.lastMessageId)); } catch { /* keep fallback */ }
+  }
+  const flags = thread.flags;
+  const pinned = flags instanceof ChannelFlagsBitField
+    ? flags.has(ChannelFlagsBitField.Flags.Pinned)
+    : false;
+  return {
+    id: thread.id,
+    forumId: parent?.id ?? '',
+    guildId,
+    name: thread.name,
+    ownerId: thread.ownerId ?? '',
+    ownerDisplayName: owner?.displayName ?? ownerUser?.globalName ?? ownerUser?.username ?? null,
+    ownerAvatarUrl: ownerUser?.displayAvatarURL({ size: 64 }) ?? null,
+    ownerRoleColor: owner && owner.displayHexColor && owner.displayHexColor !== '#000000' ? owner.displayHexColor : null,
+    createdAt: thread.createdTimestamp ?? 0,
+    lastActivityAt,
+    messageCount: thread.messageCount ?? thread.totalMessageSent ?? 0,
+    archived: thread.archived ?? false,
+    locked: thread.locked ?? false,
+    pinned,
+    appliedTagIds: thread.appliedTags ?? [],
+  };
+}
+
+// Returns null unless the thread's parent is a forum, in which case projects it.
+function projectForumPostIfApplicable(thread: ThreadChannel): ForumPostSummary | null {
+  const parent = thread.parent;
+  if (!parent || parent.type !== ChannelType.GuildForum) return null;
+  return projectForumPost(thread);
+}
+
+export function projectForumChannel(forum: ForumChannel | MediaChannel): ForumChannelDetail {
+  const tags = (forum.availableTags ?? []).map(projectForumTag);
+  const posts = Array.from(forum.threads.cache.values())
+    .map(t => projectForumPost(t))
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.lastActivityAt - a.lastActivityAt);
+  const flags = forum.flags;
+  const requireTag = flags instanceof ChannelFlagsBitField
+    ? flags.has(ChannelFlagsBitField.Flags.RequireTag)
+    : false;
+  return {
+    forumId: forum.id,
+    guildId: forum.guildId,
+    name: forum.name,
+    topic: 'topic' in forum ? (forum.topic ?? null) : null,
+    availableTags: tags,
+    posts,
+    requireTag,
+  };
+}
+
+// Helper: fetch + project archived posts from a forum (paginated by Discord).
+export async function fetchArchivedForumPosts(guild: Guild, forumId: string): Promise<ForumPostSummary[]> {
+  const ch = guild.channels.cache.get(forumId);
+  if (!ch || ch.type !== ChannelType.GuildForum) return [];
+  const forum = ch as ForumChannel;
+  try {
+    const result = await forum.threads.fetchArchived({ limit: 50 });
+    return Array.from(result.threads.values())
+      .map(t => projectForumPost(t))
+      .sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+  } catch {
+    return [];
   }
 }
 

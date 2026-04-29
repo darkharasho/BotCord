@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { PollSummary, PollVoter } from '../../shared/domain';
+import type { PollSummary, PollVoter, ResolvedMention } from '../../shared/domain';
 import { Markdown } from './Markdown';
 import { IconChartBar, IconX } from '@tabler/icons-react';
 import { api } from '../lib/api';
@@ -16,7 +16,7 @@ function formatRemaining(expiresAt: number, finalized: boolean): string {
   return `${minutes}m left`;
 }
 
-export function PollCard({ poll, channelId, messageId }: { poll: PollSummary; channelId: string; messageId: string }) {
+export function PollCard({ poll, channelId, messageId, mentions }: { poll: PollSummary; channelId: string; messageId: string; mentions?: ResolvedMention[] }) {
   const winningCount = Math.max(0, ...poll.answers.map(a => a.voteCount));
   const [openAnswer, setOpenAnswer] = useState<number | null>(null);
   // Per-answer voter cache so hover preview and modal share data.
@@ -43,53 +43,27 @@ export function PollCard({ poll, channelId, messageId }: { poll: PollSummary; ch
       <div className="text-[11px] uppercase font-semibold text-fg-dim mb-2 flex items-center gap-1">
         <IconChartBar size={14} stroke={2} /> Poll
       </div>
-      <div className="text-[16px] font-semibold text-fg mb-3 leading-snug">{poll.question}</div>
+      <div className="text-[16px] font-semibold text-fg mb-3 leading-snug">
+        <Markdown source={poll.question} mentions={mentions ?? []} jumbo={false} />
+      </div>
       <div className="space-y-1.5">
         {poll.answers.map(a => {
           const pct = poll.totalVotes > 0 ? Math.round((a.voteCount / poll.totalVotes) * 100) : 0;
           const isWinning = a.voteCount > 0 && a.voteCount === winningCount;
           const cachedVoters = voters.get(a.id);
           return (
-            <div key={a.id} className="relative group">
-              <button
-                onMouseEnter={() => a.voteCount > 0 && ensureVoters(a.id)}
-                onClick={() => { if (a.voteCount > 0) { ensureVoters(a.id); setOpenAnswer(a.id); } }}
-                disabled={a.voteCount === 0}
-                className="block w-full text-left bg-bg-input rounded overflow-hidden disabled:cursor-default enabled:hover:bg-hover"
-              >
-                <div
-                  className={`absolute inset-y-0 left-0 ${isWinning ? 'bg-accent/40' : 'bg-hover'}`}
-                  style={{ width: `${pct}%` }}
-                />
-                <div className="relative flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                  <span className="flex items-center gap-2 truncate">
-                    {a.emoji && <EmojiBit token={a.emoji} />}
-                    <Markdown source={a.text} />
-                  </span>
-                  <span className="text-fg-muted text-xs shrink-0 tabular-nums">{a.voteCount} · {pct}%</span>
-                </div>
-              </button>
-              {/* Hover preview — first few avatars + names */}
-              {a.voteCount > 0 && cachedVoters && cachedVoters.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-20 hidden group-hover:flex items-center gap-1.5 px-3 py-1.5 bg-bg-sunken border border-white/[0.06] rounded shadow-lg text-xs text-fg-muted pointer-events-none">
-                  <div className="flex -space-x-1">
-                    {cachedVoters.slice(0, 5).map(v => (
-                      <img
-                        key={v.id}
-                        src={v.avatarUrl ?? ''}
-                        alt=""
-                        title={v.displayName}
-                        className="w-5 h-5 rounded-full border border-bg-sunken"
-                      />
-                    ))}
-                  </div>
-                  <span className="truncate">
-                    {cachedVoters.slice(0, 2).map(v => v.displayName).join(', ')}
-                    {cachedVoters.length > 2 && ` and ${cachedVoters.length - 2} other${cachedVoters.length - 2 === 1 ? '' : 's'}`}
-                  </span>
-                </div>
-              )}
-            </div>
+            <PollAnswerRow
+              key={a.id}
+              text={a.text}
+              emoji={a.emoji}
+              voteCount={a.voteCount}
+              pct={pct}
+              isWinning={isWinning}
+              voters={cachedVoters}
+              mentions={mentions ?? []}
+              onHover={() => { if (a.voteCount > 0) ensureVoters(a.id); }}
+              onOpen={() => { if (a.voteCount > 0) { ensureVoters(a.id); setOpenAnswer(a.id); } }}
+            />
           );
         })}
       </div>
@@ -108,6 +82,82 @@ export function PollCard({ poll, channelId, messageId }: { poll: PollSummary; ch
           ensureVoters={ensureVoters}
           onClose={() => setOpenAnswer(null)}
         />
+      )}
+    </div>
+  );
+}
+
+// One answer row + a cursor-anchored hover preview that floats above the
+// mouse. We use position: fixed (escapes any ancestor overflow) and update
+// on mouse move so the chip tracks smoothly. Hidden until we have voters
+// cached for the answer.
+function PollAnswerRow({
+  text, emoji, voteCount, pct, isWinning, voters, mentions, onHover, onOpen,
+}: {
+  text: string;
+  emoji: string | null;
+  voteCount: number;
+  pct: number;
+  isWinning: boolean;
+  voters: PollVoter[] | undefined;
+  mentions?: ResolvedMention[];
+  onHover: () => void;
+  onOpen: () => void;
+}) {
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
+  const showPreview = voteCount > 0 && cursor !== null && voters && voters.length > 0;
+
+  return (
+    <div className="relative">
+      <button
+        onMouseEnter={onHover}
+        onMouseMove={(e) => { if (voteCount > 0) setCursor({ x: e.clientX, y: e.clientY }); }}
+        onMouseLeave={() => setCursor(null)}
+        onClick={onOpen}
+        disabled={voteCount === 0}
+        className="block w-full text-left bg-bg-input rounded overflow-hidden disabled:cursor-default enabled:hover:bg-hover"
+      >
+        <div
+          className={`absolute inset-y-0 left-0 ${isWinning ? 'bg-accent/40' : 'bg-hover'}`}
+          style={{ width: `${pct}%` }}
+        />
+        <div className="relative flex items-center justify-between gap-3 px-3 py-2 text-sm">
+          <span className="flex items-center gap-2 truncate">
+            {emoji && <EmojiBit token={emoji} />}
+            <Markdown source={text} mentions={mentions ?? []} jumbo={false} />
+          </span>
+          <span className="text-fg-muted text-xs shrink-0 tabular-nums">{voteCount} · {pct}%</span>
+        </div>
+      </button>
+      {showPreview && (
+        <div
+          className="fixed z-50 flex items-center gap-2 px-2.5 py-1.5 bg-bg-sunken border border-white/[0.08] rounded-md shadow-xl text-[12px] text-fg-muted pointer-events-none animate-fade-in whitespace-nowrap max-w-[320px]"
+          style={{
+            left: cursor!.x,
+            top: cursor!.y - 12,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="flex -space-x-1.5 shrink-0">
+            {voters!.slice(0, 5).map(v => (
+              <img
+                key={v.id}
+                src={v.avatarUrl ?? ''}
+                alt=""
+                title={v.displayName}
+                className="w-5 h-5 rounded-full border-2 border-bg-sunken"
+              />
+            ))}
+          </div>
+          <span className="truncate text-fg">
+            {voters!.slice(0, 2).map(v => v.displayName).join(', ')}
+            {voters!.length > 2 && (
+              <span className="text-fg-muted">
+                {` +${voters!.length - 2} ${voters!.length - 2 === 1 ? 'other' : 'others'}`}
+              </span>
+            )}
+          </span>
+        </div>
       )}
     </div>
   );
