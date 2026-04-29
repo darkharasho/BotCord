@@ -101,6 +101,15 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
       >
         {member.displayName}
       </span>
+      {member.roleIcons.length > 0 && (
+        <span className="flex items-center gap-0.5 ml-1 shrink-0">
+          {member.roleIcons.slice(0, 3).map(r =>
+            r.iconUrl
+              ? <img key={r.roleId} src={r.iconUrl} alt={r.roleName} title={r.roleName} className="w-4 h-4 inline-block" />
+              : <span key={r.roleId} title={r.roleName} className="text-[14px] leading-none">{r.unicodeEmoji}</span>
+          )}
+        </span>
+      )}
     </div>
   );
 }

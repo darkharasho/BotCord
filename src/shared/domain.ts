@@ -64,6 +64,8 @@ export type MemberSummary = {
 
 export type PresenceStatus = 'online' | 'idle' | 'dnd' | 'offline';
 
+export type RoleIcon = { roleId: string; roleName: string; iconUrl: string | null; unicodeEmoji: string | null };
+
 export type ChannelMemberSummary = {
   id: string;
   displayName: string;
@@ -72,6 +74,7 @@ export type ChannelMemberSummary = {
   roleColor: string | null;
   status: PresenceStatus;
   topRole: { id: string; name: string; color: string | null; position: number } | null;
+  roleIcons: RoleIcon[];
 };
 
 export type SystemMessageKind =

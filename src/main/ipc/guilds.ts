@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMemberSummary, PresenceStatus } from '../../shared/domain';
+import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMemberSummary, PresenceStatus, RoleIcon } from '../../shared/domain';
 import { projectChannel, projectGuildEmojis } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
@@ -140,6 +140,14 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     for (const m of visible.values()) {
       const status = (m.presence?.status ?? 'offline') as PresenceStatus;
       const hoist = m.roles.hoist;
+      const roleIcons: RoleIcon[] = [];
+      for (const role of m.roles.cache.sort((a, b) => b.position - a.position).values()) {
+        const iconUrl = role.iconURL({ size: 32 });
+        const unicodeEmoji = role.unicodeEmoji ?? null;
+        if (iconUrl || unicodeEmoji) {
+          roleIcons.push({ roleId: role.id, roleName: role.name, iconUrl, unicodeEmoji });
+        }
+      }
       out.push({
         id: m.id,
         displayName: m.displayName,
@@ -150,6 +158,7 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
         topRole: hoist
           ? { id: hoist.id, name: hoist.name, color: hoist.color ? `#${hoist.color.toString(16).padStart(6, '0')}` : null, position: hoist.position }
           : null,
+        roleIcons,
       });
     }
     return ok(out);
