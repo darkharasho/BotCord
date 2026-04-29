@@ -1,15 +1,24 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, nativeImage, shell } from 'electron';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
 
-function findIconPath(): string | undefined {
-  const candidates = [
-    join(app.getAppPath(), 'resources', 'icon-512.png'),
-    join(__dirname, '../../resources/icon-512.png'),
-    join(__dirname, '../resources/icon-512.png'),
+function loadAppIcon(): Electron.NativeImage | undefined {
+  const roots = [
+    join(app.getAppPath(), 'resources'),
+    join(__dirname, '../../resources'),
+    join(__dirname, '../resources'),
   ];
-  return candidates.find(p => existsSync(p));
+  const root = roots.find(r => existsSync(join(r, 'icon-512.png')));
+  if (!root) return undefined;
+  // Combine multiple resolutions so the WM picks the best size for the slot
+  // it's rendering into (taskbar 24-48px, alt-tab ~128px, icon-only docks 256+).
+  const big = nativeImage.createFromPath(join(root, 'icon-512.png'));
+  if (existsSync(join(root, 'icon-256.png'))) {
+    const small = nativeImage.createFromPath(join(root, 'icon-256.png'));
+    big.addRepresentation({ scaleFactor: 0.5, buffer: small.toPNG() });
+  }
+  return big;
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -33,8 +42,8 @@ export function createMainWindow(): BrowserWindow {
     },
   };
   if (isMac) opts.trafficLightPosition = { x: 12, y: 9 };
-  const iconPath = findIconPath();
-  if (iconPath) opts.icon = iconPath;
+  const icon = loadAppIcon();
+  if (icon) opts.icon = icon;
   const win = new BrowserWindow(opts);
 
   win.once('ready-to-show', () => win.show());
