@@ -1,5 +1,5 @@
 import type * as React from 'react';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { List, type RowComponentProps } from 'react-window';
 import { Avatar } from '../Avatar';
 import { openContextMenu } from '../ContextMenu';
@@ -124,7 +124,7 @@ export function MembersTable({
     );
   };
 
-  const onMore = async (e: React.MouseEvent, m: AllMembersEntry) => {
+  const onMore = useCallback(async (e: React.MouseEvent, m: AllMembersEntry) => {
     e.preventDefault();
     e.stopPropagation();
     const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -169,7 +169,12 @@ export function MembersTable({
       },
     });
     openContextMenu({ preventDefault: () => {}, clientX, clientY }, items);
-  };
+  }, [guildId, rolesById]);
+
+  const rowProps = useMemo(
+    () => ({ rows, selected, onToggleSelected, rolesById, onMore }),
+    [rows, selected, onToggleSelected, rolesById, onMore],
+  );
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
@@ -193,7 +198,7 @@ export function MembersTable({
           rowComponent={Row}
           rowCount={rows.length}
           rowHeight={ROW_HEIGHT}
-          rowProps={{ rows, selected, onToggleSelected, rolesById, onMore }}
+          rowProps={rowProps}
           style={{ height: '100%' }}
         />
       </div>
