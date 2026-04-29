@@ -8,9 +8,10 @@ export function ChannelView({ channelId, guildId, channelName }: { channelId: st
   const [showMembers, setShowMembers] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ messageId: string; authorDisplayName: string } | null>(null);
 
   // Reset transient header state when switching channels.
-  useEffect(() => { setSearch(''); setSearchOpen(false); }, [channelId]);
+  useEffect(() => { setSearch(''); setSearchOpen(false); setReplyTo(null); }, [channelId]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-bg border-t border-l border-white/[0.04] overflow-hidden">
@@ -56,8 +57,17 @@ export function ChannelView({ channelId, guildId, channelName }: { channelId: st
       </div>
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-h-0">
-          <MessageList channelId={channelId} filter={search} />
-          <Composer channelId={channelId} guildId={guildId} />
+          <MessageList
+            channelId={channelId}
+            filter={search}
+            onReply={(message) => setReplyTo({ messageId: message.id, authorDisplayName: message.authorDisplayName })}
+          />
+          <Composer
+            channelId={channelId}
+            guildId={guildId}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+          />
         </div>
         {showMembers && <MemberList guildId={guildId} channelId={channelId} />}
       </div>

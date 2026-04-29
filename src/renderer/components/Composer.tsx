@@ -7,7 +7,7 @@ import { AutocompletePopover, type AutocompleteItem } from './AutocompletePopove
 import { STANDARD_EMOJI } from '../lib/emoji-data';
 import { pushToast } from './Toaster';
 import type { GatewayState, GuildEmoji, MemberSummary } from '../../shared/domain';
-import { IconCirclePlus, IconMoodSmile, IconSend2, IconUpload, IconChartBar } from '@tabler/icons-react';
+import { IconCirclePlus, IconMoodSmile, IconSend2, IconUpload, IconChartBar, IconX } from '@tabler/icons-react';
 import { PollModal } from './PollModal';
 
 const MAX_FILES = 10;
@@ -39,7 +39,14 @@ function detectTrigger(text: string, cursor: number): { kind: 'mention' | 'emoji
   return null;
 }
 
-export function Composer({ channelId, guildId }: { channelId: string | null; guildId: string | null }) {
+export function Composer({
+  channelId, guildId, replyTo, onCancelReply,
+}: {
+  channelId: string | null;
+  guildId: string | null;
+  replyTo?: { messageId: string; authorDisplayName: string } | null;
+  onCancelReply?: () => void;
+}) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -253,6 +260,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     const content = resolveMentionShortcuts(resolveEmojiShortcuts(text.trim()));
     if (content.length === 0 && files.length === 0) return;
     setBusy(true);
+    const sendOpts = replyTo ? { replyToMessageId: replyTo.messageId } : undefined;
     let res;
     if (files.length > 0) {
       const attachments = await Promise.all(files.map(async f => ({
@@ -260,9 +268,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
         mimeType: f.type || 'application/octet-stream',
         bytes: new Uint8Array(await f.arrayBuffer()),
       })));
-      res = await api.messages.sendWithAttachments(channelId, content, attachments);
+      res = await api.messages.sendWithAttachments(channelId, content, attachments, sendOpts);
     } else {
-      res = await api.messages.send(channelId, content);
+      res = await api.messages.send(channelId, content, sendOpts);
     }
     setBusy(false);
     if (!res.ok) {
@@ -272,6 +280,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     setText('');
     setFiles([]);
     mentionMap.current.clear();
+    onCancelReply?.();
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -280,6 +289,11 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
       if (e.key === 'ArrowUp')   { e.preventDefault(); setAutocomplete(s => s ? ({ ...s, selectedIdx: (s.selectedIdx - 1 + acLength) % acLength }) : s); return; }
       if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); applyAutocomplete(autocomplete.selectedIdx); return; }
       if (e.key === 'Escape')    { e.preventDefault(); setAutocomplete(null); return; }
+    }
+    if (e.key === 'Escape' && replyTo) {
+      e.preventDefault();
+      onCancelReply?.();
+      return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -319,6 +333,20 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
       )}
       {offline && (
         <div className="mb-2 px-3 py-1 text-xs text-warn bg-warn/10 rounded">Bot is not connected — sending disabled.</div>
+      )}
+      {replyTo && (
+        <div className="flex items-center justify-between text-xs text-fg-muted bg-bg-input rounded-t-lg px-3 py-1.5 -mb-1 border-b border-bg">
+          <span>
+            Replying to <span className="text-fg font-medium">{replyTo.authorDisplayName}</span>
+          </span>
+          <button
+            onClick={onCancelReply}
+            className="text-fg-dim hover:text-fg p-0.5"
+            title="Cancel reply (Esc)"
+          >
+            <IconX size={14} stroke={2} />
+          </button>
+        </div>
       )}
       <div className="bg-bg-input rounded-lg relative">
         {autocomplete && (

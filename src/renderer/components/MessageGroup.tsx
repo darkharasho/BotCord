@@ -1,5 +1,6 @@
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
+import { IconArrowBackUp } from '@tabler/icons-react';
 
 function formatHeaderTimestamp(ts: number): string {
   const d = new Date(ts);
@@ -18,12 +19,13 @@ function formatGutterTimestamp(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
+export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]; onReply?: ((m: MessageSummary) => void) | undefined }) {
   if (messages.length === 0) return null;
   const head = messages[0]!;
   return (
     <div className="mt-4 first:mt-2 px-4">
-      <div className="flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group">
+      <div className="relative flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group">
+        <HoverActions message={head} onReply={onReply} />
         <div className="w-10 shrink-0 pt-0.5">
           {head.authorAvatarUrl
             ? <img src={head.authorAvatarUrl} alt="" className="w-10 h-10 rounded-full" />
@@ -47,8 +49,9 @@ export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
         <div
           key={m.id}
           data-message-id={m.id}
-          className="flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group"
+          className="relative flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group"
         >
+          <HoverActions message={m} onReply={onReply} />
           <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-[21px] whitespace-nowrap tracking-tight">
             {formatGutterTimestamp(m.createdAt)}
           </div>
@@ -57,6 +60,21 @@ export function MessageGroup({ messages }: { messages: MessageSummary[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function HoverActions({ message, onReply }: { message: MessageSummary; onReply?: ((m: MessageSummary) => void) | undefined }) {
+  if (!onReply) return null;
+  return (
+    <div className="absolute -top-3 right-4 opacity-0 group-hover:opacity-100 z-10 bg-bg-subtle border border-white/[0.06] rounded shadow-lg flex">
+      <button
+        onClick={() => onReply(message)}
+        className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
+        title="Reply"
+      >
+        <IconArrowBackUp size={18} stroke={1.75} />
+      </button>
     </div>
   );
 }

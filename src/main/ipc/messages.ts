@@ -10,12 +10,20 @@ type SendOpts = {
   content?: string | undefined;
   embeds?: EmbedBuilder[];
   files?: AttachmentBuilder[];
+  reply?: { messageReference: string; failIfNotExists: boolean };
   poll?: {
     question: { text: string };
     answers: Array<{ text: string; emoji?: string }>;
     duration: number;
     allowMultiselect: boolean;
   };
+};
+
+const replyOption = (opts: unknown): { messageReference: string; failIfNotExists: boolean } | undefined => {
+  if (typeof opts !== 'object' || opts === null) return undefined;
+  const r = (opts as { replyToMessageId?: unknown }).replyToMessageId;
+  if (typeof r !== 'string' || !r) return undefined;
+  return { messageReference: r, failIfNotExists: false };
 };
 
 type SendableChannel = {
@@ -58,12 +66,15 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     return { ok: true, channel: ch as SendableChannel };
   };
 
-  ipcMain.handle(IPC_CHANNELS['messages.send'], async (_, channelId: unknown, content: unknown): Promise<Result<MessageSummary>> => {
+  ipcMain.handle(IPC_CHANNELS['messages.send'], async (_, channelId: unknown, content: unknown, opts: unknown): Promise<Result<MessageSummary>> => {
     if (typeof channelId !== 'string' || typeof content !== 'string') return err('INTERNAL', 'invalid arguments');
     const got = await requireSendableChannel(channelId);
     if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
+    const sendOpts: SendOpts = { content };
+    const reply = replyOption(opts);
+    if (reply) sendOpts.reply = reply;
     try {
-      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({ content });
+      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send(sendOpts);
       return ok(summarizeMessage(msg));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
@@ -85,7 +96,7 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS['messages.sendWithAttachments'], async (_, channelId: unknown, content: unknown, attachments: unknown): Promise<Result<MessageSummary>> => {
+  ipcMain.handle(IPC_CHANNELS['messages.sendWithAttachments'], async (_, channelId: unknown, content: unknown, attachments: unknown, opts: unknown): Promise<Result<MessageSummary>> => {
     if (typeof channelId !== 'string' || typeof content !== 'string' || !Array.isArray(attachments)) {
       return err('INTERNAL', 'invalid arguments');
     }
@@ -105,11 +116,13 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       return err('INTERNAL', e instanceof Error ? e.message : String(e));
     }
 
+    const sendOpts: SendOpts = { files };
+    if (content.length > 0) sendOpts.content = content;
+    const reply = replyOption(opts);
+    if (reply) sendOpts.reply = reply;
+
     try {
-      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({
-        content: content.length > 0 ? content : undefined,
-        files,
-      });
+      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send(sendOpts);
       return ok(summarizeMessage(msg));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));

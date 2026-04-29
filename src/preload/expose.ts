@@ -27,11 +27,11 @@ const api: BotcordApi = {
     listChannelMembers: (guildId, channelId) => invoke(IPC_CHANNELS['guilds.listChannelMembers'], guildId, channelId),
   },
   messages: {
-    send: (channelId, content) => invoke(IPC_CHANNELS['messages.send'], channelId, content),
+    send: (channelId, content, opts) => invoke(IPC_CHANNELS['messages.send'], channelId, content, opts),
     sendEmbed: (channelId, embed, content) =>
       invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content),
-    sendWithAttachments: (channelId, content, attachments) =>
-      invoke(IPC_CHANNELS['messages.sendWithAttachments'], channelId, content, attachments),
+    sendWithAttachments: (channelId, content, attachments, opts) =>
+      invoke(IPC_CHANNELS['messages.sendWithAttachments'], channelId, content, attachments, opts),
     sendPoll: (channelId, poll) => invoke(IPC_CHANNELS['messages.sendPoll'], channelId, poll),
     history: (channelId, opts) => invoke(IPC_CHANNELS['messages.history'], channelId, opts),
     delete: (channelId, messageId) => invoke(IPC_CHANNELS['messages.delete'], channelId, messageId),

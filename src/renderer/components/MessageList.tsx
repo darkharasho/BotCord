@@ -25,7 +25,7 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   return groups;
 }
 
-export function MessageList({ channelId, filter }: { channelId: string | null; filter?: string }) {
+export function MessageList({ channelId, filter, onReply }: { channelId: string | null; filter?: string; onReply?: ((m: MessageSummary) => void) | undefined }) {
   const { messages: allMessages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
   const trimmed = filter?.trim().toLowerCase() ?? '';
   const messages = trimmed.length > 0
@@ -132,7 +132,7 @@ export function MessageList({ channelId, filter }: { channelId: string | null; f
           {groups.map((g, gi) => {
             const head = g[0]!;
             if (head.systemKind) return <SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />;
-            return <MessageGroup key={`g-${gi}-${head.id}`} messages={g} />;
+            return <MessageGroup key={`g-${gi}-${head.id}`} messages={g} onReply={onReply} />;
           })}
         </div>
       </div>

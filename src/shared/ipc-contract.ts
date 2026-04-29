@@ -20,12 +20,13 @@ export interface BotcordApi {
     listChannelMembers(guildId: string, channelId: string): Promise<Result<ChannelMemberSummary[]>>;
   };
   messages: {
-    send(channelId: string, content: string): Promise<Result<MessageSummary>>;
+    send(channelId: string, content: string, opts?: { replyToMessageId?: string }): Promise<Result<MessageSummary>>;
     sendEmbed(channelId: string, embed: EmbedPayload, content?: string): Promise<Result<MessageSummary>>;
     sendWithAttachments(
       channelId: string,
       content: string,
       attachments: SendAttachment[],
+      opts?: { replyToMessageId?: string },
     ): Promise<Result<MessageSummary>>;
     sendPoll(channelId: string, poll: PollPayload): Promise<Result<MessageSummary>>;
     history(channelId: string, opts: { before?: string; limit: number }): Promise<Result<MessageSummary[]>>;
