@@ -23,6 +23,15 @@ const ROW_HEIGHT = 44;
 const dateFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const formatDate = (ms: number | null): string => ms == null ? '—' : dateFmt.format(new Date(ms));
 
+// Convert "#rrggbb" → "rgba(r, g, b, a)". Returns null on bad input.
+function hexToRgba(hex: string | null, alpha: number): string | null {
+  if (!hex) return null;
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1]!, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 // Custom CheckBox component
 function CheckBox({
   checked,
@@ -109,10 +118,13 @@ function Row({ index, style, rows, selected, onToggleSelected, rolesById, onMore
           const r = rolesById.get(id);
           if (!r) return null;
           const dotColor = r.color ?? 'rgba(255,255,255,0.4)';
+          const bg = hexToRgba(r.color, 0.16) ?? 'rgba(255,255,255,0.04)';
+          const border = hexToRgba(r.color, 0.4) ?? 'rgba(255,255,255,0.08)';
           return (
             <span
               key={id}
-              className="inline-flex items-center gap-1 pl-1.5 pr-2 py-[3px] rounded-md text-[12px] leading-none shrink-0 text-fg bg-bg-input border border-white/[0.06]"
+              className="inline-flex items-center gap-1 pl-1.5 pr-2 py-[3px] rounded-md text-[12px] leading-none shrink-0 text-fg border"
+              style={{ backgroundColor: bg, borderColor: border }}
             >
               <span
                 className="inline-block w-2 h-2 rounded-full shrink-0"
