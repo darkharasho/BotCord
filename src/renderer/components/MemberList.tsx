@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { Avatar } from './Avatar';
 import { UserProfileCard } from './UserProfileCard';
-import { openContextMenu } from './ContextMenu';
+import { openContextMenu, updateContextMenuItems } from './ContextMenu';
 import { buildUserMenu, type UserMenuTarget } from './UserContextMenu';
 import { KickDialog } from './moderation/KickDialog';
 import { BanDialog } from './moderation/BanDialog';
@@ -67,17 +67,13 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
       assignedRoleIds: new Set(detail?.roles.map(r => r.id) ?? []),
     };
 
-    const rolesNow = rolesCache.current.get(guildId) ?? null;
-
-    const items = buildUserMenu({
+    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const buildItems = (roles: GuildRole[] | null) => buildUserMenu({
       target,
       capabilities,
-      roles: rolesNow,
+      roles,
       callbacks: {
-        onOpenProfile: () => {
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          setProfileState({ userId: m.id, rect });
-        },
+        onOpenProfile:   () => setProfileState({ userId: m.id, rect: anchorRect }),
         onMention:       () => { void api.system.copyText(`<@${m.id}>`); pushToast('ok', 'Mention copied'); },
         onCopyUsername:  () => { void api.system.copyText(m.username); pushToast('ok', 'Username copied'); },
         onCopyUserId:    () => { void api.system.copyText(m.id); pushToast('ok', 'ID copied'); },
@@ -92,12 +88,15 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
         },
       },
     });
-    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, items);
 
-    // Backfill the role cache in the background. Next right-click will see them.
+    const rolesNow = rolesCache.current.get(guildId) ?? null;
+    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, buildItems(rolesNow));
+
     if (!rolesNow) {
       api.guilds.listGuildRoles(guildId).then(res => {
-        if (res.ok) rolesCache.current.set(guildId, res.data);
+        if (!res.ok) return;
+        rolesCache.current.set(guildId, res.data);
+        updateContextMenuItems(buildItems(res.data));
       });
     }
   };

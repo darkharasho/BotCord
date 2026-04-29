@@ -25,6 +25,7 @@ type Position = { x: number; y: number };
 type State = { items: ContextMenuEntry[]; pos: Position } | null;
 
 let setStateRef: ((s: State) => void) | null = null;
+let currentState: State = null;
 let escAttached = false;
 
 export function openContextMenu(event: { preventDefault: () => void; clientX: number; clientY: number }, items: ContextMenuEntry[]): void {
@@ -37,8 +38,18 @@ export function closeContextMenu(): void {
   if (setStateRef) setStateRef(null);
 }
 
+// Replace the items of the currently-open menu in place. No-op if no menu is open.
+// Used by callers that open a menu with placeholder data and then patch it once
+// async data resolves (e.g. role list lazy-loading).
+export function updateContextMenuItems(items: ContextMenuEntry[]): void {
+  if (!setStateRef || !currentState) return;
+  setStateRef({ items, pos: currentState.pos });
+}
+
 export function ContextMenuHost() {
   const [state, setState] = useState<State>(null);
+
+  useEffect(() => { currentState = state; }, [state]);
 
   useEffect(() => {
     setStateRef = setState;

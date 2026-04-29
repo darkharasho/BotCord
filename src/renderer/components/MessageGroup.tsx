@@ -12,7 +12,7 @@ import { useExclusivePopover } from '../lib/use-exclusive-popover';
 import { EmojiPicker } from './EmojiPicker';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
-import { openContextMenu, type ContextMenuEntry } from './ContextMenu';
+import { openContextMenu, updateContextMenuItems, type ContextMenuEntry } from './ContextMenu';
 import { Avatar } from './Avatar';
 import { UserProfileCard } from './UserProfileCard';
 import { KickDialog } from './moderation/KickDialog';
@@ -181,14 +181,13 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
       displayName,
       assignedRoleIds: new Set(detail?.roles.map(r => r.id) ?? []),
     };
-    const rolesNow = rolesCacheRef.current.get(guildId) ?? null;
-
-    const items = buildUserMenu({
+    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const buildItems = (roles: GuildRole[] | null) => buildUserMenu({
       target,
       capabilities,
-      roles: rolesNow,
+      roles,
       callbacks: {
-        onOpenProfile:  () => setProfileState({ userId: authorId, guildId, rect: (e.currentTarget as HTMLElement).getBoundingClientRect() }),
+        onOpenProfile:  () => setProfileState({ userId: authorId, guildId, rect: anchorRect }),
         onMention:      () => { void api.system.copyText(`<@${authorId}>`); pushToast('ok', 'Mention copied'); },
         onCopyUsername: () => { void api.system.copyText(username); pushToast('ok', 'Username copied'); },
         onCopyUserId:   () => { void api.system.copyText(authorId); pushToast('ok', 'ID copied'); },
@@ -203,11 +202,15 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
         },
       },
     });
-    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, items);
+
+    const rolesNow = rolesCacheRef.current.get(guildId) ?? null;
+    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, buildItems(rolesNow));
 
     if (!rolesNow) {
       api.guilds.listGuildRoles(guildId).then(res => {
-        if (res.ok) rolesCacheRef.current.set(guildId, res.data);
+        if (!res.ok) return;
+        rolesCacheRef.current.set(guildId, res.data);
+        updateContextMenuItems(buildItems(res.data));
       });
     }
   };
