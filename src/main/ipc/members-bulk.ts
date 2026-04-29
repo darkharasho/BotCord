@@ -95,4 +95,88 @@ export function registerMembersBulkHandlers({ manager }: IpcDeps): void {
     }
     return ok(result);
   });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.bulkKickMembers'], async (_, guildId: unknown, userIds: unknown, reason: unknown): Promise<Result<BulkActionResult>> => {
+    if (typeof guildId !== 'string' || !Array.isArray(userIds)) {
+      return err('INTERNAL', 'guildId and userIds[] required');
+    }
+    const r = typeof reason === 'string' && reason.length > 0 ? reason.slice(0, 512) : undefined;
+    const ctx = await resolveBotContext(manager, guildId, PermissionsBitField.Flags.KickMembers, 'Kick Members');
+    if (!('botMember' in ctx)) return ctx;
+
+    const result: BulkActionResult = { ok: [], failed: [] };
+    for (const id of userIds) {
+      if (typeof id !== 'string') { result.failed.push({ id: String(id), error: 'invalid id' }); continue; }
+      const target = await fetchTarget(ctx.guild, id);
+      if (!target) { result.failed.push({ id, error: 'member not found' }); continue; }
+      if (target.id === ctx.botMember.id) { result.failed.push({ id, error: 'cannot kick the bot itself' }); continue; }
+      if (target.roles.highest.position >= ctx.botMember.roles.highest.position) {
+        result.failed.push({ id, error: "target's highest role is at or above the bot's" });
+        continue;
+      }
+      try {
+        await target.kick(r);
+        result.ok.push(id);
+      } catch (e) {
+        result.failed.push({ id, error: e instanceof Error ? e.message : 'unknown error' });
+      }
+    }
+    return ok(result);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.bulkBanMembers'], async (_, guildId: unknown, userIds: unknown, opts: unknown): Promise<Result<BulkActionResult>> => {
+    if (typeof guildId !== 'string' || !Array.isArray(userIds)) {
+      return err('INTERNAL', 'guildId and userIds[] required');
+    }
+    const o = (opts && typeof opts === 'object' ? opts : {}) as { reason?: string; deleteMessageSeconds?: number };
+    const reason = typeof o.reason === 'string' && o.reason.length > 0 ? o.reason.slice(0, 512) : undefined;
+    const dms = typeof o.deleteMessageSeconds === 'number' && o.deleteMessageSeconds >= 0 && o.deleteMessageSeconds <= 604800
+      ? Math.floor(o.deleteMessageSeconds)
+      : 0;
+
+    const ctx = await resolveBotContext(manager, guildId, PermissionsBitField.Flags.BanMembers, 'Ban Members');
+    if (!('botMember' in ctx)) return ctx;
+
+    const result: BulkActionResult = { ok: [], failed: [] };
+    const eligible: string[] = [];
+    for (const id of userIds) {
+      if (typeof id !== 'string') { result.failed.push({ id: String(id), error: 'invalid id' }); continue; }
+      const target = await fetchTarget(ctx.guild, id);
+      if (!target) { result.failed.push({ id, error: 'member not found' }); continue; }
+      if (target.id === ctx.botMember.id) { result.failed.push({ id, error: 'cannot ban the bot itself' }); continue; }
+      if (target.roles.highest.position >= ctx.botMember.roles.highest.position) {
+        result.failed.push({ id, error: "target's highest role is at or above the bot's" });
+        continue;
+      }
+      eligible.push(id);
+    }
+
+    // Discord's bulk-ban endpoint accepts up to 200 user IDs per call.
+    const chunkSize = 200;
+    for (let i = 0; i < eligible.length; i += chunkSize) {
+      const chunk = eligible.slice(i, i + chunkSize);
+      try {
+        const banResp = await ctx.guild.bans.bulkCreate(chunk, {
+          ...(reason ? { reason } : {}),
+          deleteMessageSeconds: dms,
+        });
+        for (const okId of banResp.bannedUsers ?? []) result.ok.push(okId);
+        for (const failedId of banResp.failedUsers ?? []) result.failed.push({ id: failedId, error: 'failed via bulk endpoint' });
+      } catch {
+        // Fall back to per-member ban for this chunk.
+        for (const id of chunk) {
+          try {
+            const member = ctx.guild.members.cache.get(id);
+            if (member) await member.ban({ ...(reason ? { reason } : {}), deleteMessageSeconds: dms });
+            else await ctx.guild.bans.create(id, { ...(reason ? { reason } : {}), deleteMessageSeconds: dms });
+            result.ok.push(id);
+          } catch (e) {
+            result.failed.push({ id, error: e instanceof Error ? e.message : 'unknown error' });
+          }
+        }
+      }
+    }
+
+    return ok(result);
+  });
 }
