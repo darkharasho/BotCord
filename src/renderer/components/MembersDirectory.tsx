@@ -26,19 +26,27 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
     } else {
       setLoading(true);
       setEntries([]);
-      api.guilds.listAllMembers(guildId).then(res => {
-        if (!active) return;
-        setLoading(false);
-        if (res.ok) {
-          cache.current.set(guildId, res.data);
-          setEntries(res.data.entries);
-          setIntentMissing(res.data.intentMissing);
-        } else {
-          pushToast('danger', res.error.message);
-        }
-      });
+      setIntentMissing(false);
+      api.guilds.listAllMembers(guildId)
+        .then(res => {
+          if (!active) return;
+          setLoading(false);
+          if (res.ok) {
+            cache.current.set(guildId, res.data);
+            setEntries(res.data.entries);
+            setIntentMissing(res.data.intentMissing);
+          } else {
+            pushToast('danger', res.error.message);
+          }
+        })
+        .catch(e => {
+          if (!active) return;
+          setLoading(false);
+          pushToast('danger', e instanceof Error ? e.message : 'Failed to load members');
+        });
     }
 
+    setRoles([]);
     api.guilds.listGuildRoles(guildId).then(res => {
       if (!active) return;
       if (res.ok) setRoles(res.data);
