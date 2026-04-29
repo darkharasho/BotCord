@@ -49,6 +49,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   const [autocomplete, setAutocomplete] = useState<AutocompleteState>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
+  // displayName → user id, populated when an @ autocomplete is accepted.
+  // Resolved back to <@id> at send time.
+  const mentionMap = useRef<Map<string, string>>(new Map());
   const taRef = useRef<HTMLTextAreaElement>(null);
   // Always load guild emojis when available so `:` autocomplete works without opening the picker.
   const guildEmojis = useGuildEmojis(guildId);
@@ -135,26 +138,35 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
 
   const applyAutocomplete = (idx: number) => {
     if (!autocomplete || idx < 0 || idx >= acLength) return;
+    // Recompute the trigger boundaries from the CURRENT text + cursor, not
+    // the snapshot stored when the async search resolved. Otherwise a fast
+    // typist will lose the chars they typed after the search fired.
+    const ta = taRef.current;
+    const cursor = ta?.selectionStart ?? text.length;
+    const fresh = detectTrigger(text, cursor);
+    const start = fresh ? fresh.start : autocomplete.start;
+    const end = fresh ? fresh.end : autocomplete.end;
+
     let token: string;
     if (autocomplete.kind === 'mention') {
       const m = autocomplete.members[idx]!;
-      token = `<@${m.id}>`;
+      token = `@${m.displayName}`;
+      mentionMap.current.set(m.displayName, m.id);
     } else {
       const e = emojiResults[idx]!;
-      // Custom emoji insert shorthand `:name:` for readability; resolved on send.
       token = e.kind === 'custom' ? `:${e.name}:` : e.char;
     }
-    const before = text.slice(0, autocomplete.start);
-    const after = text.slice(autocomplete.end);
+    const before = text.slice(0, start);
+    const after = text.slice(end);
     const next = before + token + ' ' + after;
     setText(next);
     setAutocomplete(null);
     requestAnimationFrame(() => {
-      const ta = taRef.current;
-      if (!ta) return;
+      const target = taRef.current;
+      if (!target) return;
       const pos = (before + token + ' ').length;
-      ta.focus();
-      ta.selectionStart = ta.selectionEnd = pos;
+      target.focus();
+      target.selectionStart = target.selectionEnd = pos;
     });
   };
 
@@ -203,9 +215,23 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     });
   };
 
+  const resolveMentionShortcuts = (raw: string): string => {
+    if (mentionMap.current.size === 0) return raw;
+    // Apply longest names first so `@John Smith` wins over `@John`.
+    const names = Array.from(mentionMap.current.keys()).sort((a, b) => b.length - a.length);
+    let out = raw;
+    for (const name of names) {
+      const id = mentionMap.current.get(name);
+      if (!id) continue;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp(`@${escaped}\\b`, 'g'), `<@${id}>`);
+    }
+    return out;
+  };
+
   const send = async () => {
     if (!channelId) return;
-    const content = resolveEmojiShortcuts(text.trim());
+    const content = resolveMentionShortcuts(resolveEmojiShortcuts(text.trim()));
     if (content.length === 0 && files.length === 0) return;
     setBusy(true);
     let res;
@@ -226,6 +252,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     }
     setText('');
     setFiles([]);
+    mentionMap.current.clear();
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
