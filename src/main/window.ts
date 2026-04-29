@@ -4,21 +4,17 @@ import { existsSync } from 'fs';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
 
 function loadAppIcon(): Electron.NativeImage | undefined {
-  const roots = [
-    join(app.getAppPath(), 'resources'),
-    join(__dirname, '../../resources'),
-    join(__dirname, '../resources'),
+  // Use the raw source PNG. Linux WMs (KDE/Plasma especially) handle the
+  // scaling themselves and behave better with the original aspect than with
+  // our pre-padded square — the padded version was being clipped further
+  // by the WM's own framing. AxiPulse uses this exact pattern.
+  const candidates = [
+    join(app.getAppPath(), 'public', 'botcord-icon.png'),
+    join(__dirname, '../../public/botcord-icon.png'),
+    join(__dirname, '../renderer/botcord-icon.png'),
   ];
-  const root = roots.find(r => existsSync(join(r, 'icon-512.png')));
-  if (!root) return undefined;
-  // Combine multiple resolutions so the WM picks the best size for the slot
-  // it's rendering into (taskbar 24-48px, alt-tab ~128px, icon-only docks 256+).
-  const big = nativeImage.createFromPath(join(root, 'icon-512.png'));
-  if (existsSync(join(root, 'icon-256.png'))) {
-    const small = nativeImage.createFromPath(join(root, 'icon-256.png'));
-    big.addRepresentation({ scaleFactor: 0.5, buffer: small.toPNG() });
-  }
-  return big;
+  const path = candidates.find(p => existsSync(p));
+  return path ? nativeImage.createFromPath(path) : undefined;
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -45,6 +41,10 @@ export function createMainWindow(): BrowserWindow {
   const icon = loadAppIcon();
   if (icon) opts.icon = icon;
   const win = new BrowserWindow(opts);
+
+  // KDE/X11 needs an explicit setIcon after window creation for the taskbar
+  // hint to pick up; the constructor `icon` only sets the initial frame icon.
+  if (icon) win.setIcon(icon);
 
   win.once('ready-to-show', () => win.show());
 
