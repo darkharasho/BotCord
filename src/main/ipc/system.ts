@@ -15,7 +15,9 @@ export function registerSystemHandlers(): void {
   ipcMain.handle(IPC_CHANNELS['system.appVersion'], () => app.getVersion());
   ipcMain.handle(IPC_CHANNELS['system.openExternal'], async (_, url: unknown) => {
     if (typeof url !== 'string') return;
-    if (!ALLOWED_PREFIXES.some(p => url.startsWith(p))) return;
+    // Allow our well-known prefixes plus any https URL (embed/source links can come from anywhere).
+    const allowed = ALLOWED_PREFIXES.some(p => url.startsWith(p)) || url.startsWith('https://');
+    if (!allowed) return;
     await shell.openExternal(url);
   });
 

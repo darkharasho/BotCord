@@ -210,10 +210,13 @@ export function summarizeMessage(m: Message): MessageSummary {
     description: e.description ?? null,
     url: e.url ?? null,
     color: e.color ?? null,
-    image: e.image?.url ?? null,
-    thumbnail: e.thumbnail?.url ?? null,
-    authorName: e.author?.name ?? null,
-    footerText: e.footer?.text ?? null,
+    image: e.image ? { url: e.image.url, width: e.image.width ?? null, height: e.image.height ?? null } : null,
+    thumbnail: e.thumbnail ? { url: e.thumbnail.url, width: e.thumbnail.width ?? null, height: e.thumbnail.height ?? null } : null,
+    author: e.author ? { name: e.author.name, url: e.author.url ?? null, iconUrl: e.author.iconURL ?? null } : null,
+    footer: e.footer ? { text: e.footer.text, iconUrl: e.footer.iconURL ?? null } : null,
+    provider: e.provider ? { name: e.provider.name ?? '', url: e.provider.url ?? null } : null,
+    timestamp: e.timestamp ? new Date(e.timestamp).getTime() : null,
+    video: e.video ? { url: e.video.url ?? '', width: e.video.width ?? null, height: e.video.height ?? null } : null,
     fields: e.fields.map(f => ({ name: f.name, value: f.value, inline: f.inline ?? false })),
   }));
 

@@ -33,10 +33,13 @@ export type MessageEmbedSummary = {
   description: string | null;
   url: string | null;
   color: number | null;
-  image: string | null;
-  thumbnail: string | null;
-  authorName: string | null;
-  footerText: string | null;
+  image: { url: string; width: number | null; height: number | null } | null;
+  thumbnail: { url: string; width: number | null; height: number | null } | null;
+  author: { name: string; url: string | null; iconUrl: string | null } | null;
+  footer: { text: string; iconUrl: string | null } | null;
+  provider: { name: string; url: string | null } | null;
+  timestamp: number | null;
+  video: { url: string; width: number | null; height: number | null } | null;
   fields: Array<{ name: string; value: string; inline: boolean }>;
 };
 
