@@ -93,7 +93,7 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
         {member.avatarUrl
           ? <img src={member.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
           : <div className="w-8 h-8 rounded-full bg-bg-input flex items-center justify-center text-[10px] font-semibold">{member.displayName.slice(0, 2).toUpperCase()}</div>}
-        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-2 ring-bg`} />
+        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-[3px] ring-bg`} />
       </div>
       <span
         className="text-[14px] truncate"

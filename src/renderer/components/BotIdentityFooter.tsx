@@ -45,7 +45,7 @@ export function BotIdentityFooter({ onOpenSettings }: { onOpenSettings: () => vo
               {(identity?.username ?? '??').slice(0, 2).toUpperCase()}
             </div>}
         <span
-          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${dot} ring-2 ring-bg-sunken`}
+          className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${dot} ring-[3px] ring-bg-sunken`}
         />
       </div>
       <div className="flex-1 min-w-0 leading-tight">
