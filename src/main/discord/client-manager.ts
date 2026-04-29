@@ -225,7 +225,11 @@ export function summarizeMessage(m: Message): MessageSummary {
   }));
 
   const mentions: ResolvedMention[] = [];
-  m.mentions.users.forEach(u => mentions.push({ type: 'user', id: u.id, name: u.username }));
+  m.mentions.users.forEach(u => {
+    const member = m.guild?.members.cache.get(u.id);
+    const name = member?.displayName ?? (u as { globalName?: string | null }).globalName ?? u.username;
+    mentions.push({ type: 'user', id: u.id, name });
+  });
   m.mentions.channels.forEach(c => mentions.push({ type: 'channel', id: c.id, name: 'name' in c && typeof c.name === 'string' ? c.name : 'channel' }));
   m.mentions.roles.forEach(r => mentions.push({ type: 'role', id: r.id, name: r.name }));
 
@@ -281,7 +285,11 @@ function projectReplyTo(m: Message): MessageSummary['replyTo'] {
   }
   const member = ref.member;
   const mentions: ResolvedMention[] = [];
-  ref.mentions.users.forEach(u => mentions.push({ type: 'user', id: u.id, name: u.username }));
+  ref.mentions.users.forEach(u => {
+    const member = ref.guild?.members.cache.get(u.id);
+    const name = member?.displayName ?? (u as { globalName?: string | null }).globalName ?? u.username;
+    mentions.push({ type: 'user', id: u.id, name });
+  });
   ref.mentions.channels.forEach(c => mentions.push({ type: 'channel', id: c.id, name: 'name' in c && typeof c.name === 'string' ? c.name : 'channel' }));
   ref.mentions.roles.forEach(r => mentions.push({ type: 'role', id: r.id, name: r.name }));
   return {
