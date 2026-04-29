@@ -26,7 +26,10 @@ export function ServerRail({
   }, []);
 
   return (
-    <div className="h-full overflow-y-auto pt-3 pb-3 flex flex-col items-center gap-2 bg-bg-sunken">
+    <div
+      className="h-full overflow-y-auto overflow-x-hidden pt-3 pb-3 flex flex-col items-center gap-2 bg-bg-sunken"
+      style={{ scrollbarWidth: 'none' } as React.CSSProperties}
+    >
       {error && <div className="text-danger text-[10px] px-1 text-center leading-tight">{error}</div>}
       {guilds.map(g => (
         <GuildRailItem
