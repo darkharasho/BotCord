@@ -324,3 +324,27 @@ export type BotCapabilities = {
   // True when the target IS the bot itself — UI should hide self-actions.
   targetIsSelf: boolean;
 };
+
+export type AllMembersEntry = {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+  status: PresenceStatus;
+  isBot: boolean;
+  joinedAt: number | null;     // ms epoch — null if unknown
+  createdAt: number;           // ms epoch
+  roleColor: string | null;    // "#rrggbb" or null
+  topRole: MemberRole | null;
+  roleIds: string[];           // excluding @everyone
+};
+
+export type ListAllMembersResult = {
+  entries: AllMembersEntry[];
+  intentMissing: boolean;
+};
+
+export type BulkActionResult = {
+  ok: string[];
+  failed: Array<{ id: string; error: string }>;
+};

@@ -1,6 +1,6 @@
 import type {
-  BotIdentity, BotStatus, BotCapabilities, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
-  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildRole, GuildSummary,
+  AllMembersEntry, BotIdentity, BotStatus, BotCapabilities, BulkActionResult, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
+  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildRole, GuildSummary, ListAllMembersResult,
   MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
@@ -45,6 +45,11 @@ export interface BotcordApi {
     kickMember(guildId: string, userId: string, reason?: string): Promise<Result<void>>;
     banMember(guildId: string, userId: string, opts: { reason?: string; deleteMessageSeconds?: number }): Promise<Result<void>>;
     timeoutMember(guildId: string, userId: string, durationMs: number, reason?: string): Promise<Result<void>>;
+    listAllMembers(guildId: string): Promise<Result<ListAllMembersResult>>;
+    bulkAssignRole(guildId: string, userIds: string[], roleId: string): Promise<Result<BulkActionResult>>;
+    bulkRemoveRole(guildId: string, userIds: string[], roleId: string): Promise<Result<BulkActionResult>>;
+    bulkKickMembers(guildId: string, userIds: string[], reason?: string): Promise<Result<BulkActionResult>>;
+    bulkBanMembers(guildId: string, userIds: string[], opts: { reason?: string; deleteMessageSeconds?: number }): Promise<Result<BulkActionResult>>;
   };
   messages: {
     send(channelId: string, content: string, opts?: { replyToMessageId?: string }): Promise<Result<MessageSummary>>;
@@ -130,6 +135,11 @@ export const IPC_CHANNELS = {
   'guilds.kickMember': 'guilds.kickMember',
   'guilds.banMember': 'guilds.banMember',
   'guilds.timeoutMember': 'guilds.timeoutMember',
+  'guilds.listAllMembers': 'guilds.listAllMembers',
+  'guilds.bulkAssignRole': 'guilds.bulkAssignRole',
+  'guilds.bulkRemoveRole': 'guilds.bulkRemoveRole',
+  'guilds.bulkKickMembers': 'guilds.bulkKickMembers',
+  'guilds.bulkBanMembers': 'guilds.bulkBanMembers',
   'messages.send': 'messages.send',
   'messages.sendEmbed': 'messages.sendEmbed',
   'messages.sendWithAttachments': 'messages.sendWithAttachments',
