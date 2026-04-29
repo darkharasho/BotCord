@@ -12,7 +12,6 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState<GuildRole[]>([]);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<'name' | 'joinedAt' | 'createdAt'>('joinedAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -65,7 +64,6 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
 
     setSelected(new Set());
     setSearch('');
-    setRoleFilter(null);
     // Reset per-column filters on guild switch
     setMemberSinceFrom(null);
     setMemberSinceTo(null);
@@ -85,9 +83,6 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
         e.username.toLowerCase().includes(q),
       );
     }
-    if (roleFilter) {
-      rows = rows.filter(e => e.roleIds.includes(roleFilter));
-    }
     if (roleFilters.size > 0) {
       rows = rows.filter(e => Array.from(roleFilters).every(rid => e.roleIds.includes(rid)));
     }
@@ -102,7 +97,7 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
       return dir * (a.createdAt - b.createdAt);
     });
     return rows;
-  }, [entries, search, roleFilter, roleFilters, memberSinceFrom, memberSinceTo, createdAtFrom, createdAtTo, sortKey, sortDir]);
+  }, [entries, search, roleFilters, memberSinceFrom, memberSinceTo, createdAtFrom, createdAtTo, sortKey, sortDir]);
 
   const rolesById = useMemo(() => {
     const m = new Map<string, GuildRole>();
@@ -128,9 +123,6 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
       <MembersToolbar
         search={search}
         onSearch={setSearch}
-        roles={roles}
-        roleFilter={roleFilter}
-        onRoleFilter={setRoleFilter}
         totalCount={entries.length}
         filteredCount={filtered.length}
         intentMissing={intentMissing}
