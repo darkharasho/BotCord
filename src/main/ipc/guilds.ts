@@ -12,7 +12,9 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     const guilds = client.guilds.cache.map(g => ({
       id: g.id,
       name: g.name,
-      iconUrl: g.iconURL({ size: 128 }) ?? null,
+      iconUrl: g.icon?.startsWith('a_')
+        ? g.iconURL({ size: 128, extension: 'gif' })
+        : g.iconURL({ size: 128 }),
       memberCount: g.memberCount ?? null,
     }));
     return ok(guilds);

@@ -52,10 +52,13 @@ export function createClientManager(vault: TokenVault): ClientManager {
     };
   };
 
-  const toGuildSummary = (g: { id: string; name: string; iconURL: (o?: { size: number }) => string | null; memberCount: number | null }): GuildSummary => ({
+  const toGuildSummary = (g: { id: string; name: string; icon: string | null; iconURL: (o?: { size?: number; extension?: 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' }) => string | null; memberCount: number | null }): GuildSummary => ({
     id: g.id,
     name: g.name,
-    iconUrl: g.iconURL({ size: 128 }) ?? null,
+    // Animated icons start with `a_` — serve as .gif so we can swap to static .webp on hover.
+    iconUrl: g.icon?.startsWith('a_')
+      ? g.iconURL({ size: 128, extension: 'gif' })
+      : g.iconURL({ size: 128 }),
     memberCount: g.memberCount,
   });
 
