@@ -363,7 +363,7 @@ export function Composer({
             <button
               onClick={() => setPlusMenuOpen(o => !o)}
               disabled={offline || busy}
-              className="text-fg-muted hover:text-fg w-10 h-11 flex items-center justify-center disabled:opacity-40"
+              className="text-fg-muted hover:text-fg w-10 h-[46px] flex items-center justify-center disabled:opacity-40"
               title="Add"
             ><IconCirclePlus size={22} stroke={1.75} /></button>
             {plusMenuOpen && (
@@ -422,7 +422,7 @@ export function Composer({
             <button
               onClick={() => setEmojiOpen(o => !o)}
               disabled={offline || busy}
-              className="text-fg-muted hover:text-fg w-10 h-11 flex items-center justify-center disabled:opacity-40"
+              className="text-fg-muted hover:text-fg w-10 h-[46px] flex items-center justify-center disabled:opacity-40"
               title="Emoji"
             ><IconMoodSmile size={22} stroke={1.75} /></button>
             {emojiOpen && (
@@ -441,7 +441,7 @@ export function Composer({
             <button
               onClick={send}
               disabled={offline || busy || !channelId}
-              className="text-accent hover:text-accent-hover w-10 h-11 flex items-center justify-center disabled:opacity-40 shrink-0"
+              className="text-accent hover:text-accent-hover w-10 h-[46px] flex items-center justify-center disabled:opacity-40 shrink-0"
               title="Send"
             ><IconSend2 size={22} stroke={1.75} /></button>
           )}
