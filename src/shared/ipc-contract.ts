@@ -16,7 +16,7 @@ export interface BotcordApi {
     list(): Promise<Result<GuildSummary[]>>;
     listChannels(guildId: string): Promise<Result<ChannelSummary[]>>;
     listEmojis(guildId: string): Promise<Result<GuildEmoji[]>>;
-    searchMembers(guildId: string, query: string, limit?: number): Promise<Result<MemberSummary[]>>;
+    searchMembers(guildId: string, query: string, opts?: { limit?: number; channelId?: string }): Promise<Result<MemberSummary[]>>;
   };
   messages: {
     send(channelId: string, content: string): Promise<Result<MessageSummary>>;

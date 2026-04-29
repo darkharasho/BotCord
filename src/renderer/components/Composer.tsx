@@ -91,7 +91,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     if (trig.kind === 'mention') {
       if (!guildId) { setAutocomplete(null); return; }
       const reqId = ++acRequestRef.current;
-      api.guilds.searchMembers(guildId, trig.query, AUTOCOMPLETE_LIMIT).then(res => {
+      const opts: { limit: number; channelId?: string } = { limit: AUTOCOMPLETE_LIMIT };
+      if (channelId) opts.channelId = channelId;
+      api.guilds.searchMembers(guildId, trig.query, opts).then(res => {
         if (reqId !== acRequestRef.current) return; // stale response — ignore
         const members = res.ok ? res.data : [];
         if (members.length === 0) { setAutocomplete(null); return; }

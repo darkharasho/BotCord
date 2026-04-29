@@ -23,7 +23,7 @@ const api: BotcordApi = {
     list: () => invoke(IPC_CHANNELS['guilds.list']),
     listChannels: (guildId) => invoke(IPC_CHANNELS['guilds.listChannels'], guildId),
     listEmojis: (guildId) => invoke(IPC_CHANNELS['guilds.listEmojis'], guildId),
-    searchMembers: (guildId, query, limit) => invoke(IPC_CHANNELS['guilds.searchMembers'], guildId, query, limit),
+    searchMembers: (guildId, query, opts) => invoke(IPC_CHANNELS['guilds.searchMembers'], guildId, query, opts),
   },
   messages: {
     send: (channelId, content) => invoke(IPC_CHANNELS['messages.send'], channelId, content),

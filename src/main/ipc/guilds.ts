@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron';
+import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
 import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary } from '../../shared/domain';
@@ -47,33 +48,49 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     return ok(projectGuildEmojis(guild.id, guild.emojis.cache.values()));
   });
 
-  ipcMain.handle(IPC_CHANNELS['guilds.searchMembers'], async (_, guildId: unknown, query: unknown, limit: unknown): Promise<Result<MemberSummary[]>> => {
+  ipcMain.handle(IPC_CHANNELS['guilds.searchMembers'], async (_, guildId: unknown, query: unknown, opts: unknown): Promise<Result<MemberSummary[]>> => {
     if (typeof guildId !== 'string') return err('INTERNAL', 'guildId must be a string');
     if (typeof query !== 'string') return err('INTERNAL', 'query must be a string');
-    const max = typeof limit === 'number' && limit > 0 && limit <= 25 ? Math.floor(limit) : 8;
+    const o = (opts && typeof opts === 'object' ? opts : {}) as { limit?: number; channelId?: string };
+    const max = typeof o.limit === 'number' && o.limit > 0 && o.limit <= 25 ? Math.floor(o.limit) : 8;
+    const channelId = typeof o.channelId === 'string' ? o.channelId : undefined;
 
     const client = manager.getClient();
     if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
 
-    const trimmed = query.trim();
+    // Resolve the gating channel: for threads we check the parent text channel.
+    let viewChannel: GuildBasedChannel | null = null;
+    if (channelId) {
+      const ch = guild.channels.cache.get(channelId) ?? null;
+      if (ch && (ch.type === ChannelType.PublicThread || ch.type === ChannelType.PrivateThread || ch.type === ChannelType.AnnouncementThread)) {
+        viewChannel = ch.parent ?? null;
+      } else if (ch) {
+        viewChannel = ch;
+      }
+    }
 
-    // For empty queries return the most recently active members from cache.
-    let candidates = Array.from(guild.members.cache.values());
+    const trimmed = query.trim();
+    const fetchLimit = viewChannel ? Math.min(50, max * 4) : max;
+
+    let candidates: GuildMember[] = Array.from(guild.members.cache.values());
     if (trimmed.length > 0) {
-      // Try the gateway-backed search first (gives us members not in cache).
       try {
-        const fetched = await guild.members.fetch({ query: trimmed, limit: max });
+        const fetched = await guild.members.fetch({ query: trimmed, limit: fetchLimit });
         candidates = Array.from(fetched.values());
       } catch {
-        // Fall back to local cache filter.
         const q = trimmed.toLowerCase();
         candidates = candidates.filter(m =>
           m.user.username.toLowerCase().includes(q)
           || m.displayName.toLowerCase().includes(q)
           || (m.nickname?.toLowerCase().includes(q) ?? false));
       }
+    }
+
+    if (viewChannel) {
+      const view = PermissionsBitField.Flags.ViewChannel;
+      candidates = candidates.filter(m => viewChannel!.permissionsFor(m)?.has(view) ?? false);
     }
 
     const summaries: MemberSummary[] = candidates.slice(0, max).map(m => ({
