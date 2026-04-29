@@ -57,7 +57,7 @@ Icon=botcord
 Terminal=false
 Type=Application
 Categories=Network;Chat;
-StartupWMClass=BotCord
+StartupWMClass=botcord
 StartupNotify=true
 EOF
 

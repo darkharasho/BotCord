@@ -1,9 +1,5 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
-
-// Sets WM_CLASS on Linux so KDE/GNOME taskbars match the .desktop entry's
-// StartupWMClass and use its icon instead of the generic Electron one.
-app.setName('BotCord');
 import { createMainWindow } from './window';
 import { installCSP } from './security/csp';
 import { createTokenVault } from './vault/token-vault';
