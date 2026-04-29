@@ -1,6 +1,6 @@
 import type {
   BotIdentity, BotStatus, ChannelSummary, DraftInput, DraftRow,
-  EmbedPayload, GatewayState, GuildEmoji, GuildSummary, MessageSummary, Prefs, SendAttachment,
+  EmbedPayload, GatewayState, GuildEmoji, GuildSummary, MemberSummary, MessageSummary, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
 
@@ -16,6 +16,7 @@ export interface BotcordApi {
     list(): Promise<Result<GuildSummary[]>>;
     listChannels(guildId: string): Promise<Result<ChannelSummary[]>>;
     listEmojis(guildId: string): Promise<Result<GuildEmoji[]>>;
+    searchMembers(guildId: string, query: string, limit?: number): Promise<Result<MemberSummary[]>>;
   };
   messages: {
     send(channelId: string, content: string): Promise<Result<MessageSummary>>;
@@ -71,6 +72,7 @@ export const IPC_CHANNELS = {
   'guilds.list': 'guilds.list',
   'guilds.listChannels': 'guilds.listChannels',
   'guilds.listEmojis': 'guilds.listEmojis',
+  'guilds.searchMembers': 'guilds.searchMembers',
   'messages.send': 'messages.send',
   'messages.sendEmbed': 'messages.sendEmbed',
   'messages.sendWithAttachments': 'messages.sendWithAttachments',

@@ -53,6 +53,14 @@ export type GuildEmoji = {
   url: string;
 };
 
+export type MemberSummary = {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+  roleColor: string | null;
+};
+
 export type SystemMessageKind =
   | 'user_join'
   | 'pin'

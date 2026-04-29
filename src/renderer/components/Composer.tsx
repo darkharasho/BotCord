@@ -1,14 +1,42 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
 import { EmojiPicker } from './EmojiPicker';
 import { AttachmentTray } from './AttachmentTray';
+import { AutocompletePopover, type AutocompleteItem } from './AutocompletePopover';
+import { STANDARD_EMOJI } from '../lib/emoji-data';
 import { pushToast } from './Toaster';
-import type { GatewayState } from '../../shared/domain';
+import type { GatewayState, GuildEmoji, MemberSummary } from '../../shared/domain';
 import { IconCirclePlus, IconMoodSmile, IconSend2 } from '@tabler/icons-react';
 
 const MAX_FILES = 10;
 const MAX_BYTES = 25 * 1024 * 1024;
+const AUTOCOMPLETE_LIMIT = 8;
+
+type AutocompleteState =
+  | { kind: 'mention'; query: string; start: number; end: number; selectedIdx: number; members: MemberSummary[] }
+  | { kind: 'emoji'; query: string; start: number; end: number; selectedIdx: number }
+  | null;
+
+// Find an active @ or : trigger immediately to the left of the cursor.
+function detectTrigger(text: string, cursor: number): { kind: 'mention' | 'emoji'; query: string; start: number; end: number } | null {
+  // Walk backwards from cursor for up to 32 chars looking for @ or : preceded by start-of-text or whitespace.
+  const max = Math.max(0, cursor - 32);
+  for (let i = cursor - 1; i >= max; i--) {
+    const ch = text[i];
+    if (!ch) break;
+    if (ch === '@' || ch === ':') {
+      const before = i === 0 ? ' ' : text[i - 1] ?? ' ';
+      if (!/\s/.test(before)) return null;
+      const query = text.slice(i + 1, cursor);
+      // The query allows letters, digits, underscores, periods. If it contains anything else (whitespace, etc) — abort.
+      if (!/^[\w.\-]*$/.test(query)) return null;
+      return { kind: ch === '@' ? 'mention' : 'emoji', query, start: i, end: cursor };
+    }
+    if (/\s/.test(ch)) return null;
+  }
+  return null;
+}
 
 export function Composer({ channelId, guildId }: { channelId: string | null; guildId: string | null }) {
   const [text, setText] = useState('');
@@ -17,8 +45,10 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [gateway, setGateway] = useState<GatewayState>({ status: 'connecting' });
   const [dragOver, setDragOver] = useState(false);
+  const [autocomplete, setAutocomplete] = useState<AutocompleteState>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const guildEmojis = useGuildEmojis(emojiOpen ? guildId : null);
+  // Always load guild emojis when available so `:` autocomplete works without opening the picker.
+  const guildEmojis = useGuildEmojis(guildId);
 
   useEffect(() => {
     api.bot.getStatus().then(s => { if (s.kind === 'configured') setGateway(s.gateway); });
@@ -31,6 +61,97 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 240) + 'px';
   }, [text]);
+
+  // Reset autocomplete state when channel or guild changes.
+  useEffect(() => { setAutocomplete(null); }, [channelId, guildId]);
+
+  // Whenever text changes, redetect a trigger and refresh suggestions.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    const trig = detectTrigger(text, ta.selectionStart);
+    if (!trig) { setAutocomplete(null); return; }
+
+    if (trig.kind === 'mention') {
+      if (!guildId) { setAutocomplete(null); return; }
+      let cancelled = false;
+      api.guilds.searchMembers(guildId, trig.query, AUTOCOMPLETE_LIMIT).then(res => {
+        if (cancelled) return;
+        const members = res.ok ? res.data : [];
+        if (members.length === 0) { setAutocomplete(null); return; }
+        setAutocomplete({ kind: 'mention', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0, members });
+      });
+      return () => { cancelled = true; };
+    }
+
+    // Emoji trigger — purely local.
+    if (trig.kind === 'emoji') {
+      const filteredAny = filterEmoji(trig.query, guildEmojis);
+      if (filteredAny.length === 0) { setAutocomplete(null); return; }
+      setAutocomplete({ kind: 'emoji', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0 });
+      return;
+    }
+  }, [text, guildId, guildEmojis]);
+
+  const emojiResults = useMemo(() => {
+    if (autocomplete?.kind !== 'emoji') return [];
+    return filterEmoji(autocomplete.query, guildEmojis);
+  }, [autocomplete, guildEmojis]);
+
+  const items: AutocompleteItem[] = useMemo(() => {
+    if (!autocomplete) return [];
+    if (autocomplete.kind === 'mention') {
+      return autocomplete.members.map((m) => ({
+        key: m.id,
+        label: (
+          <>
+            {m.avatarUrl
+              ? <img src={m.avatarUrl} alt="" className="w-5 h-5 rounded-full" />
+              : <span className="w-5 h-5 rounded-full bg-bg-input inline-block" />}
+            <span className="font-medium" style={m.roleColor ? { color: m.roleColor } : undefined}>{m.displayName}</span>
+            <span className="text-fg-dim text-xs">@{m.username}</span>
+          </>
+        ),
+      }));
+    }
+    return emojiResults.map((e) => ({
+      key: e.key,
+      label: (
+        <>
+          {e.kind === 'custom'
+            ? <img src={e.url} alt="" className="w-5 h-5" />
+            : <span className="text-base inline-block w-5 text-center">{e.char}</span>}
+          <span>:{e.name}:</span>
+        </>
+      ),
+    }));
+  }, [autocomplete, emojiResults]);
+
+  const acLength = items.length;
+
+  const applyAutocomplete = (idx: number) => {
+    if (!autocomplete || idx < 0 || idx >= acLength) return;
+    let token: string;
+    if (autocomplete.kind === 'mention') {
+      const m = autocomplete.members[idx]!;
+      token = `<@${m.id}>`;
+    } else {
+      const e = emojiResults[idx]!;
+      token = e.kind === 'custom' ? `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>` : e.char;
+    }
+    const before = text.slice(0, autocomplete.start);
+    const after = text.slice(autocomplete.end);
+    const next = before + token + ' ' + after;
+    setText(next);
+    setAutocomplete(null);
+    requestAnimationFrame(() => {
+      const ta = taRef.current;
+      if (!ta) return;
+      const pos = (before + token + ' ').length;
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = pos;
+    });
+  };
 
   const addFiles = (incoming: File[]) => {
     const allowed: File[] = [];
@@ -52,9 +173,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.onchange = () => {
-      if (input.files) addFiles(Array.from(input.files));
-    };
+    input.onchange = () => { if (input.files) addFiles(Array.from(input.files)); };
     input.click();
   };
 
@@ -96,6 +215,12 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (autocomplete && acLength > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setAutocomplete(s => s ? ({ ...s, selectedIdx: (s.selectedIdx + 1) % acLength }) : s); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setAutocomplete(s => s ? ({ ...s, selectedIdx: (s.selectedIdx - 1 + acLength) % acLength }) : s); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); applyAutocomplete(autocomplete.selectedIdx); return; }
+      if (e.key === 'Escape')    { e.preventDefault(); setAutocomplete(null); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void send();
@@ -125,7 +250,15 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
       {offline && (
         <div className="mb-2 px-3 py-1 text-xs text-warn bg-warn/10 rounded">Bot is not connected — sending disabled.</div>
       )}
-      <div className="bg-bg-input rounded-lg">
+      <div className="bg-bg-input rounded-lg relative">
+        {autocomplete && (
+          <AutocompletePopover
+            title={autocomplete.kind === 'mention' ? 'Members matching @' + autocomplete.query : 'Emoji matching :' + autocomplete.query}
+            items={items}
+            selectedIdx={autocomplete.selectedIdx}
+            onPick={applyAutocomplete}
+          />
+        )}
         <AttachmentTray files={files} onRemove={(i) => setFiles(prev => prev.filter((_, idx) => idx !== i))} />
         <div className="flex items-end gap-1 px-2">
           <button
@@ -139,6 +272,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKey}
+            onBlur={() => setTimeout(() => setAutocomplete(null), 100)}
             disabled={offline || busy}
             placeholder={channelId ? 'Message…' : 'Select a channel'}
             rows={1}
@@ -171,4 +305,27 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
       </div>
     </div>
   );
+}
+
+type EmojiCandidate =
+  | { key: string; kind: 'custom'; name: string; id: string; animated: boolean; url: string }
+  | { key: string; kind: 'standard'; name: string; char: string };
+
+function filterEmoji(query: string, guildEmojis: GuildEmoji[]): EmojiCandidate[] {
+  const q = query.toLowerCase();
+  const out: EmojiCandidate[] = [];
+
+  for (const e of guildEmojis) {
+    if (q.length === 0 || e.name.toLowerCase().includes(q)) {
+      out.push({ key: 'g:' + e.id, kind: 'custom', name: e.name, id: e.id, animated: e.animated, url: e.url });
+      if (out.length >= AUTOCOMPLETE_LIMIT) return out;
+    }
+  }
+  for (const e of STANDARD_EMOJI) {
+    if (q.length === 0 || e.name.includes(q) || e.keywords.includes(q)) {
+      out.push({ key: 's:' + e.name, kind: 'standard', name: e.name, char: e.char });
+      if (out.length >= AUTOCOMPLETE_LIMIT) return out;
+    }
+  }
+  return out;
 }
