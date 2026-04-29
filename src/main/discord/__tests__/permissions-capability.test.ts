@@ -62,6 +62,17 @@ describe('computeBotCapabilities', () => {
     expect(caps.missingPermissions).toEqual(['Ban Members']);
   });
 
+  it('treats ADMINISTRATOR as granting all moderation perms', () => {
+    const bot: FakeMember    = { id: 'B', permissionsBitfield: PermissionFlagsBits.Administrator, topRolePosition: 10 };
+    const target: FakeMember = { id: 'T', permissionsBitfield: NO_PERMS, topRolePosition: 5 };
+    const caps = computeBotCapabilities(bot, target);
+    expect(caps.canManageRoles).toBe(true);
+    expect(caps.canKick).toBe(true);
+    expect(caps.canBan).toBe(true);
+    expect(caps.canTimeout).toBe(true);
+    expect(caps.missingPermissions).toEqual([]);
+  });
+
   it('marks targetIsSelf when target id matches bot id', () => {
     const bot: FakeMember    = { id: 'X', permissionsBitfield: ALL_PERMS, topRolePosition: 10 };
     const caps = computeBotCapabilities(bot, { id: 'X', permissionsBitfield: NO_PERMS, topRolePosition: 1 });

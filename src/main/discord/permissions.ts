@@ -46,7 +46,15 @@ const MOD_PERM_NAMES: Array<[bigint, string]> = [
   [PermissionFlagsBits.ModerateMembers, 'Timeout Members'],
 ];
 
+// Discord's ADMINISTRATOR flag implicitly grants every other permission, so
+// callers that read raw bitfields (rather than using GuildMember#permissions.has)
+// must short-circuit on it explicitly.
+function hasAdmin(bitfield: bigint): boolean {
+  return (bitfield & PermissionFlagsBits.Administrator) === PermissionFlagsBits.Administrator;
+}
+
 export function missingPermissionNames(granted: bigint): string[] {
+  if (hasAdmin(granted)) return [];
   const out: string[] = [];
   for (const [flag, name] of MOD_PERM_NAMES) {
     if ((granted & flag) === 0n) out.push(name);
@@ -58,7 +66,8 @@ export function computeBotCapabilities(
   bot: CapabilitySubject,
   target: CapabilitySubject,
 ): BotCapabilities {
-  const has = (flag: bigint) => (bot.permissionsBitfield & flag) === flag;
+  const isAdmin = hasAdmin(bot.permissionsBitfield);
+  const has = (flag: bigint) => isAdmin || (bot.permissionsBitfield & flag) === flag;
   const outranks = bot.topRolePosition > target.topRolePosition;
   return {
     canManageRoles: has(PermissionFlagsBits.ManageRoles)     && outranks,
