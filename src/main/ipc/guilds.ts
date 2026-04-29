@@ -6,6 +6,16 @@ import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMe
 import { projectChannel, projectGuildEmojis } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
+function scoreMatch(m: GuildMember, q: string): number {
+  const display = m.displayName.toLowerCase();
+  const username = m.user.username.toLowerCase();
+  const nick = m.nickname?.toLowerCase() ?? '';
+  if (display.startsWith(q) || nick.startsWith(q)) return 3;
+  if (username.startsWith(q)) return 2;
+  if (display.includes(q) || username.includes(q) || nick.includes(q)) return 1;
+  return 0;
+}
+
 export function registerGuildHandlers({ manager }: IpcDeps): void {
   ipcMain.handle(IPC_CHANNELS['guilds.list'], async (): Promise<Result<GuildSummary[]>> => {
     const client = manager.getClient();
@@ -71,21 +81,24 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       }
     }
 
-    const trimmed = query.trim();
-    const fetchLimit = viewChannel ? Math.min(50, max * 4) : max;
+    const trimmed = query.trim().toLowerCase();
+
+    // Make sure the full member roster is in cache so client-side filtering
+    // returns consistent results on every keystroke. discord.js caches the
+    // result on guild.members.cache so subsequent calls are free.
+    if (typeof guild.memberCount === 'number' && guild.members.cache.size < guild.memberCount) {
+      try { await guild.members.fetch(); } catch { /* missing privileged intent — fall through */ }
+    }
 
     let candidates: GuildMember[] = Array.from(guild.members.cache.values());
+
     if (trimmed.length > 0) {
-      try {
-        const fetched = await guild.members.fetch({ query: trimmed, limit: fetchLimit });
-        candidates = Array.from(fetched.values());
-      } catch {
-        const q = trimmed.toLowerCase();
-        candidates = candidates.filter(m =>
-          m.user.username.toLowerCase().includes(q)
-          || m.displayName.toLowerCase().includes(q)
-          || (m.nickname?.toLowerCase().includes(q) ?? false));
-      }
+      // Rank: prefix match on display/nick > prefix on username > substring anywhere.
+      const scored = candidates
+        .map(m => ({ m, score: scoreMatch(m, trimmed) }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score || a.m.displayName.localeCompare(b.m.displayName));
+      candidates = scored.map(x => x.m);
     }
 
     if (viewChannel) {
