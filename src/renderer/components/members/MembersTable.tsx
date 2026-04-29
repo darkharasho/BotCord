@@ -118,8 +118,8 @@ function Row({ index, style, rows, selected, onToggleSelected, rolesById, onMore
           const r = rolesById.get(id);
           if (!r) return null;
           const dotColor = r.color ?? 'rgba(255,255,255,0.4)';
-          const bg = hexToRgba(r.color, 0.16) ?? 'rgba(255,255,255,0.04)';
-          const border = hexToRgba(r.color, 0.4) ?? 'rgba(255,255,255,0.08)';
+          const bg = hexToRgba(r.color, 0.32) ?? 'rgba(255,255,255,0.06)';
+          const border = hexToRgba(r.color, 0.55) ?? 'rgba(255,255,255,0.12)';
           return (
             <span
               key={id}
