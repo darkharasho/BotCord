@@ -10,6 +10,10 @@ const REQUIRED_PERMISSIONS = [
   PermissionFlagsBits.AddReactions,
   PermissionFlagsBits.ManageMessages,
   PermissionFlagsBits.ManageThreads,
+  PermissionFlagsBits.ManageRoles,
+  PermissionFlagsBits.KickMembers,
+  PermissionFlagsBits.BanMembers,
+  PermissionFlagsBits.ModerateMembers,
 ];
 
 export const BOT_PERMISSIONS_BITFIELD = new PermissionsBitField(REQUIRED_PERMISSIONS).bitfield.toString();

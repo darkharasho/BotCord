@@ -22,4 +22,17 @@ describe('permissions', () => {
     expect(() => buildInviteUrl('12345')).toThrow();
     expect(() => buildInviteUrl('1234567890123456789012345')).toThrow();
   });
+
+  it('includes role management and moderation flags in the bitfield', () => {
+    const bf = BigInt(BOT_PERMISSIONS_BITFIELD);
+    // PermissionFlagsBits values from discord.js
+    const ManageRoles      = 1n << 28n;
+    const KickMembers      = 1n << 1n;
+    const BanMembers       = 1n << 2n;
+    const ModerateMembers  = 1n << 40n;
+    expect(bf & ManageRoles).toBe(ManageRoles);
+    expect(bf & KickMembers).toBe(KickMembers);
+    expect(bf & BanMembers).toBe(BanMembers);
+    expect(bf & ModerateMembers).toBe(ModerateMembers);
+  });
 });
