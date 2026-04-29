@@ -1,14 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageList } from '../../components/MessageList';
 import { Composer } from '../../components/Composer';
 import { MemberList } from '../../components/MemberList';
 import { IconHash, IconSearch, IconUsers, IconX } from '@tabler/icons-react';
+import { api } from '../../lib/api';
 
 export function ChannelView({ channelId, guildId, channelName }: { channelId: string | null; guildId: string | null; channelName: string | null }) {
   const [showMembers, setShowMembers] = useState(false);
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<{ messageId: string; authorDisplayName: string } | null>(null);
+  const memberPrefHydrated = useRef(false);
+
+  // Hydrate the persisted member-list toggle on first mount, then save on change.
+  useEffect(() => {
+    api.prefs.get('memberListOpen').then(res => {
+      if (res.ok && typeof res.data === 'boolean') setShowMembers(res.data);
+      memberPrefHydrated.current = true;
+    });
+  }, []);
+  useEffect(() => {
+    if (!memberPrefHydrated.current) return;
+    api.prefs.set('memberListOpen', showMembers);
+  }, [showMembers]);
 
   // Reset transient header state when switching channels.
   useEffect(() => { setSearch(''); setSearchOpen(false); setReplyTo(null); }, [channelId]);

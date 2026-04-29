@@ -182,6 +182,7 @@ export type Prefs = {
   lastSelectedChannelId: string | null;
   theme: 'dark';
   collapsedCategoryIds: string[];
+  memberListOpen: boolean;
 };
 
 export type SendAttachment = {
