@@ -5,7 +5,7 @@ import type { Prefs } from '../../shared/domain';
 import { createPrefsRepo } from '../db/repos/prefs';
 import type { IpcDeps } from './index';
 
-const VALID_KEYS: ReadonlyArray<keyof Prefs> = ['lastSelectedGuildId', 'lastSelectedChannelId', 'theme'];
+const VALID_KEYS: ReadonlyArray<keyof Prefs> = ['lastSelectedGuildId', 'lastSelectedChannelId', 'theme', 'collapsedCategoryIds'];
 
 export function registerPrefsHandlers({ db }: IpcDeps): void {
   const repo = createPrefsRepo(db);
