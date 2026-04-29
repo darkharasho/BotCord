@@ -56,7 +56,7 @@ export function ChannelView({ channelId, guildId, channelName }: { channelId: st
         </button>
       </div>
       <div className="flex-1 flex min-h-0">
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           <MessageList
             channelId={channelId}
             filter={search}
