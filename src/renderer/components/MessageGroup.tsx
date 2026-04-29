@@ -81,7 +81,7 @@ function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyT
       {/* Discord-style elbow line: vertical from avatar top, curving right into the preview. */}
       <span
         aria-hidden
-        className="absolute left-[36px] bottom-0 w-[36px] h-3 border-l-2 border-t-2 border-white/[0.12] rounded-tl-md"
+        className="absolute left-[36px] top-[12px] bottom-[-6px] w-[36px] border-l-2 border-t-2 border-white/[0.12] rounded-tl-md"
       />
       {replyTo.authorAvatarUrl && (
         <img src={replyTo.authorAvatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
