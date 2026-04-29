@@ -54,7 +54,7 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
   }, [members]);
 
   return (
-    <aside className="w-60 shrink-0 bg-bg-sunken border-l border-white/[0.04] overflow-y-auto py-4">
+    <aside className="w-[270px] shrink-0 bg-bg border-t border-l border-white/[0.04] overflow-y-auto py-4">
       {loading && members.length === 0 && (
         <div className="px-4 text-fg-dim text-xs">Loading…</div>
       )}
@@ -93,7 +93,7 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
         {member.avatarUrl
           ? <img src={member.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
           : <div className="w-8 h-8 rounded-full bg-bg-input flex items-center justify-center text-[10px] font-semibold">{member.displayName.slice(0, 2).toUpperCase()}</div>}
-        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-2 ring-bg-sunken`} />
+        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-2 ring-bg`} />
       </div>
       <span
         className="text-[14px] truncate"

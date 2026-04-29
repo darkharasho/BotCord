@@ -7,6 +7,10 @@ body {
   @apply bg-bg text-fg font-sans antialiased;
   margin: 0;
 }
-*::-webkit-scrollbar { width: 10px; height: 10px; }
-*::-webkit-scrollbar-thumb { background: #3a3d46; border-radius: 4px; }
+/* Scrollbars: invisible by default; the thumb fades in when the user
+   hovers the scrollable container. Matches Discord's overlay style. */
+*::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+*::-webkit-scrollbar-thumb { background: transparent; border-radius: 5px; transition: background 0.15s; border: 2px solid transparent; background-clip: padding-box; }
+*:hover::-webkit-scrollbar-thumb { background: #3a3d46; background-clip: padding-box; border: 2px solid transparent; }
+*::-webkit-scrollbar-thumb:hover { background: #4a4d56; background-clip: padding-box; }
 [style*="scrollbar-width: none"]::-webkit-scrollbar { display: none; }
