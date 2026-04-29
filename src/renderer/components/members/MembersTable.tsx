@@ -108,14 +108,22 @@ function Row({ index, style, rows, selected, onToggleSelected, rolesById, onMore
         {m.roleIds.map(id => {
           const r = rolesById.get(id);
           if (!r) return null;
-          const color = r.color ?? 'rgba(255,255,255,0.2)';
+          const dotColor = r.color ?? 'rgba(255,255,255,0.4)';
           return (
             <span
               key={id}
-              className="px-1.5 py-0.5 rounded-md border text-[11px] leading-none shrink-0"
-              style={{ color, borderColor: color }}
+              className="inline-flex items-center gap-1 pl-1.5 pr-2 py-[3px] rounded-md text-[12px] leading-none shrink-0 text-fg bg-bg-input border border-white/[0.06]"
             >
-              {r.name}
+              <span
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: dotColor }}
+              />
+              {r.iconUrl
+                ? <img src={r.iconUrl} alt="" className="w-3.5 h-3.5 object-contain shrink-0" />
+                : r.unicodeEmoji
+                  ? <span className="text-[12px] leading-none shrink-0">{r.unicodeEmoji}</span>
+                  : null}
+              <span className="truncate">{r.name}</span>
             </span>
           );
         })}
