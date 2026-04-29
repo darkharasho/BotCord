@@ -16,6 +16,14 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
   const [sortKey, setSortKey] = useState<'name' | 'joinedAt' | 'createdAt'>('joinedAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Per-column filter state
+  const [memberSinceFrom, setMemberSinceFrom] = useState<number | null>(null);
+  const [memberSinceTo, setMemberSinceTo] = useState<number | null>(null);
+  const [createdAtFrom, setCreatedAtFrom] = useState<number | null>(null);
+  const [createdAtTo, setCreatedAtTo] = useState<number | null>(null);
+  const [roleFilters, setRoleFilters] = useState<Set<string>>(new Set());
+
   const cache = useRef<Map<string, { entries: AllMembersEntry[]; intentMissing: boolean }>>(new Map());
 
   useEffect(() => {
@@ -58,6 +66,12 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
     setSelected(new Set());
     setSearch('');
     setRoleFilter(null);
+    // Reset per-column filters on guild switch
+    setMemberSinceFrom(null);
+    setMemberSinceTo(null);
+    setCreatedAtFrom(null);
+    setCreatedAtTo(null);
+    setRoleFilters(new Set());
 
     return () => { active = false; };
   }, [guildId]);
@@ -74,6 +88,13 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
     if (roleFilter) {
       rows = rows.filter(e => e.roleIds.includes(roleFilter));
     }
+    if (roleFilters.size > 0) {
+      rows = rows.filter(e => Array.from(roleFilters).every(rid => e.roleIds.includes(rid)));
+    }
+    if (memberSinceFrom != null) rows = rows.filter(e => (e.joinedAt ?? 0) >= memberSinceFrom);
+    if (memberSinceTo != null) rows = rows.filter(e => (e.joinedAt ?? Infinity) <= memberSinceTo);
+    if (createdAtFrom != null) rows = rows.filter(e => e.createdAt >= createdAtFrom);
+    if (createdAtTo != null) rows = rows.filter(e => e.createdAt <= createdAtTo);
     const dir = sortDir === 'asc' ? 1 : -1;
     rows = [...rows].sort((a, b) => {
       if (sortKey === 'name') return dir * a.displayName.localeCompare(b.displayName);
@@ -81,7 +102,7 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
       return dir * (a.createdAt - b.createdAt);
     });
     return rows;
-  }, [entries, search, roleFilter, sortKey, sortDir]);
+  }, [entries, search, roleFilter, roleFilters, memberSinceFrom, memberSinceTo, createdAtFrom, createdAtTo, sortKey, sortDir]);
 
   const rolesById = useMemo(() => {
     const m = new Map<string, GuildRole>();
@@ -144,6 +165,22 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
           else { setSortKey(k); setSortDir('desc'); }
         }}
         rolesById={rolesById}
+        roles={roles}
+        memberSinceFrom={memberSinceFrom}
+        memberSinceTo={memberSinceTo}
+        onMemberSinceFrom={setMemberSinceFrom}
+        onMemberSinceTo={setMemberSinceTo}
+        createdAtFrom={createdAtFrom}
+        createdAtTo={createdAtTo}
+        onCreatedAtFrom={setCreatedAtFrom}
+        onCreatedAtTo={setCreatedAtTo}
+        roleFilters={roleFilters}
+        onRoleFiltersToggle={(roleId) => setRoleFilters(prev => {
+          const next = new Set(prev);
+          if (next.has(roleId)) next.delete(roleId); else next.add(roleId);
+          return next;
+        })}
+        onRoleFiltersClear={() => setRoleFilters(new Set())}
       />
       <MembersBulkBar
         guildId={guildId}

@@ -9,8 +9,11 @@ import { BanDialog } from '../moderation/BanDialog';
 import { TimeoutDialog } from '../moderation/TimeoutDialog';
 import { pushToast } from '../Toaster';
 import { api } from '../../lib/api';
-import { IconChevronUp, IconChevronDown, IconDots } from '@tabler/icons-react';
+import { IconChevronUp, IconChevronDown, IconDots, IconAdjustmentsHorizontal } from '@tabler/icons-react';
 import type { AllMembersEntry, BotCapabilities, GuildRole, MemberDetail } from '../../../shared/domain';
+import { ColumnFilterPopover } from './ColumnFilterPopover';
+import { DateRangeFilter } from './DateRangeFilter';
+import { RoleMultiFilter } from './RoleMultiFilter';
 
 export type SortKey = 'name' | 'joinedAt' | 'createdAt';
 export type SortDir = 'asc' | 'desc';
@@ -19,6 +22,49 @@ const ROW_HEIGHT = 44;
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const formatDate = (ms: number | null): string => ms == null ? '—' : dateFmt.format(new Date(ms));
+
+// Custom CheckBox component
+function CheckBox({
+  checked,
+  indeterminate = false,
+  onChange,
+  ariaLabel,
+  disabled = false,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  ariaLabel?: string;
+  disabled?: boolean;
+}) {
+  const filled = checked || indeterminate;
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={indeterminate ? 'mixed' : checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border transition-colors shrink-0 ${
+        disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : filled
+            ? (indeterminate ? 'bg-accent/40 border-accent' : 'bg-accent border-accent')
+            : 'bg-transparent border-white/30 hover:border-white/60'
+      }`}
+    >
+      {checked && !indeterminate && (
+        <svg viewBox="0 0 16 16" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 8 7 12 13 4" />
+        </svg>
+      )}
+      {indeterminate && (
+        <span className="block w-2.5 h-[2px] bg-white rounded-full" />
+      )}
+    </button>
+  );
+}
 
 type RowExtraProps = {
   rows: AllMembersEntry[];
@@ -35,12 +81,10 @@ function Row({ index, style, rows, selected, onToggleSelected, rolesById, onMore
   const isChecked = selected.has(m.id);
   return (
     <div style={style} className="flex items-center px-4 gap-3 hover:bg-hover text-[13px]">
-      <input
-        type="checkbox"
+      <CheckBox
         checked={isChecked}
         onChange={() => onToggleSelected(m.id)}
-        onClick={(e) => e.stopPropagation()}
-        className="shrink-0"
+        ariaLabel={`Select ${m.displayName}`}
       />
       <div className="flex items-center gap-2 min-w-0 w-[260px]">
         <Avatar
@@ -57,19 +101,24 @@ function Row({ index, style, rows, selected, onToggleSelected, rolesById, onMore
       </div>
       <div className="w-[120px] text-fg-dim shrink-0">{formatDate(m.joinedAt)}</div>
       <div className="w-[120px] text-fg-dim shrink-0">{formatDate(m.createdAt)}</div>
-      <div className="flex-1 min-w-0 flex items-center gap-1 truncate" title={m.roleIds.map(id => rolesById.get(id)?.name).filter(Boolean).join(', ')}>
-        {m.roleIds.slice(0, 3).map(id => {
+      <div
+        className="flex-1 min-w-0 flex flex-wrap items-center gap-1"
+        title={m.roleIds.map(id => rolesById.get(id)?.name).filter(Boolean).join(', ')}
+      >
+        {m.roleIds.map(id => {
           const r = rolesById.get(id);
           if (!r) return null;
+          const color = r.color ?? 'rgba(255,255,255,0.2)';
           return (
             <span
               key={id}
-              className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: r.color ?? 'rgba(255,255,255,0.2)' }}
-            />
+              className="px-1.5 py-0.5 rounded-md border text-[11px] leading-none shrink-0"
+              style={{ color, borderColor: color }}
+            >
+              {r.name}
+            </span>
           );
         })}
-        {m.roleIds.length > 3 && <span className="text-fg-dim text-[11px] ml-1">+{m.roleIds.length - 3}</span>}
       </div>
       <button
         type="button"
@@ -93,6 +142,18 @@ export function MembersTable({
   sortDir,
   onSort,
   rolesById,
+  roles,
+  memberSinceFrom,
+  memberSinceTo,
+  onMemberSinceFrom,
+  onMemberSinceTo,
+  createdAtFrom,
+  createdAtTo,
+  onCreatedAtFrom,
+  onCreatedAtTo,
+  roleFilters,
+  onRoleFiltersToggle,
+  onRoleFiltersClear,
 }: {
   guildId: string;
   rows: AllMembersEntry[];
@@ -103,24 +164,59 @@ export function MembersTable({
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
   rolesById: Map<string, GuildRole>;
+  roles: GuildRole[];
+  memberSinceFrom: number | null;
+  memberSinceTo: number | null;
+  onMemberSinceFrom: (v: number | null) => void;
+  onMemberSinceTo: (v: number | null) => void;
+  createdAtFrom: number | null;
+  createdAtTo: number | null;
+  onCreatedAtFrom: (v: number | null) => void;
+  onCreatedAtTo: (v: number | null) => void;
+  roleFilters: Set<string>;
+  onRoleFiltersToggle: (roleId: string) => void;
+  onRoleFiltersClear: () => void;
 }) {
   const [modState, setModState] = useState<{ kind: 'kick' | 'ban' | 'timeout'; userId: string; displayName: string } | null>(null);
   const allSelected = rows.length > 0 && rows.every(r => selected.has(r.id));
   const someSelected = !allSelected && rows.some(r => selected.has(r.id));
 
-  const headerCol = (label: string, key: SortKey | null) => {
+  // Popover anchor state
+  const [openPopover, setOpenPopover] = useState<'memberSince' | 'createdAt' | 'roles' | null>(null);
+  const [memberSinceAnchor, setMemberSinceAnchor] = useState<HTMLButtonElement | null>(null);
+  const [createdAtAnchor, setCreatedAtAnchor] = useState<HTMLButtonElement | null>(null);
+  const [rolesAnchor, setRolesAnchor] = useState<HTMLButtonElement | null>(null);
+
+  const memberSinceActive = memberSinceFrom != null || memberSinceTo != null;
+  const createdAtActive = createdAtFrom != null || createdAtTo != null;
+  const rolesActive = roleFilters.size > 0;
+
+  const headerCol = (label: string, key: SortKey | null, filterKey?: 'memberSince' | 'createdAt' | 'roles', setAnchor?: (el: HTMLButtonElement | null) => void, isFilterActive?: boolean) => {
     const active = key !== null && sortKey === key;
     const sortable = key !== null;
     return (
-      <button
-        type="button"
-        disabled={!sortable}
-        onClick={() => sortable && onSort(key)}
-        className={`flex items-center gap-1 ${sortable ? 'hover:text-fg' : ''} ${active ? 'text-fg' : 'text-fg-dim'}`}
-      >
-        <span>{label}</span>
-        {active && (sortDir === 'asc' ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />)}
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          disabled={!sortable}
+          onClick={() => sortable && onSort(key)}
+          className={`flex items-center gap-1 ${sortable ? 'hover:text-fg' : ''} ${active ? 'text-fg' : 'text-fg-dim'}`}
+        >
+          <span>{label}</span>
+          {active && (sortDir === 'asc' ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />)}
+        </button>
+        {filterKey && setAnchor && (
+          <button
+            type="button"
+            ref={setAnchor}
+            onClick={() => setOpenPopover(prev => prev === filterKey ? null : filterKey)}
+            className={`p-0.5 rounded hover:bg-white/[0.08] transition-colors ${isFilterActive ? 'text-accent' : 'text-fg-dim hover:text-fg'}`}
+            aria-label={`Filter by ${label}`}
+          >
+            <IconAdjustmentsHorizontal size={13} />
+          </button>
+        )}
+      </div>
     );
   };
 
@@ -179,20 +275,68 @@ export function MembersTable({
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="flex items-center px-4 gap-3 h-9 text-[12px] uppercase tracking-wide font-semibold border-b border-white/[0.04] text-fg-dim shrink-0">
-        <input
-          type="checkbox"
+        <CheckBox
           checked={allSelected}
-          ref={(el) => { if (el) el.indeterminate = someSelected; }}
+          indeterminate={someSelected}
           onChange={onToggleAllFiltered}
-          className="shrink-0"
-          aria-label="Select all"
+          ariaLabel="Select all"
         />
         <div className="w-[260px]">{headerCol('Name', 'name')}</div>
-        <div className="w-[120px] shrink-0">{headerCol('Member since', 'joinedAt')}</div>
-        <div className="w-[120px] shrink-0">{headerCol('Joined Discord', 'createdAt')}</div>
-        <div className="flex-1 min-w-0">{headerCol('Roles', null)}</div>
+        <div className="w-[120px] shrink-0">
+          {headerCol('Member since', 'joinedAt', 'memberSince', setMemberSinceAnchor, memberSinceActive)}
+        </div>
+        <div className="w-[120px] shrink-0">
+          {headerCol('Joined Discord', 'createdAt', 'createdAt', setCreatedAtAnchor, createdAtActive)}
+        </div>
+        <div className="flex-1 min-w-0">
+          {headerCol('Roles', null, 'roles', setRolesAnchor, rolesActive)}
+        </div>
         <div className="w-6 shrink-0" />
       </div>
+
+      {/* Popovers */}
+      {openPopover === 'memberSince' && (
+        <ColumnFilterPopover
+          anchor={memberSinceAnchor}
+          onClose={() => setOpenPopover(null)}
+        >
+          <DateRangeFilter
+            from={memberSinceFrom}
+            to={memberSinceTo}
+            onFrom={onMemberSinceFrom}
+            onTo={onMemberSinceTo}
+            onClose={() => setOpenPopover(null)}
+          />
+        </ColumnFilterPopover>
+      )}
+      {openPopover === 'createdAt' && (
+        <ColumnFilterPopover
+          anchor={createdAtAnchor}
+          onClose={() => setOpenPopover(null)}
+        >
+          <DateRangeFilter
+            from={createdAtFrom}
+            to={createdAtTo}
+            onFrom={onCreatedAtFrom}
+            onTo={onCreatedAtTo}
+            onClose={() => setOpenPopover(null)}
+          />
+        </ColumnFilterPopover>
+      )}
+      {openPopover === 'roles' && (
+        <ColumnFilterPopover
+          anchor={rolesAnchor}
+          onClose={() => setOpenPopover(null)}
+        >
+          <RoleMultiFilter
+            roles={roles}
+            selected={roleFilters}
+            onToggle={onRoleFiltersToggle}
+            onClear={onRoleFiltersClear}
+          />
+        </ColumnFilterPopover>
+      )}
+
       <div className="flex-1 min-h-0">
         <List
           rowComponent={Row}
