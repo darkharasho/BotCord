@@ -25,7 +25,7 @@ export function ShellRoute() {
   const unreads = useUnreads(channelId);
 
   return (
-    <div className="h-full flex">
+    <div className="h-full flex bg-bg-sunken">
       <aside className="w-[72px] shrink-0 min-h-0">
         <ServerRail
           selected={guild?.id ?? null}
