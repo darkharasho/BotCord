@@ -1,6 +1,6 @@
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
-import { IconArrowBackUp, IconCornerDownRight } from '@tabler/icons-react';
+import { IconCornerUpLeft, IconCornerDownRight } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
 
 function mentionsBot(m: MessageSummary, botId: string | undefined): boolean {
@@ -104,7 +104,7 @@ function HoverActions({ message, onReply }: { message: MessageSummary; onReply?:
         className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
         title="Reply"
       >
-        <IconArrowBackUp size={18} stroke={1.75} />
+        <IconCornerUpLeft size={18} stroke={1.75} />
       </button>
     </div>
   );
