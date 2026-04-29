@@ -6,14 +6,19 @@ import { AttachmentInline } from './AttachmentInline';
 import { PollCard } from './PollCard';
 
 function isMediaOnlyEmbed(e: MessageEmbedSummary): boolean {
-  // Tenor/Giphy and bare image/gif links arrive as type=gifv|image|video
-  // with thumbnail/image set and no descriptive content.
-  if (!e.type) return false;
-  if (e.type !== 'gifv' && e.type !== 'image' && e.type !== 'video') return false;
-  if (e.title || e.description || e.fields.length > 0 || e.author || e.footer) return false;
-  // Need at least one renderable media URL — otherwise we'd hide the link
-  // and show nothing.
-  return !!(e.image?.url || e.thumbnail?.url || e.video?.url);
+  // Tenor/Giphy and bare image/gif links arrive as type=gifv|image|video.
+  // Need a renderable media URL.
+  const hasMedia = !!(e.image?.url || e.thumbnail?.url || e.video?.url);
+  if (!hasMedia) return false;
+  // Animated/video embeds: always inline (Giphy includes a title; we still
+  // want to show the GIF, not a card).
+  if (e.type === 'gifv' || e.type === 'video') return true;
+  // Static image embeds: only inline if there's no descriptive content
+  // (otherwise it's a rich card with an image, like a website preview).
+  if (e.type === 'image') {
+    return !e.title && !e.description && e.fields.length === 0 && !e.author && !e.footer;
+  }
+  return false;
 }
 
 /**

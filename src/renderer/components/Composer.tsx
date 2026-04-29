@@ -257,20 +257,22 @@ export function Composer({
     return out;
   };
 
-  const send = async () => {
+  // Core send. Passes through reply state and clears it on success.
+  // Accepts an explicit content/files override so the GIF picker (and any
+  // other shortcut) can post immediately instead of writing into the box.
+  const sendCore = async (content: string, attachments: File[]) => {
     if (!channelId) return;
-    const content = resolveMentionShortcuts(resolveEmojiShortcuts(text.trim()));
-    if (content.length === 0 && files.length === 0) return;
+    if (content.length === 0 && attachments.length === 0) return;
     setBusy(true);
     const sendOpts = replyTo ? { replyToMessageId: replyTo.messageId } : undefined;
     let res;
-    if (files.length > 0) {
-      const attachments = await Promise.all(files.map(async f => ({
+    if (attachments.length > 0) {
+      const projected = await Promise.all(attachments.map(async f => ({
         name: f.name,
         mimeType: f.type || 'application/octet-stream',
         bytes: new Uint8Array(await f.arrayBuffer()),
       })));
-      res = await api.messages.sendWithAttachments(channelId, content, attachments, sendOpts);
+      res = await api.messages.sendWithAttachments(channelId, content, projected, sendOpts);
     } else {
       res = await api.messages.send(channelId, content, sendOpts);
     }
@@ -284,6 +286,8 @@ export function Composer({
     mentionMap.current.clear();
     onCancelReply?.();
   };
+
+  const send = () => sendCore(resolveMentionShortcuts(resolveEmojiShortcuts(text.trim())), files);
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (autocomplete && acLength > 0) {
@@ -458,12 +462,7 @@ export function Composer({
             >GIF</button>
             {gifOpen && channelId && (
               <GifPicker
-                onSelect={(url) => {
-                  // Discord auto-embeds bare giphy/tenor URLs. Send immediately for parity.
-                  api.messages.send(channelId, url).then(res => {
-                    if (!res.ok) pushToast('danger', `GIF send failed: ${res.error.message}`);
-                  });
-                }}
+                onSelect={(url) => { void sendCore(url, []); }}
                 onClose={() => setGifOpen(false)}
               />
             )}
