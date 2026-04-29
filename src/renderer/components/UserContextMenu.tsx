@@ -112,26 +112,24 @@ function buildRoleSubmenu({
     const assigned = target.assignedRoleIds.has(r.id);
     const aboveBot = r.position >= botTop;
     const title = aboveBot ? "Role is at or above the bot's highest role" : undefined;
-    const icon: ReactNode = (
-      <span className="inline-flex items-center gap-2">
-        <span
-          aria-hidden
-          className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border transition-colors ${
-            assigned
-              ? 'bg-accent border-accent'
-              : 'bg-transparent border-white/30'
-          }`}
-        >
-          {assigned && (
-            <svg viewBox="0 0 16 16" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 8 7 12 13 4" />
-            </svg>
-          )}
-        </span>
-        <span
-          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-          style={r.color ? { backgroundColor: r.color } : { backgroundColor: 'rgba(255,255,255,0.2)' }}
-        />
+    const dot: ReactNode = (
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full"
+        style={r.color ? { backgroundColor: r.color } : { backgroundColor: 'rgba(255,255,255,0.2)' }}
+      />
+    );
+    const checkbox: ReactNode = (
+      <span
+        aria-hidden
+        className={`relative inline-flex items-center justify-center w-[18px] h-[18px] rounded-[4px] border transition-colors ${
+          assigned ? 'bg-accent border-accent' : 'bg-transparent border-white/30'
+        }`}
+      >
+        {assigned && (
+          <svg viewBox="0 0 16 16" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 8 7 12 13 4" />
+          </svg>
+        )}
       </span>
     );
     return {
@@ -139,7 +137,8 @@ function buildRoleSubmenu({
       label: r.name,
       disabled: aboveBot,
       ...(title ? { title } : {}),
-      icon,
+      icon: dot,
+      trailingIcon: checkbox,
       onClick: () => onToggleRole(r.id, assigned),
     };
   });

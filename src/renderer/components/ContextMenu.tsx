@@ -10,6 +10,9 @@ export type ContextMenuEntry =
       type: 'item';
       label: string;
       icon?: ReactNode;
+      // Optional icon rendered on the trailing edge (after the label / before
+      // the submenu chevron). Useful for checkbox/state indicators.
+      trailingIcon?: ReactNode;
       onClick?: () => void;
       danger?: boolean;
       disabled?: boolean;
@@ -174,6 +177,7 @@ function ContextMenu({ items, pos }: { items: ContextMenuEntry[]; pos: Position 
               <span className="truncate">{entry.label}</span>
               <span className="shrink-0 flex items-center gap-1">
                 {entry.icon && <span className="opacity-80">{entry.icon}</span>}
+                {entry.trailingIcon && <span className="opacity-80">{entry.trailingIcon}</span>}
                 {hasSub && <span aria-hidden className="text-fg-dim">▸</span>}
               </span>
             </button>
@@ -255,7 +259,11 @@ function Submenu({
                   : 'text-fg hover:bg-accent hover:text-white'}`}
             style={{ width: 'calc(100% - 8px)' }}
           >
-            <span className="truncate flex items-center gap-2">{entry.icon && <span className="opacity-80">{entry.icon}</span>}{entry.label}</span>
+            <span className="flex items-center gap-2 min-w-0 flex-1">
+              {entry.icon && <span className="opacity-80 shrink-0">{entry.icon}</span>}
+              <span className="truncate">{entry.label}</span>
+            </span>
+            {entry.trailingIcon && <span className="opacity-80 shrink-0 ml-2">{entry.trailingIcon}</span>}
           </button>
         );
       })}
