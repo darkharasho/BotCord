@@ -307,6 +307,27 @@ export function Composer({
     if (e.dataTransfer?.files) addFiles(Array.from(e.dataTransfer.files));
   };
 
+  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const pasted: File[] = [];
+    for (const item of items) {
+      if (item.kind !== 'file') continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+      // Clipboard images come through as 'image.png' (or unnamed). Tag with a
+      // timestamp so multiple pastes don't collide and the upload preserves type.
+      const name = !file.name || file.name === 'image.png' || file.name === 'unknown'
+        ? `pasted-${Date.now()}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
+        : file.name;
+      pasted.push(new File([file], name, { type: file.type }));
+    }
+    if (pasted.length > 0) {
+      e.preventDefault();
+      addFiles(pasted);
+    }
+  };
+
   const offline = gateway.status !== 'ready';
 
   // Highlight runs for the overlay div.
@@ -409,6 +430,7 @@ export function Composer({
               onChange={onTextChange}
               onSelect={onTextSelect}
               onScroll={onTextScroll}
+              onPaste={onPaste}
               onKeyDown={onKey}
               onBlur={() => setTimeout(() => setAutocomplete(null), 100)}
               disabled={offline || busy}
