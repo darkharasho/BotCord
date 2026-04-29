@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember, type ForumChannel, type MediaChannel } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, MemberDetail, MemberRole, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary, GuildRole, BotCapabilities } from '../../shared/domain';
+import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, MemberDetail, MemberRole, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary, GuildRole, BotCapabilities, AllMembersEntry, ListAllMembersResult } from '../../shared/domain';
 import { projectChannel, projectGuildEmojis, voiceMembersFor, projectForumChannel, fetchArchivedForumPosts } from '../discord/client-manager';
 import { computeBotCapabilities } from '../discord/permissions';
 import type { IpcDeps } from './index';
@@ -414,5 +414,55 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : 'Failed to timeout member');
     }
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.listAllMembers'], async (_, guildId: unknown): Promise<Result<ListAllMembersResult>> => {
+    if (typeof guildId !== 'string') return err('INTERNAL', 'guildId must be a string');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+
+    let intentMissing = false;
+    try {
+      await guild.members.fetch();
+    } catch {
+      // Privileged Members Intent not granted — proceed with whatever's cached.
+      intentMissing = true;
+    }
+
+    const entries: AllMembersEntry[] = Array.from(guild.members.cache.values()).map(m => {
+      const status = (m.presence?.status ?? 'offline') as PresenceStatus;
+      const hoist = m.roles.hoist;
+      const roleIds = Array.from(
+        m.roles.cache
+          .filter(r => r.id !== guild.id)
+          .sort((a, b) => b.position - a.position)
+          .values()
+      ).map(r => r.id);
+      return {
+        id: m.id,
+        displayName: m.displayName,
+        username: m.user.username,
+        avatarUrl: m.user.displayAvatarURL({ size: 64 }),
+        status,
+        isBot: m.user.bot,
+        joinedAt: m.joinedTimestamp ?? null,
+        createdAt: m.user.createdTimestamp,
+        roleColor: m.displayHexColor && m.displayHexColor !== '#000000' ? m.displayHexColor : null,
+        topRole: hoist
+          ? {
+              id: hoist.id,
+              name: hoist.name,
+              color: hoist.color ? `#${hoist.color.toString(16).padStart(6, '0')}` : null,
+              position: hoist.position,
+              iconUrl: hoist.iconURL({ size: 32 }),
+              unicodeEmoji: hoist.unicodeEmoji ?? null,
+            }
+          : null,
+        roleIds,
+      };
+    });
+    return ok({ entries, intentMissing });
   });
 }
