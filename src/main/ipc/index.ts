@@ -6,6 +6,7 @@ import { registerMessageHandlers } from './messages';
 import { registerSystemHandlers } from './system';
 import { registerDraftsHandlers } from './drafts';
 import { registerPrefsHandlers } from './prefs';
+import { registerMembersBulkHandlers } from './members-bulk';
 import type { ClientManager } from '../discord/client-manager';
 
 export type IpcDeps = {
@@ -21,4 +22,5 @@ export function registerAllIpc(deps: IpcDeps): void {
   registerSystemHandlers();
   registerDraftsHandlers(deps);
   registerPrefsHandlers(deps);
+  registerMembersBulkHandlers(deps);
 }
