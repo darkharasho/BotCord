@@ -27,7 +27,16 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
 
   // Group online by hoisted role, offline at the bottom.
   const groups = useMemo(() => {
-    const byRole = new Map<string, { name: string; position: number; color: string | null; members: ChannelMemberSummary[] }>();
+    type Group = {
+      id: string;
+      name: string;
+      position: number;
+      color: string | null;
+      iconUrl: string | null;
+      unicodeEmoji: string | null;
+      members: ChannelMemberSummary[];
+    };
+    const byRole = new Map<string, Group>();
     const offline: ChannelMemberSummary[] = [];
     const onlineNoRole: ChannelMemberSummary[] = [];
 
@@ -37,7 +46,15 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
       const key = m.topRole.id;
       let g = byRole.get(key);
       if (!g) {
-        g = { name: m.topRole.name, position: m.topRole.position, color: m.topRole.color, members: [] };
+        g = {
+          id: m.topRole.id,
+          name: m.topRole.name,
+          position: m.topRole.position,
+          color: m.topRole.color,
+          iconUrl: m.topRole.iconUrl,
+          unicodeEmoji: m.topRole.unicodeEmoji,
+          members: [],
+        };
         byRole.set(key, g);
       }
       g.members.push(m);
@@ -59,7 +76,14 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
         <div className="px-4 text-fg-dim text-xs">Loading…</div>
       )}
       {groups.sorted.map(g => (
-        <Section key={g.name} title={`${g.name} — ${g.members.length}`} members={g.members} />
+        <Section
+          key={g.id}
+          title={`${g.name} — ${g.members.length}`}
+          iconUrl={g.iconUrl}
+          unicodeEmoji={g.unicodeEmoji}
+          roleName={g.name}
+          members={g.members}
+        />
       ))}
       {groups.onlineNoRole.length > 0 && (
         <Section title={`Online — ${groups.onlineNoRole.length}`} members={groups.onlineNoRole} />
@@ -71,10 +95,25 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
   );
 }
 
-function Section({ title, members }: { title: string; members: ChannelMemberSummary[] }) {
+function Section({
+  title, members, iconUrl, unicodeEmoji, roleName,
+}: {
+  title: string;
+  members: ChannelMemberSummary[];
+  iconUrl?: string | null;
+  unicodeEmoji?: string | null;
+  roleName?: string;
+}) {
   return (
     <div className="mb-4">
-      <div className="px-4 text-[11px] font-semibold uppercase tracking-wide text-fg-dim mb-1">{title}</div>
+      <div className="px-4 mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-dim">
+        {iconUrl
+          ? <img src={iconUrl} alt={roleName ?? ''} title={roleName} className="w-4 h-4 object-contain" />
+          : unicodeEmoji
+            ? <span title={roleName} className="text-[14px] leading-none">{unicodeEmoji}</span>
+            : null}
+        <span>{title}</span>
+      </div>
       <div>
         {members.map(m => <MemberRow key={m.id} member={m} />)}
       </div>
@@ -96,20 +135,11 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
         <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-[3px] ring-bg`} />
       </div>
       <span
-        className="text-[14px] truncate"
+        className="text-[14px] truncate min-w-0 flex-1"
         style={member.roleColor ? { color: member.roleColor } : undefined}
       >
         {member.displayName}
       </span>
-      {member.roleIcons && member.roleIcons.length > 0 && (
-        <span className="flex items-center gap-0.5 ml-1 shrink-0">
-          {member.roleIcons.slice(0, 3).map(r =>
-            r.iconUrl
-              ? <img key={r.roleId} src={r.iconUrl} alt={r.roleName} title={r.roleName} className="w-4 h-4 inline-block" />
-              : <span key={r.roleId} title={r.roleName} className="text-[14px] leading-none">{r.unicodeEmoji}</span>
-          )}
-        </span>
-      )}
     </div>
   );
 }

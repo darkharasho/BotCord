@@ -144,7 +144,7 @@ export type ChannelMemberSummary = {
   avatarUrl: string | null;
   roleColor: string | null;
   status: PresenceStatus;
-  topRole: { id: string; name: string; color: string | null; position: number } | null;
+  topRole: { id: string; name: string; color: string | null; position: number; iconUrl: string | null; unicodeEmoji: string | null } | null;
   roleIcons: RoleIcon[];
 };
 
@@ -184,6 +184,7 @@ export type MessageSummary = {
   authorAvatarUrl: string | null;
   authorRoleColor: string | null;
   authorTopRoleName: string | null;
+  authorRoleIcons: RoleIcon[];
   content: string;
   createdAt: number;
   editedAt: number | null;

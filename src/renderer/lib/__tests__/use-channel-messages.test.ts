@@ -4,7 +4,7 @@ import type { MessageSummary, GatewayState } from '../../../shared/domain';
 
 const mkMsg = (id: string, channelId: string, createdAt = id.length): MessageSummary => ({
   id, channelId, guildId: null, authorId: 'u1', authorTag: 'u1', authorDisplayName: 'u1', authorAvatarUrl: null,
-  authorRoleColor: null, authorTopRoleName: null,
+  authorRoleColor: null, authorTopRoleName: null, authorRoleIcons: [],
   content: id, createdAt, editedAt: null, hasEmbeds: false, hasAttachments: false,
   attachments: [], embeds: [], mentions: [], replyTo: null, systemKind: null, poll: null, reactions: [],
 });

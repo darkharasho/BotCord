@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { STANDARD_EMOJI, EMOJI_CATEGORIES } from '../lib/emoji-data';
+import { toTwemojiUrl } from '../lib/twemoji';
 import type { GuildEmoji } from '../../shared/domain';
 
 type Tab = 'standard' | 'server';
@@ -130,10 +131,16 @@ export function EmojiPicker({
                     <button
                       key={e.name}
                       title={`:${e.name}:`}
-                      className="hover:bg-bg-sunken rounded p-1 text-xl"
+                      className="hover:bg-bg-sunken rounded p-1 flex items-center justify-center"
                       onClick={() => onSelect(e.char)}
                     >
-                      {e.char}
+                      <img
+                        src={toTwemojiUrl(e.char)}
+                        alt={e.char}
+                        loading="lazy"
+                        draggable={false}
+                        className="w-7 h-7 select-none"
+                      />
                     </button>
                   ))}
                 </div>

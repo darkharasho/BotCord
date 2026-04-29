@@ -156,7 +156,14 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
         roleColor: m.displayHexColor && m.displayHexColor !== '#000000' ? m.displayHexColor : null,
         status,
         topRole: hoist
-          ? { id: hoist.id, name: hoist.name, color: hoist.color ? `#${hoist.color.toString(16).padStart(6, '0')}` : null, position: hoist.position }
+          ? {
+              id: hoist.id,
+              name: hoist.name,
+              color: hoist.color ? `#${hoist.color.toString(16).padStart(6, '0')}` : null,
+              position: hoist.position,
+              iconUrl: hoist.iconURL({ size: 32 }),
+              unicodeEmoji: hoist.unicodeEmoji ?? null,
+            }
           : null,
         roleIcons,
       });

@@ -2,6 +2,7 @@ import type { MdNode } from '../lib/markdown';
 import { parseMarkdown } from '../lib/markdown';
 import type { ResolvedMention } from '../../shared/domain';
 import { useState, type ReactNode } from 'react';
+import { renderTwemoji } from '../lib/twemoji';
 
 type Props = {
   source: string;
@@ -44,7 +45,7 @@ export function Markdown({ source, mentions = [], jumbo: jumboProp }: Props) {
 
 function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: boolean): ReactNode {
   switch (n.type) {
-    case 'text': return <span key={key}>{n.value}</span>;
+    case 'text': return <span key={key}>{renderTwemoji(n.value, String(key))}</span>;
     case 'line_break': return <br key={key} />;
     case 'bold': return <strong key={key}>{n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}</strong>;
     case 'italic': return <em key={key}>{n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}</em>;

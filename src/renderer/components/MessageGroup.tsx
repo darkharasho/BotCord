@@ -60,6 +60,13 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
                 style={head.authorRoleColor ? { color: head.authorRoleColor } : undefined}
                 title={head.authorTopRoleName ? `@${head.authorTag} · ${head.authorTopRoleName}` : `@${head.authorTag}`}
               >{head.authorDisplayName}</span>
+              {(() => {
+                const top = head.authorRoleIcons?.[0];
+                if (!top) return null;
+                return top.iconUrl
+                  ? <img src={top.iconUrl} alt={top.roleName} title={top.roleName} className="w-[18px] h-[18px] object-contain shrink-0 self-center" />
+                  : <span title={top.roleName} className="text-[16px] leading-none shrink-0 self-center">{top.unicodeEmoji}</span>;
+              })()}
               <span className="text-[11px] text-fg-dim shrink-0">{formatHeaderTimestamp(head.createdAt)}</span>
             </div>
             <MessageContent message={head} />

@@ -5,6 +5,7 @@ import type { PollAnswer } from '../../shared/domain';
 import { IconX, IconPlus, IconTrash, IconChevronDown, IconMoodSmile } from '@tabler/icons-react';
 import { EmojiPicker } from './EmojiPicker';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
+import { toTwemojiUrl } from '../lib/twemoji';
 
 const DURATIONS: { hours: number; label: string }[] = [
   { hours: 1, label: '1 hour' },
@@ -27,7 +28,7 @@ function AnswerEmojiPreview({ token }: { token: string }) {
     const ext = m[1] === 'a' ? 'gif' : 'png';
     return <img src={`https://cdn.discordapp.com/emojis/${m[3]}.${ext}`} alt={m[2]} className="w-5 h-5" />;
   }
-  return <span className="text-[18px] leading-none">{token}</span>;
+  return <img src={toTwemojiUrl(token)} alt={token} draggable={false} className="w-5 h-5 select-none" />;
 }
 
 const inputBase =

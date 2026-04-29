@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconX } from '@tabler/icons-react';
 import { api } from '../lib/api';
+import { toTwemojiUrl } from '../lib/twemoji';
 import type { MessageSummary, ReactionSummary } from '../../shared/domain';
 
 type ReactionUser = { id: string; displayName: string; avatarUrl: string | null };
@@ -34,7 +35,7 @@ async function loadUsers(channelId: string, messageId: string, r: ReactionSummar
 export function ReactionBar({ message }: { message: MessageSummary }) {
   if (message.reactions.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
       {message.reactions.map(r => (
         <ReactionPill
           key={r.emojiId ?? r.emojiName}
@@ -106,14 +107,17 @@ function ReactionPill({
         onClick={onToggle}
         onMouseEnter={onEnter}
         onMouseLeave={scheduleHide}
-        className={`relative inline-flex items-center gap-1 h-[22px] px-1.5 rounded border text-[12px] leading-none transition-colors duration-150
+        className={`relative inline-flex items-center gap-1.5 h-[30px] px-2 rounded-md border text-[13px] leading-none transition-colors duration-150
           ${reaction.me
             ? 'bg-accent/15 border-accent/40 text-fg hover:bg-accent/25 hover:border-accent/60'
             : 'bg-white/[0.04] border-white/[0.06] text-fg-muted hover:bg-white/[0.08] hover:border-white/[0.12] hover:text-fg'}`}
       >
-        {url
-          ? <img src={url} alt={reaction.emojiName} className="w-[16px] h-[16px]" />
-          : <span className="text-[15px] leading-none">{reaction.emojiName}</span>}
+        <img
+          src={url ?? toTwemojiUrl(reaction.emojiName)}
+          alt={reaction.emojiName}
+          draggable={false}
+          className="w-[20px] h-[20px] select-none"
+        />
         <span className="font-medium tabular-nums">{reaction.count}</span>
       </button>
 
@@ -167,9 +171,12 @@ function ReactionTooltip({
       onMouseLeave={onLeave}
     >
       <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-bg-sunken border border-white/[0.08] shadow-xl text-[12px] text-fg max-w-[360px]">
-        {url
-          ? <img src={url} alt="" className="w-8 h-8 shrink-0" />
-          : <span className="text-[28px] leading-none shrink-0">{reaction.emojiName}</span>}
+        <img
+          src={url ?? toTwemojiUrl(reaction.emojiName)}
+          alt=""
+          draggable={false}
+          className="w-8 h-8 shrink-0 select-none"
+        />
         <span className="truncate">
           <span className="text-fg-muted">:{reaction.emojiName}:</span>
           <span className="text-fg-muted"> reacted by </span>
@@ -211,9 +218,13 @@ function ReactionVotersModal({
       >
         <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            {url
-              ? <img src={url} alt="" className="w-6 h-6 shrink-0" />
-              : <span className="text-[20px] leading-none shrink-0">{reaction.emojiName}</span>}
+            <img
+              src={url ?? toTwemojiUrl(reaction.emojiName)}
+              alt=""
+              draggable={false}
+              className="w-6 h-6 shrink-0 select-none"
+            />
+
             <h2 className="text-[15px] font-semibold text-fg truncate">
               <span className="text-fg-muted">:{reaction.emojiName}:</span> · {users.length} {users.length === 1 ? 'person' : 'people'}
             </h2>

@@ -1,6 +1,6 @@
 import { Client, Events, Partials, ChannelType, ChannelFlagsBitField, SnowflakeUtil } from 'discord.js';
 import type { Message, VoiceBasedChannel, GuildBasedChannel, ForumChannel, ThreadChannel, MediaChannel, Guild } from 'discord.js';
-import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, SystemMessageKind, PollSummary, ReactionSummary, VoiceMemberSummary, ForumTag, ForumPostSummary, ForumChannelDetail } from '../../shared/domain';
+import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, RoleIcon, SystemMessageKind, PollSummary, ReactionSummary, VoiceMemberSummary, ForumTag, ForumPostSummary, ForumChannelDetail } from '../../shared/domain';
 import { MessageType } from 'discord.js';
 import { REQUIRED_INTENTS } from './intents';
 import {
@@ -364,11 +364,20 @@ export function summarizeMessage(m: Message): MessageSummary {
 
   let authorRoleColor: string | null = null;
   let authorTopRoleName: string | null = null;
+  const authorRoleIcons: RoleIcon[] = [];
   if (m.member) {
     const hex = m.member.displayHexColor;
     if (hex && hex !== '#000000') authorRoleColor = hex;
     const topColored = m.member.roles.color;
     if (topColored) authorTopRoleName = topColored.name;
+    // Highest-position roles first so the most-prominent icon renders first.
+    for (const role of m.member.roles.cache.sort((a, b) => b.position - a.position).values()) {
+      const iconUrl = role.iconURL({ size: 32 });
+      const unicodeEmoji = role.unicodeEmoji ?? null;
+      if (iconUrl || unicodeEmoji) {
+        authorRoleIcons.push({ roleId: role.id, roleName: role.name, iconUrl, unicodeEmoji });
+      }
+    }
   }
 
   return {
@@ -381,6 +390,7 @@ export function summarizeMessage(m: Message): MessageSummary {
     authorAvatarUrl: m.author.displayAvatarURL({ size: 64 }),
     authorRoleColor,
     authorTopRoleName,
+    authorRoleIcons,
     content: m.content,
     createdAt: m.createdTimestamp,
     editedAt: m.editedTimestamp,
