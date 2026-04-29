@@ -299,3 +299,28 @@ export type PollPayload = {
   durationHours: number;
   allowMultiselect: boolean;
 };
+
+export type GuildRole = {
+  id: string;
+  name: string;
+  color: string | null;        // "#rrggbb" or null
+  position: number;
+  managed: boolean;            // true for integration/bot-owned roles
+  iconUrl: string | null;
+  unicodeEmoji: string | null;
+};
+
+export type BotCapabilities = {
+  canManageRoles: boolean;
+  canKick: boolean;
+  canBan: boolean;
+  canTimeout: boolean;
+  outranksTarget: boolean;
+  botTopRolePosition: number;
+  targetTopRolePosition: number;
+  // Human-readable names of permissions the bot lacks (e.g., "Manage Roles").
+  // Empty when the bot has all four moderation/role perms.
+  missingPermissions: string[];
+  // True when the target IS the bot itself — UI should hide self-actions.
+  targetIsSelf: boolean;
+};

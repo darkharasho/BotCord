@@ -1,6 +1,6 @@
 import type {
-  BotIdentity, BotStatus, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
-  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildSummary,
+  BotIdentity, BotStatus, BotCapabilities, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
+  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildRole, GuildSummary,
   MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
@@ -38,6 +38,13 @@ export interface BotcordApi {
     getMember(guildId: string, userId: string): Promise<Result<MemberDetail>>;
     getForum(guildId: string, forumId: string): Promise<Result<ForumChannelDetail>>;
     listArchivedForumPosts(guildId: string, forumId: string): Promise<Result<ForumPostSummary[]>>;
+    listGuildRoles(guildId: string): Promise<Result<GuildRole[]>>;
+    getBotCapabilities(guildId: string, targetUserId: string): Promise<Result<BotCapabilities>>;
+    assignRole(guildId: string, userId: string, roleId: string): Promise<Result<void>>;
+    removeRole(guildId: string, userId: string, roleId: string): Promise<Result<void>>;
+    kickMember(guildId: string, userId: string, reason?: string): Promise<Result<void>>;
+    banMember(guildId: string, userId: string, opts: { reason?: string; deleteMessageSeconds?: number }): Promise<Result<void>>;
+    timeoutMember(guildId: string, userId: string, durationMs: number, reason?: string): Promise<Result<void>>;
   };
   messages: {
     send(channelId: string, content: string, opts?: { replyToMessageId?: string }): Promise<Result<MessageSummary>>;
@@ -116,6 +123,13 @@ export const IPC_CHANNELS = {
   'guilds.getMember': 'guilds.getMember',
   'guilds.getForum': 'guilds.getForum',
   'guilds.listArchivedForumPosts': 'guilds.listArchivedForumPosts',
+  'guilds.listGuildRoles': 'guilds.listGuildRoles',
+  'guilds.getBotCapabilities': 'guilds.getBotCapabilities',
+  'guilds.assignRole': 'guilds.assignRole',
+  'guilds.removeRole': 'guilds.removeRole',
+  'guilds.kickMember': 'guilds.kickMember',
+  'guilds.banMember': 'guilds.banMember',
+  'guilds.timeoutMember': 'guilds.timeoutMember',
   'messages.send': 'messages.send',
   'messages.sendEmbed': 'messages.sendEmbed',
   'messages.sendWithAttachments': 'messages.sendWithAttachments',
