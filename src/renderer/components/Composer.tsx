@@ -9,6 +9,7 @@ import { pushToast } from './Toaster';
 import type { GatewayState, GuildEmoji, MemberSummary } from '../../shared/domain';
 import { IconCirclePlus, IconMoodSmile, IconSend2, IconUpload, IconChartBar, IconX } from '@tabler/icons-react';
 import { PollModal } from './PollModal';
+import { GifPicker } from './GifPicker';
 
 const MAX_FILES = 10;
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -56,6 +57,7 @@ export function Composer({
   const [autocomplete, setAutocomplete] = useState<AutocompleteState>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
+  const [gifOpen, setGifOpen] = useState(false);
   // displayName → user id, populated when an @ autocomplete is accepted.
   // Resolved back to <@id> at send time.
   const mentionMap = useRef<Map<string, string>>(new Map());
@@ -446,6 +448,25 @@ export function Composer({
               className="relative w-full bg-transparent placeholder:text-fg-dim text-[15px] leading-[22px] py-3 resize-none disabled:opacity-50 outline-none"
               style={{ color: 'transparent', caretColor: 'rgb(242,243,245)' }}
             />
+          </div>
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setGifOpen(o => !o)}
+              disabled={offline || busy || !channelId}
+              className="text-fg-muted hover:text-fg w-10 h-[46px] flex items-center justify-center disabled:opacity-40 font-bold text-[11px] tracking-widest"
+              title="GIF"
+            >GIF</button>
+            {gifOpen && channelId && (
+              <GifPicker
+                onSelect={(url) => {
+                  // Discord auto-embeds bare giphy/tenor URLs. Send immediately for parity.
+                  api.messages.send(channelId, url).then(res => {
+                    if (!res.ok) pushToast('danger', `GIF send failed: ${res.error.message}`);
+                  });
+                }}
+                onClose={() => setGifOpen(false)}
+              />
+            )}
           </div>
           <div className="relative shrink-0">
             <button
