@@ -15,6 +15,11 @@ import { pushToast } from './Toaster';
 import { openContextMenu, type ContextMenuEntry } from './ContextMenu';
 import { Avatar } from './Avatar';
 import { UserProfileCard } from './UserProfileCard';
+import { KickDialog } from './moderation/KickDialog';
+import { BanDialog } from './moderation/BanDialog';
+import { TimeoutDialog } from './moderation/TimeoutDialog';
+import { buildUserMenu, type UserMenuTarget } from './UserContextMenu';
+import type { GuildRole, BotCapabilities, MemberDetail } from '../../shared/domain';
 
 // Approximate height of the EmojiPicker popover (max-h-96). Used to decide
 // whether to open above or below the trigger when space is tight.
@@ -140,6 +145,8 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
   // Add-reaction state triggered from the context menu — anchored to the
   // right-click coordinates so the picker opens where the user clicked.
   const [reactState, setReactState] = useState<{ message: MessageSummary; rect: DOMRect } | null>(null);
+  const [modState, setModState] = useState<{ kind: 'kick' | 'ban' | 'timeout'; userId: string; displayName: string } | null>(null);
+  const rolesCacheRef = useRef<Map<string, GuildRole[]>>(new Map());
   const guildEmojis = useGuildEmojis(reactState ? head.guildId : null);
   const openProfile = (e: React.MouseEvent, authorId: string) => {
     if (!head.guildId) return;
@@ -152,6 +159,58 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
   const renderBody = (m: MessageSummary) => editingId === m.id
     ? <MessageEditor message={m} onDone={() => setEditingId(null)} />
     : <MessageContent message={m} />;
+
+  const onAuthorContextMenu = async (e: React.MouseEvent, authorId: string, displayName: string, username: string) => {
+    if (!head.guildId) return;
+    e.preventDefault();
+    e.stopPropagation(); // suppress the message-body context menu
+
+    const guildId = head.guildId;
+    const [capRes, memRes] = await Promise.all([
+      api.guilds.getBotCapabilities(guildId, authorId),
+      api.guilds.getMember(guildId, authorId),
+    ]);
+    const capabilities: BotCapabilities | null = capRes.ok ? capRes.data : null;
+    const detail: MemberDetail | null = memRes.ok ? memRes.data : null;
+    if (!capabilities) { pushToast('danger', capRes.ok ? 'Failed to load capabilities' : capRes.error.message); return; }
+
+    const target: UserMenuTarget = {
+      guildId,
+      userId: authorId,
+      username,
+      displayName,
+      assignedRoleIds: new Set(detail?.roles.map(r => r.id) ?? []),
+    };
+    const rolesNow = rolesCacheRef.current.get(guildId) ?? null;
+
+    const items = buildUserMenu({
+      target,
+      capabilities,
+      roles: rolesNow,
+      callbacks: {
+        onOpenProfile:  () => setProfileState({ userId: authorId, guildId, rect: (e.currentTarget as HTMLElement).getBoundingClientRect() }),
+        onMention:      () => { void api.system.copyText(`<@${authorId}>`); pushToast('ok', 'Mention copied'); },
+        onCopyUsername: () => { void api.system.copyText(username); pushToast('ok', 'Username copied'); },
+        onCopyUserId:   () => { void api.system.copyText(authorId); pushToast('ok', 'ID copied'); },
+        onOpenKick:     () => setModState({ kind: 'kick',    userId: authorId, displayName }),
+        onOpenBan:      () => setModState({ kind: 'ban',     userId: authorId, displayName }),
+        onOpenTimeout:  () => setModState({ kind: 'timeout', userId: authorId, displayName }),
+        onToggleRole: async (roleId, currentlyAssigned) => {
+          const res = currentlyAssigned
+            ? await api.guilds.removeRole(guildId, authorId, roleId)
+            : await api.guilds.assignRole(guildId, authorId, roleId);
+          if (!res.ok) pushToast('danger', res.error.message);
+        },
+      },
+    });
+    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, items);
+
+    if (!rolesNow) {
+      api.guilds.listGuildRoles(guildId).then(res => {
+        if (res.ok) rolesCacheRef.current.set(guildId, res.data);
+      });
+    }
+  };
 
   const onContextMenu = (e: React.MouseEvent, m: MessageSummary) => {
     const rect = new DOMRect(e.clientX, e.clientY, 0, 0);
@@ -184,7 +243,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
           onReply={onReply}
           onEdit={() => setEditingId(head.id)}
         />
-        <div className="w-10 shrink-0 pt-0.5 cursor-pointer" onClick={(e) => openProfile(e, head.authorId)}>
+        <div className="w-10 shrink-0 pt-0.5 cursor-pointer" onClick={(e) => openProfile(e, head.authorId)} onContextMenu={(e) => onAuthorContextMenu(e, head.authorId, head.authorDisplayName, head.authorTag)}>
           <Avatar
             src={head.authorAvatarUrl}
             alt=""
@@ -200,6 +259,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
                 style={head.authorRoleColor ? { color: head.authorRoleColor } : undefined}
                 title={head.authorTopRoleName ? `@${head.authorTag} · ${head.authorTopRoleName}` : `@${head.authorTag}`}
                 onClick={(e) => openProfile(e, head.authorId)}
+                onContextMenu={(e) => onAuthorContextMenu(e, head.authorId, head.authorDisplayName, head.authorTag)}
               >{head.authorDisplayName}</span>
               {(() => {
                 const top = head.authorRoleIcons?.[0];
@@ -251,6 +311,9 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
           onClose={() => setProfileState(null)}
         />
       )}
+      {modState && head.guildId && modState.kind === 'kick'    && <KickDialog    guildId={head.guildId} userId={modState.userId} displayName={modState.displayName} onClose={() => setModState(null)} />}
+      {modState && head.guildId && modState.kind === 'ban'     && <BanDialog     guildId={head.guildId} userId={modState.userId} displayName={modState.displayName} onClose={() => setModState(null)} />}
+      {modState && head.guildId && modState.kind === 'timeout' && <TimeoutDialog guildId={head.guildId} userId={modState.userId} displayName={modState.displayName} onClose={() => setModState(null)} />}
     </div>
   );
 }
