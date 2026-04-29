@@ -5,9 +5,9 @@ import { IPC_CHANNELS } from '../shared/ipc-contract';
 
 function findIconPath(): string | undefined {
   const candidates = [
-    join(app.getAppPath(), 'public', 'botcord-icon.png'),
-    join(__dirname, '../../public/botcord-icon.png'),
-    join(__dirname, '../renderer/botcord-icon.png'),
+    join(app.getAppPath(), 'resources', 'icon-512.png'),
+    join(__dirname, '../../resources/icon-512.png'),
+    join(__dirname, '../resources/icon-512.png'),
   ];
   return candidates.find(p => existsSync(p));
 }
