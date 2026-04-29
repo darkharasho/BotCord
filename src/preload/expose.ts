@@ -35,6 +35,11 @@ const api: BotcordApi = {
     kickMember: (guildId, userId, reason) => invoke(IPC_CHANNELS['guilds.kickMember'], guildId, userId, reason),
     banMember: (guildId, userId, opts) => invoke(IPC_CHANNELS['guilds.banMember'], guildId, userId, opts),
     timeoutMember: (guildId, userId, durationMs, reason) => invoke(IPC_CHANNELS['guilds.timeoutMember'], guildId, userId, durationMs, reason),
+    listAllMembers: (guildId) => invoke(IPC_CHANNELS['guilds.listAllMembers'], guildId),
+    bulkAssignRole: (guildId, userIds, roleId) => invoke(IPC_CHANNELS['guilds.bulkAssignRole'], guildId, userIds, roleId),
+    bulkRemoveRole: (guildId, userIds, roleId) => invoke(IPC_CHANNELS['guilds.bulkRemoveRole'], guildId, userIds, roleId),
+    bulkKickMembers: (guildId, userIds, reason) => invoke(IPC_CHANNELS['guilds.bulkKickMembers'], guildId, userIds, reason),
+    bulkBanMembers: (guildId, userIds, opts) => invoke(IPC_CHANNELS['guilds.bulkBanMembers'], guildId, userIds, opts),
   },
   messages: {
     send: (channelId, content, opts) => invoke(IPC_CHANNELS['messages.send'], channelId, content, opts),
