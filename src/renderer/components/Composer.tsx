@@ -397,8 +397,8 @@ export function Composer({
             >
               {highlightFragments.map((f, i) =>
                 f.kind === 'mention'
-                  ? <span key={i} className="bg-accent/30 text-accent">{f.text}</span>
-                  : <span key={i}>{f.text}</span>
+                  ? <span key={i} className="bg-accent/30 text-white">{f.text}</span>
+                  : <span key={i} className="text-fg">{f.text}</span>
               )}
               {/* trailing space so cursor at EOL has measurable height */}
               {'​'}
