@@ -1,9 +1,16 @@
 import { useEffect, useMemo } from 'react';
 
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|tiff?)$/i;
+
+function isImageFile(f: File): boolean {
+  if (f.type.startsWith('image/')) return true;
+  return IMAGE_EXT_RE.test(f.name);
+}
+
 export function AttachmentTray({
   files, onRemove,
 }: { files: File[]; onRemove: (idx: number) => void }) {
-  const previews = useMemo(() => files.map(f => f.type.startsWith('image/') ? URL.createObjectURL(f) : null), [files]);
+  const previews = useMemo(() => files.map(f => isImageFile(f) ? URL.createObjectURL(f) : null), [files]);
   useEffect(() => () => { previews.forEach(u => { if (u) URL.revokeObjectURL(u); }); }, [previews]);
 
   if (files.length === 0) return null;
