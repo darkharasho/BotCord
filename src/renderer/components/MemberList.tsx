@@ -101,7 +101,7 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
       >
         {member.displayName}
       </span>
-      {member.roleIcons.length > 0 && (
+      {member.roleIcons && member.roleIcons.length > 0 && (
         <span className="flex items-center gap-0.5 ml-1 shrink-0">
           {member.roleIcons.slice(0, 3).map(r =>
             r.iconUrl
