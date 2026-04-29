@@ -86,7 +86,7 @@ function GuildRailItem({
           className={`absolute -left-3 top-1/2 -translate-y-1/2 w-1 bg-fg rounded-r transition-all duration-200 ease-out ${sideIndicator}`}
         />
         <div
-          className={`w-12 h-12 rounded-2xl overflow-hidden bg-bg-subtle flex items-center justify-center text-sm font-semibold text-fg transition-colors duration-150
+          className={`w-10 h-10 rounded-2xl overflow-hidden bg-bg-subtle flex items-center justify-center text-sm font-semibold text-fg transition-colors duration-150
             ${selected ? 'bg-accent text-white' : 'hover:bg-accent hover:text-white'}`}
         >
           {iconSrc

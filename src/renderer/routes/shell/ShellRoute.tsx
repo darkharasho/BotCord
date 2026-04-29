@@ -26,14 +26,14 @@ export function ShellRoute() {
 
   return (
     <div className="h-full flex bg-bg-sunken">
-      <aside className="w-[72px] shrink-0 min-h-0">
+      <aside className="w-[64px] shrink-0 min-h-0">
         <ServerRail
           selected={guild?.id ?? null}
           onSelect={(g) => { setGuild(g); setChannelId(null); }}
           unreadGuildIds={unreads.guildIds}
         />
       </aside>
-      <aside className="w-60 shrink-0 min-h-0 bg-bg-sunken flex flex-col rounded-tl-xl border-t border-l border-white/[0.04] overflow-hidden">
+      <aside className="w-[208px] shrink-0 min-h-0 bg-bg-sunken flex flex-col rounded-tl-xl border-t border-l border-white/[0.04] overflow-hidden">
         <div className="h-12 px-4 flex items-center justify-between border-b border-white/[0.04] shrink-0">
           <span className="font-semibold text-fg text-[15px] truncate">{guild?.name ?? 'BotCord'}</span>
           <IconChevronDown size={18} stroke={2} className="text-fg-muted shrink-0 ml-2" />
