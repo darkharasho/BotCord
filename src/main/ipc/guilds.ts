@@ -186,7 +186,7 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       id: m.id,
       displayName: m.displayName,
       username: m.user.username,
-      avatarUrl: m.user.displayAvatarURL({ size: 64 }),
+      avatarUrl: m.displayAvatarURL({ size: 64 }),
       roleColor: m.displayHexColor && m.displayHexColor !== '#000000' ? m.displayHexColor : null,
     }));
 
@@ -228,7 +228,7 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
         id: m.id,
         displayName: m.displayName,
         username: m.user.username,
-        avatarUrl: m.user.displayAvatarURL({ size: 64 }),
+        avatarUrl: m.displayAvatarURL({ size: 64 }),
         roleColor: m.displayHexColor && m.displayHexColor !== '#000000' ? m.displayHexColor : null,
         status,
         topRole: hoist
@@ -278,7 +278,7 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       id: member.id,
       displayName: member.displayName,
       username: member.user.username,
-      avatarUrl: member.user.displayAvatarURL({ size: 128 }),
+      avatarUrl: member.displayAvatarURL({ size: 128 }),
       bannerColor: member.user.hexAccentColor ?? null,
       roleColor: member.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : null,
       status,
@@ -444,7 +444,7 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
         id: m.id,
         displayName: m.displayName,
         username: m.user.username,
-        avatarUrl: m.user.displayAvatarURL({ size: 64 }),
+        avatarUrl: m.displayAvatarURL({ size: 64 }),
         status,
         isBot: m.user.bot,
         joinedAt: m.joinedTimestamp ?? null,

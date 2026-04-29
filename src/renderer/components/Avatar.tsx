@@ -26,6 +26,7 @@ export function Avatar({
 }) {
   const [hovered, setHovered] = useState(false);
   const [playOnMount, setPlayOnMount] = useState(true);
+  const [errored, setErrored] = useState(false);
 
   useEffect(() => {
     if (!isAnimated(src)) return;
@@ -33,7 +34,10 @@ export function Avatar({
     return () => clearTimeout(t);
   }, [src]);
 
-  if (!src) return <>{fallback ?? null}</>;
+  // Reset error state when src changes so a new URL gets a fresh load attempt.
+  useEffect(() => { setErrored(false); }, [src]);
+
+  if (!src || errored) return <>{fallback ?? null}</>;
 
   const animated = isAnimated(src);
   const playing = animated && (hovered || playOnMount);
@@ -46,6 +50,7 @@ export function Avatar({
       className={className}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onError={() => setErrored(true)}
       draggable={false}
     />
   );
