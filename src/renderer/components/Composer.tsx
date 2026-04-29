@@ -68,33 +68,34 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   // Reset autocomplete state when channel or guild changes.
   useEffect(() => { setAutocomplete(null); }, [channelId, guildId]);
 
-  // Whenever text changes, redetect a trigger and refresh suggestions.
-  useEffect(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    const trig = detectTrigger(text, ta.selectionStart);
+  const refreshAutocomplete = (value: string, cursor: number) => {
+    const trig = detectTrigger(value, cursor);
     if (!trig) { setAutocomplete(null); return; }
-
     if (trig.kind === 'mention') {
       if (!guildId) { setAutocomplete(null); return; }
-      let cancelled = false;
       api.guilds.searchMembers(guildId, trig.query, AUTOCOMPLETE_LIMIT).then(res => {
-        if (cancelled) return;
         const members = res.ok ? res.data : [];
         if (members.length === 0) { setAutocomplete(null); return; }
         setAutocomplete({ kind: 'mention', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0, members });
       });
-      return () => { cancelled = true; };
-    }
-
-    // Emoji trigger — purely local.
-    if (trig.kind === 'emoji') {
-      const filteredAny = filterEmoji(trig.query, guildEmojis);
-      if (filteredAny.length === 0) { setAutocomplete(null); return; }
-      setAutocomplete({ kind: 'emoji', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0 });
       return;
     }
-  }, [text, guildId, guildEmojis]);
+    if (trig.kind === 'emoji') {
+      const filtered = filterEmoji(trig.query, guildEmojis);
+      if (filtered.length === 0) { setAutocomplete(null); return; }
+      setAutocomplete({ kind: 'emoji', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0 });
+    }
+  };
+
+  const onTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    refreshAutocomplete(e.target.value, e.target.selectionStart);
+  };
+
+  const onTextSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    refreshAutocomplete(ta.value, ta.selectionStart);
+  };
 
   const emojiResults = useMemo(() => {
     if (autocomplete?.kind !== 'emoji') return [];
@@ -140,7 +141,8 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
       token = `<@${m.id}>`;
     } else {
       const e = emojiResults[idx]!;
-      token = e.kind === 'custom' ? `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>` : e.char;
+      // Custom emoji insert shorthand `:name:` for readability; resolved on send.
+      token = e.kind === 'custom' ? `:${e.name}:` : e.char;
     }
     const before = text.slice(0, autocomplete.start);
     const after = text.slice(autocomplete.end);
@@ -192,9 +194,18 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     });
   };
 
+  const resolveEmojiShortcuts = (raw: string): string => {
+    if (guildEmojis.length === 0) return raw;
+    return raw.replace(/:([A-Za-z0-9_]+):/g, (match, name: string) => {
+      const e = guildEmojis.find(x => x.name === name);
+      if (!e) return match;
+      return `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
+    });
+  };
+
   const send = async () => {
     if (!channelId) return;
-    const content = text.trim();
+    const content = resolveEmojiShortcuts(text.trim());
     if (content.length === 0 && files.length === 0) return;
     setBusy(true);
     let res;
@@ -297,7 +308,8 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
           <textarea
             ref={taRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={onTextChange}
+            onSelect={onTextSelect}
             onKeyDown={onKey}
             onBlur={() => setTimeout(() => setAutocomplete(null), 100)}
             disabled={offline || busy}
@@ -315,7 +327,11 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
             {emojiOpen && (
               <EmojiPicker
                 guildEmojis={guildEmojis}
-                onSelect={(token) => { insertAtCursor(token); }}
+                onSelect={(token) => {
+                  // Convert <:name:id> → :name: shorthand for the textarea; resolved on send.
+                  const m = /^<a?:([A-Za-z0-9_]+):\d+>$/.exec(token);
+                  insertAtCursor(m ? `:${m[1]}:` : token);
+                }}
                 onClose={() => setEmojiOpen(false)}
               />
             )}
