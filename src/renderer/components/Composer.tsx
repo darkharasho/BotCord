@@ -86,6 +86,9 @@ export function Composer({
   // Reset autocomplete state when channel or guild changes.
   useEffect(() => { setAutocomplete(null); }, [channelId, guildId]);
 
+  // Auto-focus the input when replying to a message.
+  useEffect(() => { if (replyTo) taRef.current?.focus(); }, [replyTo]);
+
   const refreshAutocomplete = (value: string, cursor: number) => {
     const trig = detectTrigger(value, cursor);
     if (!trig) { setAutocomplete(null); return; }

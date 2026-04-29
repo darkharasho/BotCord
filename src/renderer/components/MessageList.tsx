@@ -86,7 +86,7 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   return groups;
 }
 
-export function MessageList({ channelId, filter, onReply, header, jumpToMessageId, onJumpComplete }: {
+export function MessageList({ channelId, filter, onReply, header, jumpToMessageId, onJumpComplete, scrollToBottomTrigger }: {
   channelId: string | null;
   filter?: string;
   onReply?: ((m: MessageSummary) => void) | undefined;
@@ -98,6 +98,8 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
   // it. Caller bumps the value (e.g. from a pinned-list "Jump" click).
   jumpToMessageId?: string | null;
   onJumpComplete?: () => void;
+  // Bump this value to scroll to the bottom (e.g. when the reply bar appears).
+  scrollToBottomTrigger?: unknown;
 }) {
   const { messages: allMessages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
   const bot = useBotIdentity();
@@ -153,6 +155,13 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
     }, 1600);
     return () => window.clearTimeout(t);
   }, [jumpToMessageId, onJumpComplete]);
+
+  // Scroll to bottom when triggered externally (e.g. reply bar appearing).
+  useEffect(() => {
+    if (scrollToBottomTrigger == null) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [scrollToBottomTrigger]);
 
   // Reset on channel switch. We keep `justSwitchedRef` true for a window
   // (~800ms) so that async-loaded content (images, embeds, the forum-post

@@ -125,6 +125,7 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
               : null}
             jumpToMessageId={jumpTarget}
             onJumpComplete={() => setJumpTarget(null)}
+            scrollToBottomTrigger={replyTo}
           />
           <TypingIndicator channelId={channelId} />
           <Composer

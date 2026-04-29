@@ -9,7 +9,7 @@ type Props = {
   guildId: string | null;
   forumId: string;
   forumName: string;
-  onSelectPost: (postId: string) => void;
+  onSelectPost: (postId: string, postName: string) => void;
 };
 
 export function ForumView({ guildId, forumId, forumName, onSelectPost }: Props) {
@@ -156,7 +156,7 @@ export function ForumView({ guildId, forumId, forumName, onSelectPost }: Props) 
               key={p.id}
               post={p}
               tagsById={tagsById}
-              onClick={() => onSelectPost(p.id)}
+              onClick={() => onSelectPost(p.id, p.name)}
             />
           ))}
         </div>
@@ -176,7 +176,7 @@ export function ForumView({ guildId, forumId, forumName, onSelectPost }: Props) 
             setCreateOpen(false);
             // Jump straight into the new post — the live ThreadCreate event
             // will populate the list, so we don't need to manually refetch.
-            onSelectPost(post.id);
+            onSelectPost(post.id, post.name);
           }}
         />
       )}

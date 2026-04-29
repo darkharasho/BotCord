@@ -11,11 +11,14 @@ import { useUnreads } from '../../lib/use-unreads';
 import type { ChannelSummary, GuildSummary } from '../../../shared/domain';
 import { IconChevronDown } from '@tabler/icons-react';
 
+type ForumPostRef = { postId: string; postName: string; forumId: string; forumName: string };
+
 export function ShellRoute() {
   const [guild, setGuild] = useState<GuildSummary | null>(null);
   const [channelId, setChannelId] = useState<string | null>(null);
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [forumPostRef, setForumPostRef] = useState<ForumPostRef | null>(null);
 
   useEffect(() => {
     if (!guild) { setChannels([]); return; }
@@ -23,24 +26,28 @@ export function ShellRoute() {
   }, [guild]);
 
   const selectedChannel = channels.find(c => c.id === channelId) ?? null;
-  const channelName = selectedChannel?.name ?? null;
+  const channelName = selectedChannel?.name
+    ?? (forumPostRef && forumPostRef.postId === channelId ? forumPostRef.postName : null);
   const unreads = useUnreads(channelId);
 
-  // Surface a back-to-forum breadcrumb when viewing a forum post (a thread
-  // whose parent is a forum channel in the cache).
+  // Surface a back-to-forum breadcrumb when viewing a forum post.
+  // First try the channels cache; fall back to the explicit forumPostRef
+  // which covers archived / inactive threads not present in the channel list.
   const parentChannel = selectedChannel?.parentId
     ? channels.find(c => c.id === selectedChannel.parentId) ?? null
     : null;
   const backToForum = selectedChannel?.type === 'thread' && parentChannel?.type === 'forum'
-    ? { id: parentChannel.id, name: parentChannel.name, onClick: () => setChannelId(parentChannel.id) }
-    : undefined;
+    ? { id: parentChannel.id, name: parentChannel.name, onClick: () => { setForumPostRef(null); setChannelId(parentChannel.id); } }
+    : forumPostRef && forumPostRef.postId === channelId
+      ? { id: forumPostRef.forumId, name: forumPostRef.forumName, onClick: () => { setForumPostRef(null); setChannelId(forumPostRef.forumId); } }
+      : undefined;
 
   return (
     <div className="h-full flex bg-bg-sunken">
       <aside className="w-[64px] shrink-0 min-h-0">
         <ServerRail
           selected={guild?.id ?? null}
-          onSelect={(g) => { setGuild(g); setChannelId(null); }}
+          onSelect={(g) => { setGuild(g); setChannelId(null); setForumPostRef(null); }}
           unreadGuildIds={unreads.guildIds}
         />
       </aside>
@@ -50,7 +57,7 @@ export function ShellRoute() {
           <IconChevronDown size={18} stroke={2} className="text-fg-muted shrink-0 ml-2" />
         </div>
         <div className="flex-1 min-h-0">
-          <ChannelList guildId={guild?.id ?? null} selected={channelId} onSelect={setChannelId} unreadIds={unreads.channelIds} />
+          <ChannelList guildId={guild?.id ?? null} selected={channelId} onSelect={(id) => { setForumPostRef(null); setChannelId(id); }} unreadIds={unreads.channelIds} />
         </div>
         <BotIdentityFooter onOpenSettings={() => setSettingsOpen(true)} />
       </aside>
@@ -59,7 +66,10 @@ export function ShellRoute() {
           guildId={guild?.id ?? null}
           forumId={selectedChannel.id}
           forumName={selectedChannel.name}
-          onSelectPost={setChannelId}
+          onSelectPost={(postId, postName) => {
+            setForumPostRef({ postId, postName, forumId: selectedChannel.id, forumName: selectedChannel.name });
+            setChannelId(postId);
+          }}
         />
       ) : (
         <ChannelView
