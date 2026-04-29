@@ -46,8 +46,12 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
   const onContextMenuMember = async (e: React.MouseEvent, m: ChannelMemberSummary) => {
     if (!guildId) return;
     e.preventDefault();
+    // React clears the synthetic event's currentTarget after the handler
+    // returns, so capture anything we need from it before any awaits.
+    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-    // Fetch capabilities + member detail (for assigned role IDs) in parallel.
     const [capRes, memRes] = await Promise.all([
       api.guilds.getBotCapabilities(guildId, m.id),
       api.guilds.getMember(guildId, m.id),
@@ -67,7 +71,6 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
       assignedRoleIds: new Set(detail?.roles.map(r => r.id) ?? []),
     };
 
-    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const buildItems = (roles: GuildRole[] | null) => buildUserMenu({
       target,
       capabilities,
@@ -90,7 +93,7 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
     });
 
     const rolesNow = rolesCache.current.get(guildId) ?? null;
-    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, buildItems(rolesNow));
+    openContextMenu({ preventDefault: () => {}, clientX, clientY }, buildItems(rolesNow));
 
     if (!rolesNow) {
       api.guilds.listGuildRoles(guildId).then(res => {

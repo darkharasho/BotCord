@@ -164,6 +164,11 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
     if (!head.guildId) return;
     e.preventDefault();
     e.stopPropagation(); // suppress the message-body context menu
+    // React clears currentTarget after the handler returns, so snapshot
+    // anything we need from the event before the awaits below.
+    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
     const guildId = head.guildId;
     const [capRes, memRes] = await Promise.all([
@@ -181,7 +186,6 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
       displayName,
       assignedRoleIds: new Set(detail?.roles.map(r => r.id) ?? []),
     };
-    const anchorRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const buildItems = (roles: GuildRole[] | null) => buildUserMenu({
       target,
       capabilities,
@@ -204,7 +208,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
     });
 
     const rolesNow = rolesCacheRef.current.get(guildId) ?? null;
-    openContextMenu(e as unknown as { preventDefault: () => void; clientX: number; clientY: number }, buildItems(rolesNow));
+    openContextMenu({ preventDefault: () => {}, clientX, clientY }, buildItems(rolesNow));
 
     if (!rolesNow) {
       api.guilds.listGuildRoles(guildId).then(res => {
