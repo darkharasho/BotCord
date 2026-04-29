@@ -62,6 +62,18 @@ export type MemberSummary = {
   roleColor: string | null;
 };
 
+export type PresenceStatus = 'online' | 'idle' | 'dnd' | 'offline';
+
+export type ChannelMemberSummary = {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+  roleColor: string | null;
+  status: PresenceStatus;
+  topRole: { id: string; name: string; color: string | null; position: number } | null;
+};
+
 export type SystemMessageKind =
   | 'user_join'
   | 'pin'

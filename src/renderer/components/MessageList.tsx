@@ -25,8 +25,15 @@ function groupMessages(messages: MessageSummary[]): MessageSummary[][] {
   return groups;
 }
 
-export function MessageList({ channelId }: { channelId: string | null }) {
-  const { messages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
+export function MessageList({ channelId, filter }: { channelId: string | null; filter?: string }) {
+  const { messages: allMessages, loading, hasMore, loadOlder, error } = useChannelMessages(channelId);
+  const trimmed = filter?.trim().toLowerCase() ?? '';
+  const messages = trimmed.length > 0
+    ? allMessages.filter(m =>
+        m.content.toLowerCase().includes(trimmed)
+        || m.authorDisplayName.toLowerCase().includes(trimmed)
+        || m.authorTag.toLowerCase().includes(trimmed))
+    : allMessages;
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [pendingNew, setPendingNew] = useState(0);

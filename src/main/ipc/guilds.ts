@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary } from '../../shared/domain';
+import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMemberSummary, PresenceStatus } from '../../shared/domain';
 import { projectChannel, projectGuildEmojis } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
@@ -102,5 +102,43 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
     }));
 
     return ok(summaries);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.listChannelMembers'], async (_, guildId: unknown, channelId: unknown): Promise<Result<ChannelMemberSummary[]>> => {
+    if (typeof guildId !== 'string' || typeof channelId !== 'string') return err('INTERNAL', 'guildId and channelId required');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+
+    let viewChannel: GuildBasedChannel | null = guild.channels.cache.get(channelId) ?? null;
+    if (viewChannel && (viewChannel.type === ChannelType.PublicThread || viewChannel.type === ChannelType.PrivateThread || viewChannel.type === ChannelType.AnnouncementThread)) {
+      viewChannel = viewChannel.parent ?? null;
+    }
+    if (!viewChannel) return err('NOT_FOUND', `Channel ${channelId} not found`);
+
+    // Make sure all members are loaded so the list isn't sparse.
+    try { await guild.members.fetch(); } catch { /* missing privileged intent — fall back to cache */ }
+
+    const view = PermissionsBitField.Flags.ViewChannel;
+    const visible = guild.members.cache.filter(m => viewChannel!.permissionsFor(m)?.has(view) ?? false);
+
+    const out: ChannelMemberSummary[] = [];
+    for (const m of visible.values()) {
+      const status = (m.presence?.status ?? 'offline') as PresenceStatus;
+      const hoist = m.roles.hoist;
+      out.push({
+        id: m.id,
+        displayName: m.displayName,
+        username: m.user.username,
+        avatarUrl: m.user.displayAvatarURL({ size: 64 }),
+        roleColor: m.displayHexColor && m.displayHexColor !== '#000000' ? m.displayHexColor : null,
+        status,
+        topRole: hoist
+          ? { id: hoist.id, name: hoist.name, color: hoist.color ? `#${hoist.color.toString(16).padStart(6, '0')}` : null, position: hoist.position }
+          : null,
+      });
+    }
+    return ok(out);
   });
 }

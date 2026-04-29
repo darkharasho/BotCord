@@ -5,4 +5,5 @@ export const REQUIRED_INTENTS = [
   GatewayIntentBits.GuildMessages,
   GatewayIntentBits.MessageContent,
   GatewayIntentBits.GuildMembers,
+  GatewayIntentBits.GuildPresences,
 ];
