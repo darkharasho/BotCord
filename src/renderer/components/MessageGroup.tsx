@@ -14,6 +14,7 @@ import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { openContextMenu, type ContextMenuEntry } from './ContextMenu';
 import { Avatar } from './Avatar';
+import { UserProfileCard } from './UserProfileCard';
 
 // Approximate height of the EmojiPicker popover (max-h-96). Used to decide
 // whether to open above or below the trigger when space is tight.
@@ -134,10 +135,18 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
   const bot = useBotIdentity();
   // One message in the group at most can be in inline-edit mode.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Profile card state — anchored to the avatar/name that was clicked.
+  const [profileState, setProfileState] = useState<{ userId: string; guildId: string; rect: DOMRect } | null>(null);
   // Add-reaction state triggered from the context menu — anchored to the
   // right-click coordinates so the picker opens where the user clicked.
   const [reactState, setReactState] = useState<{ message: MessageSummary; rect: DOMRect } | null>(null);
   const guildEmojis = useGuildEmojis(reactState ? head.guildId : null);
+  const openProfile = (e: React.MouseEvent, authorId: string) => {
+    if (!head.guildId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setProfileState({ userId: authorId, guildId: head.guildId, rect });
+  };
+
   const headHighlight = mentionsBot(head, bot?.id) ? MENTION_ROW : 'hover:bg-hover/40';
 
   const renderBody = (m: MessageSummary) => editingId === m.id
@@ -175,11 +184,11 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
           onReply={onReply}
           onEdit={() => setEditingId(head.id)}
         />
-        <div className="w-10 shrink-0 pt-0.5">
+        <div className="w-10 shrink-0 pt-0.5 cursor-pointer" onClick={(e) => openProfile(e, head.authorId)}>
           <Avatar
             src={head.authorAvatarUrl}
             alt=""
-            className="w-10 h-10 rounded-full"
+            className="w-10 h-10 rounded-full hover:shadow-lg transition-shadow"
             fallback={<div className="w-10 h-10 rounded-full bg-bg-input flex items-center justify-center text-xs font-semibold text-fg">{head.authorDisplayName.slice(0, 2).toUpperCase()}</div>}
           />
         </div>
@@ -187,9 +196,10 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
           <div data-message-id={head.id}>
             <div className="flex items-baseline gap-2 whitespace-nowrap">
               <span
-                className="font-medium text-[15px] truncate cursor-default"
+                className="font-medium text-[15px] truncate cursor-pointer hover:underline"
                 style={head.authorRoleColor ? { color: head.authorRoleColor } : undefined}
                 title={head.authorTopRoleName ? `@${head.authorTag} · ${head.authorTopRoleName}` : `@${head.authorTag}`}
+                onClick={(e) => openProfile(e, head.authorId)}
               >{head.authorDisplayName}</span>
               {(() => {
                 const top = head.authorRoleIcons?.[0];
@@ -231,6 +241,14 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
           onSelect={onPickReaction}
           onClose={() => setReactState(null)}
           anchorRect={reactState.rect}
+        />
+      )}
+      {profileState && (
+        <UserProfileCard
+          guildId={profileState.guildId}
+          userId={profileState.userId}
+          anchorRect={profileState.rect}
+          onClose={() => setProfileState(null)}
         />
       )}
     </div>

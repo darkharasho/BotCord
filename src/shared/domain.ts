@@ -135,6 +135,30 @@ export type MemberSummary = {
 
 export type PresenceStatus = 'online' | 'idle' | 'dnd' | 'offline';
 
+export type MemberRole = {
+  id: string;
+  name: string;
+  color: string | null;
+  position: number;
+  iconUrl: string | null;
+  unicodeEmoji: string | null;
+};
+
+export type MemberDetail = {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl: string | null;
+  bannerColor: string | null;
+  roleColor: string | null;
+  status: PresenceStatus;
+  isBot: boolean;
+  joinedAt: number | null;
+  createdAt: number;
+  roles: MemberRole[];
+  topRole: MemberRole | null;
+};
+
 export type RoleIcon = { roleId: string; roleName: string; iconUrl: string | null; unicodeEmoji: string | null };
 
 export type ChannelMemberSummary = {

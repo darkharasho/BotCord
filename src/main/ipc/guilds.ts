@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { PermissionsBitField, ChannelType, type GuildBasedChannel, type GuildMember, type ForumChannel, type MediaChannel } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary } from '../../shared/domain';
+import type { GuildSummary, ChannelSummary, GuildEmoji, MemberSummary, MemberDetail, MemberRole, ChannelMemberSummary, PresenceStatus, RoleIcon, ForumChannelDetail, ForumPostSummary } from '../../shared/domain';
 import { projectChannel, projectGuildEmojis, voiceMembersFor, projectForumChannel, fetchArchivedForumPosts } from '../discord/client-manager';
 import type { IpcDeps } from './index';
 
@@ -169,6 +169,58 @@ export function registerGuildHandlers({ manager }: IpcDeps): void {
       });
     }
     return ok(out);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['guilds.getMember'], async (_, guildId: unknown, userId: unknown): Promise<Result<MemberDetail>> => {
+    if (typeof guildId !== 'string' || typeof userId !== 'string') return err('INTERNAL', 'guildId and userId required');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return err('NOT_FOUND', `Guild ${guildId} not found`);
+
+    let member: GuildMember | undefined = guild.members.cache.get(userId);
+    if (!member) {
+      try { member = await guild.members.fetch(userId); } catch { /* not found */ }
+    }
+    if (!member) return err('NOT_FOUND', `Member ${userId} not found`);
+
+    const status = (member.presence?.status ?? 'offline') as PresenceStatus;
+    const hoist = member.roles.hoist;
+    const roles: MemberRole[] = member.roles.cache
+      .filter(r => r.id !== guild.id) // exclude @everyone
+      .sort((a, b) => b.position - a.position)
+      .map(r => ({
+        id: r.id,
+        name: r.name,
+        color: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : null,
+        position: r.position,
+        iconUrl: r.iconURL({ size: 32 }),
+        unicodeEmoji: r.unicodeEmoji ?? null,
+      }));
+
+    return ok({
+      id: member.id,
+      displayName: member.displayName,
+      username: member.user.username,
+      avatarUrl: member.user.displayAvatarURL({ size: 128 }),
+      bannerColor: member.user.hexAccentColor ?? null,
+      roleColor: member.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : null,
+      status,
+      isBot: member.user.bot,
+      joinedAt: member.joinedTimestamp ?? null,
+      createdAt: member.user.createdTimestamp,
+      roles,
+      topRole: hoist
+        ? {
+            id: hoist.id,
+            name: hoist.name,
+            color: hoist.color ? `#${hoist.color.toString(16).padStart(6, '0')}` : null,
+            position: hoist.position,
+            iconUrl: hoist.iconURL({ size: 32 }),
+            unicodeEmoji: hoist.unicodeEmoji ?? null,
+          }
+        : null,
+    });
   });
 
   ipcMain.handle(IPC_CHANNELS['guilds.getForum'], async (_, guildId: unknown, forumId: unknown): Promise<Result<ForumChannelDetail>> => {

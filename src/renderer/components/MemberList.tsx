@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { Avatar } from './Avatar';
+import { UserProfileCard } from './UserProfileCard';
 import type { ChannelMemberSummary, PresenceStatus } from '../../shared/domain';
 
 const STATUS_COLOR: Record<PresenceStatus, string> = {
@@ -13,6 +14,7 @@ const STATUS_COLOR: Record<PresenceStatus, string> = {
 export function MemberList({ guildId, channelId }: { guildId: string | null; channelId: string | null }) {
   const [members, setMembers] = useState<ChannelMemberSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profileState, setProfileState] = useState<{ userId: string; rect: DOMRect } | null>(null);
 
   useEffect(() => {
     if (!guildId || !channelId) { setMembers([]); return; }
@@ -84,26 +86,44 @@ export function MemberList({ guildId, channelId }: { guildId: string | null; cha
           unicodeEmoji={g.unicodeEmoji}
           roleName={g.name}
           members={g.members}
+          onClickMember={(userId, rect) => setProfileState({ userId, rect })}
         />
       ))}
       {groups.onlineNoRole.length > 0 && (
-        <Section title={`Online — ${groups.onlineNoRole.length}`} members={groups.onlineNoRole} />
+        <Section
+          title={`Online — ${groups.onlineNoRole.length}`}
+          members={groups.onlineNoRole}
+          onClickMember={(userId, rect) => setProfileState({ userId, rect })}
+        />
       )}
       {groups.offline.length > 0 && (
-        <Section title={`Offline — ${groups.offline.length}`} members={groups.offline} />
+        <Section
+          title={`Offline — ${groups.offline.length}`}
+          members={groups.offline}
+          onClickMember={(userId, rect) => setProfileState({ userId, rect })}
+        />
+      )}
+      {profileState && guildId && (
+        <UserProfileCard
+          guildId={guildId}
+          userId={profileState.userId}
+          anchorRect={profileState.rect}
+          onClose={() => setProfileState(null)}
+        />
       )}
     </aside>
   );
 }
 
 function Section({
-  title, members, iconUrl, unicodeEmoji, roleName,
+  title, members, iconUrl, unicodeEmoji, roleName, onClickMember,
 }: {
   title: string;
   members: ChannelMemberSummary[];
   iconUrl?: string | null;
   unicodeEmoji?: string | null;
   roleName?: string;
+  onClickMember: (userId: string, rect: DOMRect) => void;
 }) {
   return (
     <div className="mb-4">
@@ -116,18 +136,19 @@ function Section({
         <span>{title}</span>
       </div>
       <div>
-        {members.map(m => <MemberRow key={m.id} member={m} />)}
+        {members.map(m => <MemberRow key={m.id} member={m} onClickMember={onClickMember} />)}
       </div>
     </div>
   );
 }
 
-function MemberRow({ member }: { member: ChannelMemberSummary }) {
+function MemberRow({ member, onClickMember }: { member: ChannelMemberSummary; onClickMember: (userId: string, rect: DOMRect) => void }) {
   const dim = member.status === 'offline';
   return (
     <div
-      className={`flex items-center gap-2 px-2 mx-2 py-1 rounded hover:bg-hover ${dim ? 'opacity-40' : ''}`}
+      className={`flex items-center gap-2 px-2 mx-2 py-1 rounded hover:bg-hover cursor-pointer ${dim ? 'opacity-40' : ''}`}
       title={`@${member.username}${member.topRole ? ` · ${member.topRole.name}` : ''}`}
+      onClick={(e) => onClickMember(member.id, (e.currentTarget as HTMLElement).getBoundingClientRect())}
     >
       <div className="relative shrink-0">
         <Avatar

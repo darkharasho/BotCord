@@ -1,7 +1,7 @@
 import type {
   BotIdentity, BotStatus, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
   EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildSummary,
-  MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
+  MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
 } from './domain';
 import type { Result } from './errors';
 
@@ -35,6 +35,7 @@ export interface BotcordApi {
     listEmojis(guildId: string): Promise<Result<GuildEmoji[]>>;
     searchMembers(guildId: string, query: string, opts?: { limit?: number; channelId?: string }): Promise<Result<MemberSummary[]>>;
     listChannelMembers(guildId: string, channelId: string): Promise<Result<ChannelMemberSummary[]>>;
+    getMember(guildId: string, userId: string): Promise<Result<MemberDetail>>;
     getForum(guildId: string, forumId: string): Promise<Result<ForumChannelDetail>>;
     listArchivedForumPosts(guildId: string, forumId: string): Promise<Result<ForumPostSummary[]>>;
   };
@@ -112,6 +113,7 @@ export const IPC_CHANNELS = {
   'guilds.listEmojis': 'guilds.listEmojis',
   'guilds.searchMembers': 'guilds.searchMembers',
   'guilds.listChannelMembers': 'guilds.listChannelMembers',
+  'guilds.getMember': 'guilds.getMember',
   'guilds.getForum': 'guilds.getForum',
   'guilds.listArchivedForumPosts': 'guilds.listArchivedForumPosts',
   'messages.send': 'messages.send',

@@ -25,6 +25,7 @@ const api: BotcordApi = {
     listEmojis: (guildId) => invoke(IPC_CHANNELS['guilds.listEmojis'], guildId),
     searchMembers: (guildId, query, opts) => invoke(IPC_CHANNELS['guilds.searchMembers'], guildId, query, opts),
     listChannelMembers: (guildId, channelId) => invoke(IPC_CHANNELS['guilds.listChannelMembers'], guildId, channelId),
+    getMember: (guildId, userId) => invoke(IPC_CHANNELS['guilds.getMember'], guildId, userId),
     getForum: (guildId, forumId) => invoke(IPC_CHANNELS['guilds.getForum'], guildId, forumId),
     listArchivedForumPosts: (guildId, forumId) => invoke(IPC_CHANNELS['guilds.listArchivedForumPosts'], guildId, forumId),
   },
