@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ServerRail } from '../../components/ServerRail';
 import { ChannelList } from '../../components/ChannelList';
 import { BotIdentityFooter } from '../../components/BotIdentityFooter';
@@ -19,6 +19,7 @@ export function ShellRoute() {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [forumPostRef, setForumPostRef] = useState<ForumPostRef | null>(null);
+  const lastChannelByGuild = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!guild) { setChannels([]); return; }
@@ -47,7 +48,12 @@ export function ShellRoute() {
       <aside className="w-[64px] shrink-0 min-h-0">
         <ServerRail
           selected={guild?.id ?? null}
-          onSelect={(g) => { setGuild(g); setChannelId(null); setForumPostRef(null); }}
+          onSelect={(g) => {
+            if (guild && channelId) lastChannelByGuild.current.set(guild.id, channelId);
+            setGuild(g);
+            setChannelId(lastChannelByGuild.current.get(g.id) ?? null);
+            setForumPostRef(null);
+          }}
           unreadGuildIds={unreads.guildIds}
         />
       </aside>

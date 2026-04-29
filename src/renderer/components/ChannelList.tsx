@@ -77,7 +77,14 @@ export function ChannelList({
     return { categories, byParent };
   }, [channels]);
 
-  if (!guildId) return <div className="p-3 text-fg-muted text-sm">Select a server.</div>;
+  if (!guildId) return (
+    <div className="h-full flex flex-col items-center justify-center px-4 text-center">
+      <div className="w-10 h-10 rounded-xl bg-white/[0.04] flex items-center justify-center mb-3">
+        <IconHash size={20} stroke={1.5} className="text-fg-dim" />
+      </div>
+      <p className="text-fg-dim text-[13px] leading-relaxed">Select a server<br />to browse channels</p>
+    </div>
+  );
 
   const toggle = (id: string) => {
     setCollapsed(prev => {

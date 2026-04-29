@@ -7,6 +7,7 @@ import { TypingIndicator } from '../../components/TypingIndicator';
 import { IconHash, IconSearch, IconUsers, IconX, IconArrowLeft, IconPinned } from '@tabler/icons-react';
 import { api } from '../../lib/api';
 import { PinnedMessagesPopover } from '../../components/PinnedMessagesPopover';
+import { WelcomePane } from '../../components/WelcomePane';
 
 export function ChannelView({ channelId, guildId, channelName, backToForum }: {
   channelId: string | null;
@@ -36,6 +37,14 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
 
   // Reset transient header state when switching channels.
   useEffect(() => { setSearch(''); setSearchOpen(false); setPinnedOpen(false); setJumpTarget(null); setReplyTo(null); }, [channelId]);
+
+  if (!channelId) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0 bg-bg border-t border-l border-white/[0.04] overflow-hidden">
+        <WelcomePane hasGuild={!!guildId} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-bg border-t border-l border-white/[0.04] overflow-hidden">
@@ -88,24 +97,22 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
             <IconSearch size={18} stroke={1.75} />
           </button>
         )}
-        {channelId && (
-          <div className="relative">
-            <button
-              onClick={() => setPinnedOpen(o => !o)}
-              className={`p-1 rounded hover:bg-hover ${pinnedOpen ? 'text-fg' : 'text-fg-dim hover:text-fg'}`}
-              title="Pinned messages"
-            >
-              <IconPinned size={18} stroke={1.75} />
-            </button>
-            {pinnedOpen && (
-              <PinnedMessagesPopover
-                channelId={channelId}
-                onClose={() => setPinnedOpen(false)}
-                onJump={(id) => { setJumpTarget(id); setPinnedOpen(false); }}
-              />
-            )}
-          </div>
-        )}
+        <div className="relative">
+          <button
+            onClick={() => setPinnedOpen(o => !o)}
+            className={`p-1 rounded hover:bg-hover ${pinnedOpen ? 'text-fg' : 'text-fg-dim hover:text-fg'}`}
+            title="Pinned messages"
+          >
+            <IconPinned size={18} stroke={1.75} />
+          </button>
+          {pinnedOpen && (
+            <PinnedMessagesPopover
+              channelId={channelId}
+              onClose={() => setPinnedOpen(false)}
+              onJump={(id) => { setJumpTarget(id); setPinnedOpen(false); }}
+            />
+          )}
+        </div>
         <button
           onClick={() => setShowMembers(s => !s)}
           className={`p-1 rounded hover:bg-hover ${showMembers ? 'text-fg' : 'text-fg-dim hover:text-fg'}`}
