@@ -4,7 +4,7 @@ import { MessageContent } from './MessageContent';
 import { Markdown } from './Markdown';
 import {
   IconCornerUpLeft, IconMoodPlus, IconDots, IconPencil, IconTrash,
-  IconPinned, IconCopy, IconLink, IconHash, IconPinnedOff,
+  IconPinned, IconCopy, IconLink, IconHash, IconPinnedOff, IconArrowRight,
 } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
@@ -166,7 +166,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
   };
 
   return (
-    <div className="mt-4 first:mt-2 px-4">
+    <div className={`${head.replyTo ? 'mt-6' : 'mt-4'} first:mt-2 px-4`}>
       {head.replyTo && <ReplyPreview replyTo={head.replyTo} />}
       <div onContextMenu={(e) => onContextMenu(e, head)} className={`relative flex gap-4 -mx-4 px-4 py-0.5 group ${headHighlight}`}>
         <HoverActions
@@ -239,12 +239,14 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
 
 function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyTo']> }) {
   return (
-    <div className="relative flex items-center gap-1.5 pl-[72px] pr-4 pt-1 -mb-1 text-[13px] text-fg-muted">
+    <div className="relative flex items-center gap-1.5 pl-[86px] pr-4 pt-1 mb-1 text-[13px] text-fg-muted">
       {/* Discord-style elbow line: vertical from avatar top, curving right into the preview. */}
       <span
         aria-hidden
-        className="absolute left-[36px] top-[12px] bottom-[-6px] w-[36px] border-l-2 border-t-2 border-white/[0.12] rounded-tl-md"
+        className="absolute left-[20px] top-[11px] bottom-[-18px] w-[44px] border-l-2 border-t-2 border-white/[0.12] rounded-tl-[6px]"
       />
+      {/* Reply arrow at the end of the elbow */}
+      <IconArrowRight aria-hidden size={14} className="absolute left-[67px] top-[5px] text-ok" />
       {replyTo.authorAvatarUrl && (
         <img src={replyTo.authorAvatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
       )}

@@ -15,8 +15,7 @@ export type Unreads = {
  *   channel marks it read, and new messages arriving in it stay read.
  * - Rolls up to a per-guild unread set so the server rail can indicate
  *   guilds with unread channels.
- * - State is in-memory only for now (resets on app restart). Persistence
- *   to prefs is a follow-up.
+ * - lastSeen timestamps are persisted to prefs so unreads survive app restart.
  */
 export function useUnreads(activeChannelId: string | null): Unreads {
   const [, force] = useState(0);
@@ -24,12 +23,41 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   const latest = useRef<Map<string, number>>(new Map());
   const channelGuild = useRef<Map<string, string>>(new Map());
   const activeRef = useRef(activeChannelId);
+  const loaded = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   activeRef.current = activeChannelId;
+
+  // Persist lastSeen to prefs (debounced to avoid hammering SQLite)
+  const persistLastSeen = () => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const obj: Record<string, number> = {};
+      for (const [k, v] of lastSeen.current) obj[k] = v;
+      api.prefs.set('channelLastSeen', obj);
+    }, 2000);
+  };
+
+  // Load persisted lastSeen on mount
+  useEffect(() => {
+    api.prefs.get('channelLastSeen').then(res => {
+      if (res.ok && res.data) {
+        for (const [k, v] of Object.entries(res.data)) {
+          lastSeen.current.set(k, v);
+        }
+      }
+      loaded.current = true;
+      force(n => n + 1);
+    });
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeChannelId) return;
     const t = latest.current.get(activeChannelId) ?? Date.now();
     lastSeen.current.set(activeChannelId, t);
+    if (loaded.current) persistLastSeen();
     force(n => n + 1);
   }, [activeChannelId]);
 
@@ -39,6 +67,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       if (message.guildId) channelGuild.current.set(channelId, message.guildId);
       if (channelId === activeRef.current) {
         lastSeen.current.set(channelId, message.createdAt);
+        if (loaded.current) persistLastSeen();
       }
       force(n => n + 1);
     });

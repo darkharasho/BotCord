@@ -258,6 +258,7 @@ export type Prefs = {
   theme: 'dark';
   collapsedCategoryIds: string[];
   memberListOpen: boolean;
+  channelLastSeen: Record<string, number>;
 };
 
 export type SendAttachment = {

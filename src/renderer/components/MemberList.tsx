@@ -136,7 +136,18 @@ function MemberRow({ member }: { member: ChannelMemberSummary }) {
           className="w-8 h-8 rounded-full"
           fallback={<div className="w-8 h-8 rounded-full bg-bg-input flex items-center justify-center text-[10px] font-semibold">{member.displayName.slice(0, 2).toUpperCase()}</div>}
         />
-        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ${STATUS_COLOR[member.status]} ring-[3px] ring-bg`} />
+        {member.status === 'idle' ? (
+          <svg aria-hidden className="absolute -bottom-[3px] -right-[3px] w-[14px] h-[14px]" viewBox="0 0 14 14">
+            <circle cx="7" cy="7" r="7" className="fill-bg" />
+            <mask id="idle-mask">
+              <rect width="14" height="14" fill="white" />
+              <circle cx="5" cy="4.5" r="3.5" fill="black" />
+            </mask>
+            <circle cx="7" cy="7" r="5" className="fill-warn" mask="url(#idle-mask)" />
+          </svg>
+        ) : (
+          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${STATUS_COLOR[member.status]} ring-2 ring-bg`} />
+        )}
       </div>
       <span
         className="text-[14px] truncate min-w-0 flex-1"
