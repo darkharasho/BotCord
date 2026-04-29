@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { MembersToolbar } from './members/MembersToolbar';
+import { MembersTable, type SortKey } from './members/MembersTable';
 import type { AllMembersEntry, GuildRole } from '../../shared/domain';
 
 export function MembersDirectory({ guildId }: { guildId: string | null }) {
@@ -81,6 +82,12 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
     return rows;
   }, [entries, search, roleFilter, sortKey, sortDir]);
 
+  const rolesById = useMemo(() => {
+    const m = new Map<string, GuildRole>();
+    for (const r of roles) m.set(r.id, r);
+    return m;
+  }, [roles]);
+
   if (!guildId) {
     return (
       <main className="flex-1 min-h-0 bg-bg-sunken text-fg-dim flex items-center justify-center border-t border-l border-white/[0.04]">
@@ -109,32 +116,34 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
       {loading && entries.length === 0 && (
         <div className="px-4 py-2 text-fg-dim text-[12px]">Loading members…</div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <ul className="p-4 space-y-1 text-[13px]">
-          {filtered.slice(0, 50).map(e => (
-            <li key={e.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={selected.has(e.id)}
-                onChange={() => setSelected(prev => {
-                  const next = new Set(prev);
-                  if (next.has(e.id)) next.delete(e.id); else next.add(e.id);
-                  return next;
-                })}
-              />
-              <span style={e.roleColor ? { color: e.roleColor } : undefined}>{e.displayName}</span>
-              <span className="text-fg-dim">@{e.username}</span>
-            </li>
-          ))}
-          {filtered.length > 50 && <li className="text-fg-dim">…and {filtered.length - 50} more (table coming in Task 10)</li>}
-        </ul>
-      </div>
-      {selected.size > 0 && (
-        <div className="px-4 py-3 border-t border-white/[0.04] text-fg-dim text-[12px]">
-          {selected.size} selected (bulk bar coming in Task 13)
-        </div>
-      )}
-      <span className="hidden">{[setSortKey, setSortDir].length}</span>
+      <MembersTable
+        guildId={guildId}
+        rows={filtered}
+        selected={selected}
+        onToggleSelected={(id) => setSelected(prev => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id); else next.add(id);
+          return next;
+        })}
+        onToggleAllFiltered={() => setSelected(prev => {
+          const allChecked = filtered.length > 0 && filtered.every(r => prev.has(r.id));
+          if (allChecked) {
+            const next = new Set(prev);
+            for (const r of filtered) next.delete(r.id);
+            return next;
+          }
+          const next = new Set(prev);
+          for (const r of filtered) next.add(r.id);
+          return next;
+        })}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={(k: SortKey) => {
+          if (k === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+          else { setSortKey(k); setSortDir('desc'); }
+        }}
+        rolesById={rolesById}
+      />
     </main>
   );
 }
