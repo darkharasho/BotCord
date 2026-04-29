@@ -277,15 +277,20 @@ function projectReplyTo(m: Message): MessageSummary['replyTo'] {
   // referenced messages before calling summarize so this almost always hits.
   const ref = m.channel.messages.cache.get(refId);
   if (!ref) {
-    return { id: refId, authorDisplayName: null, authorAvatarUrl: null, authorRoleColor: null, content: null };
+    return { id: refId, authorDisplayName: null, authorAvatarUrl: null, authorRoleColor: null, content: null, mentions: [] };
   }
   const member = ref.member;
+  const mentions: ResolvedMention[] = [];
+  ref.mentions.users.forEach(u => mentions.push({ type: 'user', id: u.id, name: u.username }));
+  ref.mentions.channels.forEach(c => mentions.push({ type: 'channel', id: c.id, name: 'name' in c && typeof c.name === 'string' ? c.name : 'channel' }));
+  ref.mentions.roles.forEach(r => mentions.push({ type: 'role', id: r.id, name: r.name }));
   return {
     id: refId,
     authorDisplayName: member?.displayName ?? ref.author.globalName ?? ref.author.username,
     authorAvatarUrl: ref.author.displayAvatarURL({ size: 32 }),
     authorRoleColor: member?.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : null,
     content: ref.content,
+    mentions,
   };
 }
 

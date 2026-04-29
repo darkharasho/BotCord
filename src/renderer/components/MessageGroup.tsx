@@ -1,5 +1,6 @@
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
+import { Markdown } from './Markdown';
 import { IconCornerUpLeft } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
 
@@ -92,8 +93,10 @@ function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyT
       >
         @{replyTo.authorDisplayName ?? 'unknown'}
       </span>
-      <span className="text-fg-dim truncate min-w-0">
-        {replyTo.content?.split('\n')[0]?.slice(0, 200) || (replyTo.authorDisplayName ? '' : 'Original message')}
+      <span className="text-fg-dim truncate min-w-0 leading-tight">
+        {replyTo.content
+          ? <Markdown source={replyTo.content.split('\n')[0]!.slice(0, 200)} mentions={replyTo.mentions ?? []} />
+          : (replyTo.authorDisplayName ? '' : 'Original message')}
       </span>
     </div>
   );

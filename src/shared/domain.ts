@@ -127,6 +127,7 @@ export type MessageSummary = {
     authorAvatarUrl: string | null;
     authorRoleColor: string | null;
     content: string | null;
+    mentions: ResolvedMention[];
   } | null;
   systemKind: SystemMessageKind | null;
   poll: PollSummary | null;
