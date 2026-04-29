@@ -264,11 +264,28 @@ export function summarizeMessage(m: Message): MessageSummary {
     attachments,
     embeds,
     mentions,
-    replyTo: m.reference?.messageId
-      ? { id: m.reference.messageId, authorTag: '' }
-      : null,
+    replyTo: projectReplyTo(m),
     systemKind: classifySystemMessage(m.type, m.system),
     poll: projectPoll(m.poll),
+  };
+}
+
+function projectReplyTo(m: Message): MessageSummary['replyTo'] {
+  const refId = m.reference?.messageId;
+  if (!refId) return null;
+  // Cache-only — keeps history projection fast. The handler bulk-pre-warms
+  // referenced messages before calling summarize so this almost always hits.
+  const ref = m.channel.messages.cache.get(refId);
+  if (!ref) {
+    return { id: refId, authorDisplayName: null, authorAvatarUrl: null, authorRoleColor: null, content: null };
+  }
+  const member = ref.member;
+  return {
+    id: refId,
+    authorDisplayName: member?.displayName ?? ref.author.globalName ?? ref.author.username,
+    authorAvatarUrl: ref.author.displayAvatarURL({ size: 32 }),
+    authorRoleColor: member?.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : null,
+    content: ref.content,
   };
 }
 

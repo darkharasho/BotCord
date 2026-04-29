@@ -177,6 +177,13 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
         }
       }
 
+      // Pre-warm referenced messages so reply previews render immediately.
+      const replyTargets = list
+        .map(m => m.reference?.messageId)
+        .filter((id): id is string => !!id && !messages.has(id));
+      const channel = (got as { ok: true; channel: SendableChannel }).channel;
+      await Promise.all(replyTargets.map(id => channel.messages.fetch(id).catch(() => null)));
+
       return ok(list.map(summarizeMessage));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));

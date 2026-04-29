@@ -1,6 +1,6 @@
 import type { MessageSummary } from '../../shared/domain';
 import { MessageContent } from './MessageContent';
-import { IconArrowBackUp } from '@tabler/icons-react';
+import { IconArrowBackUp, IconCornerDownRight } from '@tabler/icons-react';
 
 function formatHeaderTimestamp(ts: number): string {
   const d = new Date(ts);
@@ -24,6 +24,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
   const head = messages[0]!;
   return (
     <div className="mt-4 first:mt-2 px-4">
+      {head.replyTo && <ReplyPreview replyTo={head.replyTo} />}
       <div className="relative flex gap-4 -mx-4 px-4 py-0.5 hover:bg-hover/40 group">
         <HoverActions message={head} onReply={onReply} />
         <div className="w-10 shrink-0 pt-0.5">
@@ -60,6 +61,26 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyTo']> }) {
+  return (
+    <div className="flex items-center gap-2 -mx-4 pl-12 pr-4 mb-0.5 text-[13px] text-fg-muted overflow-hidden">
+      <IconCornerDownRight size={14} stroke={2} className="text-fg-dim shrink-0" />
+      {replyTo.authorAvatarUrl && (
+        <img src={replyTo.authorAvatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
+      )}
+      <span
+        className="font-medium shrink-0 truncate max-w-[12rem]"
+        style={replyTo.authorRoleColor ? { color: replyTo.authorRoleColor } : undefined}
+      >
+        @{replyTo.authorDisplayName ?? 'unknown'}
+      </span>
+      <span className="text-fg-dim truncate min-w-0">
+        {replyTo.content?.split('\n')[0]?.slice(0, 200) || (replyTo.authorDisplayName ? '' : 'Original message')}
+      </span>
     </div>
   );
 }

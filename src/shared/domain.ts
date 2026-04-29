@@ -110,7 +110,13 @@ export type MessageSummary = {
   attachments: MessageAttachment[];
   embeds: MessageEmbedSummary[];
   mentions: ResolvedMention[];
-  replyTo: { id: string; authorTag: string } | null;
+  replyTo: {
+    id: string;
+    authorDisplayName: string | null;
+    authorAvatarUrl: string | null;
+    authorRoleColor: string | null;
+    content: string | null;
+  } | null;
   systemKind: SystemMessageKind | null;
   poll: PollSummary | null;
 };
