@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
+import { MembersToolbar } from './members/MembersToolbar';
 import type { AllMembersEntry, GuildRole } from '../../shared/domain';
 
 export function MembersDirectory({ guildId }: { guildId: string | null }) {
@@ -95,10 +96,19 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
           Bot lacks the privileged Server Members Intent — directory shows cached members only. Enable it in the Discord Developer Portal for the full list.
         </div>
       )}
-      <div className="px-4 py-3 border-b border-white/[0.04] text-fg-dim text-[13px]">
-        {loading ? 'Loading members…' : `${filtered.length} members`}
-        {search || roleFilter ? ` (filtered from ${entries.length})` : ''}
-      </div>
+      <MembersToolbar
+        search={search}
+        onSearch={setSearch}
+        roles={roles}
+        roleFilter={roleFilter}
+        onRoleFilter={setRoleFilter}
+        totalCount={entries.length}
+        filteredCount={filtered.length}
+        intentMissing={intentMissing}
+      />
+      {loading && entries.length === 0 && (
+        <div className="px-4 py-2 text-fg-dim text-[12px]">Loading members…</div>
+      )}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <ul className="p-4 space-y-1 text-[13px]">
           {filtered.slice(0, 50).map(e => (
@@ -124,8 +134,7 @@ export function MembersDirectory({ guildId }: { guildId: string | null }) {
           {selected.size} selected (bulk bar coming in Task 13)
         </div>
       )}
-      <span className="hidden">{roles.length} roles cached</span>
-      <span className="hidden">{[setRoleFilter, setSortKey, setSortDir].length}</span>
+      <span className="hidden">{[setSortKey, setSortDir].length}</span>
     </main>
   );
 }
