@@ -29,6 +29,7 @@ export type MessageAttachment = {
 };
 
 export type MessageEmbedSummary = {
+  type: string | null;
   title: string | null;
   description: string | null;
   url: string | null;

@@ -209,6 +209,7 @@ export function summarizeMessage(m: Message): MessageSummary {
   }));
 
   const embeds: MessageEmbedSummary[] = m.embeds.map(e => ({
+    type: (e.data as { type?: string } | undefined)?.type ?? null,
     title: e.title ?? null,
     description: e.description ?? null,
     url: e.url ?? null,
