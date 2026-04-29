@@ -19,7 +19,7 @@ export function createMainWindow(): BrowserWindow {
     height: 820,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: '#1e1f22',
+    backgroundColor: '#121214',
     show: false,
     frame: false,
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
