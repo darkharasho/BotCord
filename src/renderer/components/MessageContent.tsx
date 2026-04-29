@@ -10,7 +10,9 @@ function isMediaOnlyEmbed(e: MessageEmbedSummary): boolean {
   if (!e.type) return false;
   if (e.type !== 'gifv' && e.type !== 'image' && e.type !== 'video') return false;
   if (e.title || e.description || e.fields.length > 0 || e.author || e.footer) return false;
-  return !!(e.image || e.thumbnail || e.video);
+  // Need at least one renderable media URL — otherwise we'd hide the link
+  // and show nothing.
+  return !!(e.image?.url || e.thumbnail?.url || e.video?.url);
 }
 
 /**

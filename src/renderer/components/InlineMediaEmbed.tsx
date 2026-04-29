@@ -3,16 +3,33 @@ import { openLightbox } from './Lightbox';
 
 /**
  * Render gifv/image/video embeds (Tenor, Giphy, bare image links) as the
- * media itself rather than a card. For gifv/video we prefer the gif
- * thumbnail (animated) over the mp4 since it loops without controls
- * out of the box.
+ * media itself rather than a card.
+ *
+ * - gifv (Tenor/Giphy): Discord serves an mp4 in `video.url` that loops.
+ *   Render via <video autoPlay loop muted> for that always-playing GIF
+ *   experience. Fallback to thumbnail.url (a static frame) if no video.
+ * - video: <video> with controls so the user can play/pause/scrub.
+ * - image: just the image, click for lightbox.
  */
 export function InlineMediaEmbed({ embed }: { embed: MessageEmbedSummary }) {
-  const isVideo = embed.type === 'video';
-  const videoUrl = isVideo && embed.video?.url ? embed.video.url : null;
-  const imageUrl = embed.thumbnail?.url ?? embed.image?.url ?? null;
+  const videoUrl = embed.video?.url ?? null;
+  const thumb = embed.thumbnail?.url ?? embed.image?.url ?? null;
 
-  if (videoUrl) {
+  if (embed.type === 'gifv' && videoUrl) {
+    return (
+      <video
+        src={videoUrl}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="rounded border border-border max-w-md max-h-96"
+        poster={thumb ?? undefined}
+      />
+    );
+  }
+
+  if (embed.type === 'video' && videoUrl) {
     return (
       <video
         src={videoUrl}
@@ -21,11 +38,12 @@ export function InlineMediaEmbed({ embed }: { embed: MessageEmbedSummary }) {
         muted
         playsInline
         className="rounded border border-border max-w-md max-h-96"
-        poster={imageUrl ?? undefined}
+        poster={thumb ?? undefined}
       />
     );
   }
 
+  const imageUrl = embed.image?.url ?? embed.thumbnail?.url ?? null;
   if (!imageUrl) return null;
   return (
     <button onClick={() => openLightbox(imageUrl)} className="block">
