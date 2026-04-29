@@ -1,5 +1,6 @@
 import type { MessageEmbedSummary } from '../../shared/domain';
 import { Markdown } from './Markdown';
+import { openLightbox } from './Lightbox';
 
 const openExternal = (url: string) => window.botcord.system.openExternal(url);
 
@@ -84,17 +85,16 @@ export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
         )}
 
         {embed.image && (
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); openExternal(embed.image!.url); }}
+          <button
+            onClick={() => openLightbox(embed.image!.url)}
             className="block mt-1"
           >
             <img
               src={embed.image.url}
               alt=""
-              className="rounded max-w-full max-h-[400px] object-contain"
+              className="rounded max-w-full max-h-[400px] object-contain cursor-zoom-in"
             />
-          </a>
+          </button>
         )}
 
         {embed.video && embed.video.url && !embed.image && (
@@ -122,17 +122,16 @@ export function EmbedCard({ embed }: { embed: MessageEmbedSummary }) {
       </div>
 
       {hasFloatedThumb && embed.thumbnail && (
-        <a
-          href="#"
-          onClick={(e) => { e.preventDefault(); openExternal(embed.thumbnail!.url); }}
+        <button
+          onClick={() => openLightbox(embed.thumbnail!.url)}
           className="p-2 self-start"
         >
           <img
             src={embed.thumbnail.url}
             alt=""
-            className="rounded max-w-[80px] max-h-[80px] object-cover"
+            className="rounded max-w-[80px] max-h-[80px] object-cover cursor-zoom-in"
           />
-        </a>
+        </button>
       )}
     </div>
   );

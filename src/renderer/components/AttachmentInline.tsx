@@ -1,17 +1,18 @@
 import type { MessageAttachment } from '../../shared/domain';
 import { IconPaperclip } from '@tabler/icons-react';
+import { openLightbox } from './Lightbox';
 
 export function AttachmentInline({ attachment }: { attachment: MessageAttachment }) {
   const isImage = attachment.contentType?.startsWith('image/');
   if (isImage) {
     return (
-      <a href={attachment.url} onClick={(e) => { e.preventDefault(); window.botcord.system.openExternal(attachment.url); }}>
+      <button onClick={() => openLightbox(attachment.url)} className="block">
         <img
           src={attachment.url}
           alt={attachment.name}
-          className="rounded border border-border max-w-md max-h-96"
+          className="rounded border border-border max-w-md max-h-96 cursor-zoom-in"
         />
-      </a>
+      </button>
     );
   }
   return (
