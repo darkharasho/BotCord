@@ -52,6 +52,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
   // displayName → user id, populated when an @ autocomplete is accepted.
   // Resolved back to <@id> at send time.
   const mentionMap = useRef<Map<string, string>>(new Map());
+  // Monotonic request id so a slow IPC search response can't override
+  // newer state (e.g. after the user has already accepted a suggestion).
+  const acRequestRef = useRef(0);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   // Always load guild emojis when available so `:` autocomplete works without opening the picker.
@@ -87,7 +90,9 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
 
     if (trig.kind === 'mention') {
       if (!guildId) { setAutocomplete(null); return; }
+      const reqId = ++acRequestRef.current;
       api.guilds.searchMembers(guildId, trig.query, AUTOCOMPLETE_LIMIT).then(res => {
+        if (reqId !== acRequestRef.current) return; // stale response — ignore
         const members = res.ok ? res.data : [];
         if (members.length === 0) { setAutocomplete(null); return; }
         setAutocomplete({ kind: 'mention', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0, members });
@@ -172,6 +177,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
     const next = before + token + ' ' + after;
     setText(next);
     setAutocomplete(null);
+    acRequestRef.current += 1; // invalidate any in-flight search
     requestAnimationFrame(() => {
       const target = taRef.current;
       if (!target) return;
@@ -361,7 +367,7 @@ export function Composer({ channelId, guildId }: { channelId: string | null; gui
             >
               {highlightFragments.map((f, i) =>
                 f.kind === 'mention'
-                  ? <span key={i} className="bg-accent/30 text-accent rounded px-0.5">{f.text}</span>
+                  ? <span key={i} className="bg-accent/30 text-accent">{f.text}</span>
                   : <span key={i}>{f.text}</span>
               )}
               {/* trailing space so cursor at EOL has measurable height */}
