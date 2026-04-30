@@ -98,7 +98,8 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
 
       let session: AutonomySession;
       try {
-        session = await opts.host.startSession({ cwd: opts.cwd });
+        const model = opts.globalConfig().model;
+        session = await opts.host.startSession({ cwd: opts.cwd, ...(model ? { model } : {}) });
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : String(e) };
       }
@@ -137,7 +138,8 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
 
       let session: AutonomySession;
       try {
-        session = await opts.host.startSession({ cwd: opts.cwd });
+        const model = opts.globalConfig().model;
+        session = await opts.host.startSession({ cwd: opts.cwd, ...(model ? { model } : {}) });
       } catch (e) {
         throttle.finish(req.channelId);
         const msg = e instanceof Error ? e.message : String(e);

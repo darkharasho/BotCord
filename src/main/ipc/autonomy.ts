@@ -22,6 +22,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
     systemPrompt: prefs.get('autonomyGlobalSystemPrompt') ?? DEFAULT_GLOBAL_SYSTEM_PROMPT,
     rateCapPerMin: prefs.get('autonomyGlobalRateCapPerMin') ?? 20,
     visionEnabled: prefs.get('autonomyVisionEnabled') ?? false,
+    model: prefs.get('autonomyModel') ?? '',
   });
 
   ipcMain.handle(IPC_CHANNELS['autonomy.detect'], async () => host.detect());
@@ -47,6 +48,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
     if (typeof p.systemPrompt === 'string') prefs.set('autonomyGlobalSystemPrompt', p.systemPrompt);
     if (typeof p.rateCapPerMin === 'number' && p.rateCapPerMin > 0) prefs.set('autonomyGlobalRateCapPerMin', Math.floor(p.rateCapPerMin));
     if (typeof p.visionEnabled === 'boolean') prefs.set('autonomyVisionEnabled', p.visionEnabled);
+    if (typeof p.model === 'string') prefs.set('autonomyModel', p.model);
     return ok(readGlobal());
   });
 

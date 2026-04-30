@@ -313,6 +313,7 @@ export type Prefs = {
   autonomyGlobalSystemPrompt: string;
   autonomyGlobalRateCapPerMin: number;
   autonomyVisionEnabled: boolean;
+  autonomyModel: string;
 };
 
 export type SendAttachment = {
@@ -394,7 +395,15 @@ export type GlobalAutonomyConfig = {
   systemPrompt: string;
   rateCapPerMin: number;
   visionEnabled: boolean;
+  model: string; // empty string = use claude CLI default
 };
+
+export const AUTONOMY_MODEL_OPTIONS = [
+  { value: '', label: 'Default (CLI configured)' },
+  { value: 'opus', label: 'Opus (most capable, slowest)' },
+  { value: 'sonnet', label: 'Sonnet (balanced)' },
+  { value: 'haiku', label: 'Haiku (fastest, cheapest)' },
+] as const;
 
 export const DEFAULT_GLOBAL_SYSTEM_PROMPT =
   "You are a helpful assistant participating in a Discord text channel. Reply briefly and conversationally. Stay on topic. Match the channel's tone. Use plain text — no markdown headings or code fences unless asked.";

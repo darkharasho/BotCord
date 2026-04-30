@@ -26,7 +26,7 @@ describe('createAutonomyModule', () => {
     const events: AutonomyEvents = { onDelta: vi.fn(), onDone: vi.fn() };
     const mod = createAutonomyModule({
       host: fakeHost(['hel', 'lo ', 'world']),
-      globalConfig: () => ({ enabled: true, systemPrompt: 'be brief', rateCapPerMin: 100, visionEnabled: false }),
+      globalConfig: () => ({ enabled: true, systemPrompt: 'be brief', rateCapPerMin: 100, visionEnabled: false, model: '' }),
       guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
       cwd: '/tmp/cdk',
       events,
@@ -48,7 +48,7 @@ describe('createAutonomyModule', () => {
     const host: AutonomyHost = { detect: async () => ({ found: true }), startSession: startSpy as never };
     const mod = createAutonomyModule({
       host,
-      globalConfig: () => ({ enabled: false, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false }),
+      globalConfig: () => ({ enabled: false, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '' }),
       guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
       cwd: '/tmp/cdk',
       events: { onDelta: vi.fn(), onDone: vi.fn() },
@@ -62,7 +62,7 @@ describe('createAutonomyModule', () => {
   it('runAutonomous skips when channel is not in allowlist', async () => {
     const mod = createAutonomyModule({
       host: fakeHost([]),
-      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false }),
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '' }),
       guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['other'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
       cwd: '/tmp/cdk',
       events: { onDelta: vi.fn(), onDone: vi.fn() },
@@ -75,7 +75,7 @@ describe('createAutonomyModule', () => {
   it('runAutonomous post-processes the assembled text', async () => {
     const mod = createAutonomyModule({
       host: fakeHost(['hello @everyone there']),
-      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false }),
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '' }),
       guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
       cwd: '/tmp/cdk',
       events: { onDelta: vi.fn(), onDone: vi.fn() },

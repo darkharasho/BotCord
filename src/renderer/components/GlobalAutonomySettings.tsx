@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GlobalAutonomyConfig } from '../../shared/domain';
+import { AUTONOMY_MODEL_OPTIONS } from '../../shared/domain';
 import { pushToast } from './Toaster';
 import { useGlobalAutonomy } from '../lib/use-global-autonomy';
 import { CheckBox } from './CheckBox';
@@ -45,6 +46,20 @@ export function GlobalAutonomySettings() {
           disabled={busy}
         />
       </label>
+      <label className="block text-sm">
+        <span className="block text-xs font-medium text-fg-muted mb-1">Model</span>
+        <select
+          value={cfg.model}
+          onChange={e => save({ model: e.target.value })}
+          disabled={busy}
+          className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
+        >
+          {AUTONOMY_MODEL_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </label>
+
       <label className="block text-sm">
         <span className="block text-xs font-medium text-fg-muted mb-1">Global rate cap (responses per minute)</span>
         <input

@@ -10,7 +10,7 @@ export type AutonomyDeps = {
 
 export interface AutonomyHost {
   detect(): Promise<{ found: boolean; version?: string; reason?: string }>;
-  startSession(opts: { cwd: string }): Promise<AutonomySession>;
+  startSession(opts: { cwd: string; model?: string }): Promise<AutonomySession>;
 }
 
 export interface AutonomySession {

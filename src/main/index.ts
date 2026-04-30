@@ -58,6 +58,7 @@ if (!gotLock) {
         systemPrompt: prefs.get('autonomyGlobalSystemPrompt') ?? '',
         rateCapPerMin: prefs.get('autonomyGlobalRateCapPerMin') ?? 20,
         visionEnabled: prefs.get('autonomyVisionEnabled') ?? false,
+        model: prefs.get('autonomyModel') ?? '',
       }),
       guildConfig: (guildId) => autonomyDbRepo.getGuildConfig(guildId),
       cwd: cdkScratch,
