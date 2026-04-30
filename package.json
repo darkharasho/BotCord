@@ -39,11 +39,11 @@
     "linux": {
       "target": "AppImage",
       "category": "Network",
-      "icon": "resources/icon-512.png"
+      "icon": "public/botcord-icon.png"
     },
     "win": {
       "target": "nsis",
-      "icon": "resources/icon-512.png"
+      "icon": "public/botcord-icon.png"
     },
     "mac": {
       "target": [
@@ -51,7 +51,7 @@
         "zip"
       ],
       "category": "public.app-category.social-networking",
-      "icon": "resources/icon-512.png",
+      "icon": "public/botcord-icon.png",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",

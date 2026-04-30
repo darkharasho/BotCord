@@ -23,16 +23,21 @@ function saveWindowState(state: WindowState): void {
 }
 
 function loadAppIcon(): Electron.NativeImage | undefined {
-  // Use the raw source PNG. Linux WMs (KDE/Plasma especially) handle the
-  // scaling themselves and behave better with the original aspect than with
-  // our pre-padded square — the padded version was being clipped further
-  // by the WM's own framing. AxiPulse uses this exact pattern.
+  // Prefer the canonical `public/botcord-icon.png` (the source-of-truth
+  // brand mark). The square copies under `resources/` are kept only as a
+  // last-resort fallback for installs where the public asset wasn't
+  // bundled — they should otherwise stay in sync with the public PNG.
   const candidates = [
     join(app.getAppPath(), 'public', 'botcord-icon.png'),
     join(__dirname, '../../public/botcord-icon.png'),
     join(__dirname, '../renderer/botcord-icon.png'),
+    join(process.resourcesPath, 'resources', 'icon-512.png'),
+    join(app.getAppPath(), 'resources', 'icon-512.png'),
+    join(__dirname, '../../resources/icon-512.png'),
   ];
   const path = candidates.find(p => existsSync(p));
+  // eslint-disable-next-line no-console
+  console.log('[botcord] icon resolved from:', path ?? '(none found)');
   return path ? nativeImage.createFromPath(path) : undefined;
 }
 
