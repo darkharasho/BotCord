@@ -78,6 +78,9 @@ const api: BotcordApi = {
     draftReply: (channelId, messageId) => invoke(IPC_CHANNELS['autonomy.draftReply'], channelId, messageId),
     cancelDraft: (requestId) => invoke(IPC_CHANNELS['autonomy.cancelDraft'], requestId),
   },
+  tray: {
+    setUnreadBadge: (hasUnread) => invoke(IPC_CHANNELS['tray.setUnreadBadge'], hasUnread),
+  },
   voice: {
     join: (guildId, channelId) => invoke(IPC_CHANNELS['voice.join'], guildId, channelId),
     leave: () => invoke(IPC_CHANNELS['voice.leave']),

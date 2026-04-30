@@ -22,56 +22,83 @@ const ICON_CANDIDATES = [
   () => join(__dirname, '../../resources/icon-256.png'),
 ];
 
-function loadTrayIcon(): Electron.NativeImage {
+const ICON_HEIGHT = 22;
+
+let baseIcon: Electron.NativeImage | null = null;
+let baseIconBadged: Electron.NativeImage | null = null;
+
+function loadBaseIcon(): Electron.NativeImage {
+  if (baseIcon) return baseIcon;
   for (const get of ICON_CANDIDATES) {
     const p = get();
     if (existsSync(p)) {
       const img = nativeImage.createFromPath(p);
-      // Scale by height only so non-square wordmarks (e.g. the white logo)
-      // keep their aspect ratio. 22px is the canonical AppIndicator size on
-      // Linux; macOS / Windows trays auto-scale from there.
       const { height } = img.getSize();
-      if (height === 0) return img;
-      return img.resize({ height: 22 });
+      baseIcon = height === 0 ? img : img.resize({ height: ICON_HEIGHT });
+      return baseIcon;
     }
   }
-  return nativeImage.createEmpty();
+  baseIcon = nativeImage.createEmpty();
+  return baseIcon;
+}
+
+/**
+ * Composites a small red dot onto the top-right of the base tray icon.
+ * Uses Electron's bitmap pixel API (premultiplied BGRA) — no extra deps.
+ * Result is cached for subsequent toggles.
+ */
+function loadBadgedIcon(): Electron.NativeImage {
+  if (baseIconBadged) return baseIconBadged;
+  const base = loadBaseIcon();
+  const { width, height } = base.getSize();
+  if (width === 0 || height === 0) { baseIconBadged = base; return base; }
+
+  const buffer = base.toBitmap();
+  const bytes = new Uint8ClampedArray(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const out = new Uint8ClampedArray(bytes); // copy
+
+  // Sized as ~1/3 of icon height; sits flush in the top-right with a
+  // 1px transparent margin so it never quite touches the edge.
+  const r = Math.max(3, Math.floor(height / 3));
+  const cx = width - r - 1;
+  const cy = r + 1;
+  // Anti-aliased red disc with a thin transparent halo for separation
+  // from the icon underneath.
+  const haloR = r + 1.5;
+  for (let y = Math.max(0, cy - r - 2); y < Math.min(height, cy + r + 2); y++) {
+    for (let x = Math.max(0, cx - r - 2); x < Math.min(width, cx + r + 2); x++) {
+      const dx = x - cx;
+      const dy = y - cy;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const i = (y * width + x) * 4;
+      if (d <= r) {
+        // Inside disc: full red. Anti-alias the last pixel.
+        const aa = Math.min(1, r - d);
+        // Premultiplied BGRA: B=0, G=0, R=255*alpha, A=255*alpha
+        const a = Math.round(255 * aa);
+        out[i] = 0;                              // B
+        out[i + 1] = 0;                          // G
+        out[i + 2] = a;                          // R (premultiplied)
+        out[i + 3] = a;                          // A
+      } else if (d <= haloR) {
+        // Halo: punch a hole in whatever's underneath so the dot reads.
+        out[i] = 0;
+        out[i + 1] = 0;
+        out[i + 2] = 0;
+        out[i + 3] = 0;
+      }
+    }
+  }
+
+  const composited = Buffer.from(out.buffer, out.byteOffset, out.byteLength);
+  baseIconBadged = nativeImage.createFromBitmap(composited, { width, height });
+  return baseIconBadged;
 }
 
 export function createAppTray(deps: TrayDeps): Tray {
-  const tray = new Tray(loadTrayIcon());
+  const tray = new Tray(loadBaseIcon());
   tray.setToolTip('BotCord');
-
-  const rebuild = () => {
-    const menu = Menu.buildFromTemplate([
-      {
-        label: 'Open BotCord',
-        click: () => {
-          const w = deps.getWindow();
-          if (w) {
-            if (w.isMinimized()) w.restore();
-            w.show();
-            w.focus();
-          }
-        },
-      },
-      { type: 'separator' },
-      {
-        label: 'Autonomy',
-        type: 'checkbox',
-        checked: deps.getAutonomyEnabled(),
-        click: (item) => deps.setAutonomyEnabled(item.checked),
-      },
-      { type: 'separator' },
-      {
-        label: 'Quit BotCord',
-        click: () => deps.onQuit(),
-      },
-    ]);
-    tray.setContextMenu(menu);
-  };
-
-  rebuild();
+  applyMenu(tray, deps);
 
   // Left-click toggles window visibility on platforms where that's expected.
   tray.on('click', () => {
@@ -84,6 +111,40 @@ export function createAppTray(deps: TrayDeps): Tray {
   return tray;
 }
 
+function applyMenu(tray: Tray, deps: TrayDeps): void {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Open BotCord',
+      click: () => {
+        const w = deps.getWindow();
+        if (w) {
+          if (w.isMinimized()) w.restore();
+          w.show();
+          w.focus();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Autonomy',
+      type: 'checkbox',
+      checked: deps.getAutonomyEnabled(),
+      click: (item) => deps.setAutonomyEnabled(item.checked),
+    },
+    { type: 'separator' },
+    { label: 'Quit BotCord', click: () => deps.onQuit() },
+  ]);
+  tray.setContextMenu(menu);
+}
+
+export function rebuildTrayMenu(tray: Tray, deps: TrayDeps): void {
+  applyMenu(tray, deps);
+}
+
+export function setTrayUnreadBadge(tray: Tray, hasUnread: boolean): void {
+  tray.setImage(hasUnread ? loadBadgedIcon() : loadBaseIcon());
+}
+
 export function notifyMinimizedToTray(): void {
   if (!Notification.isSupported()) return;
   new Notification({
@@ -91,15 +152,4 @@ export function notifyMinimizedToTray(): void {
     body: 'Click the tray icon to bring it back. Right-click for options.',
     silent: true,
   }).show();
-}
-
-export function rebuildTrayMenu(tray: Tray, deps: TrayDeps): void {
-  const menu = Menu.buildFromTemplate([
-    { label: 'Open BotCord', click: () => { const w = deps.getWindow(); if (w) { w.show(); w.focus(); } } },
-    { type: 'separator' },
-    { label: 'Autonomy', type: 'checkbox', checked: deps.getAutonomyEnabled(), click: (item) => deps.setAutonomyEnabled(item.checked) },
-    { type: 'separator' },
-    { label: 'Quit BotCord', click: () => deps.onQuit() },
-  ]);
-  tray.setContextMenu(menu);
 }

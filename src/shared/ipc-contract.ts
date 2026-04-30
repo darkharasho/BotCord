@@ -91,6 +91,9 @@ export interface BotcordApi {
     draftReply(channelId: string, messageId: string): Promise<Result<{ requestId: string }>>;
     cancelDraft(requestId: string): Promise<Result<void>>;
   };
+  tray: {
+    setUnreadBadge(hasUnread: boolean): Promise<void>;
+  };
   voice: {
     join(guildId: string, channelId: string): Promise<Result<VoiceConnectionState>>;
     leave(): Promise<Result<VoiceConnectionState>>;
@@ -236,6 +239,7 @@ export const IPC_CHANNELS = {
   'autonomy.setGlobalConfig': 'autonomy.setGlobalConfig',
   'autonomy.draftReply': 'autonomy.draftReply',
   'autonomy.cancelDraft': 'autonomy.cancelDraft',
+  'tray.setUnreadBadge': 'tray.setUnreadBadge',
   'event.autonomyDraftDelta': 'event.autonomyDraftDelta',
   'event.autonomyDraftDone': 'event.autonomyDraftDone',
   'event.autonomyThinkingStart': 'event.autonomyThinkingStart',

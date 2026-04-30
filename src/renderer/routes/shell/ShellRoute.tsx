@@ -34,6 +34,12 @@ export function ShellRoute() {
     ?? (forumPostRef && forumPostRef.postId === channelId ? forumPostRef.postName : null);
   const unreads = useUnreads(channelId);
 
+  // Mirror unread state to the system-tray icon (red dot in top-right
+  // when any unmuted channel has fresh content the user hasn't seen).
+  useEffect(() => {
+    void api.tray.setUnreadBadge(unreads.channelIds.size > 0);
+  }, [unreads.channelIds.size]);
+
   const parentChannel = selectedChannel?.parentId
     ? channels.find(c => c.id === selectedChannel.parentId) ?? null
     : null;

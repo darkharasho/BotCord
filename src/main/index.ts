@@ -1,8 +1,9 @@
-import { app, BrowserWindow, type Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, type Tray } from 'electron';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { createMainWindow } from './window';
-import { createAppTray, notifyMinimizedToTray, rebuildTrayMenu } from './tray';
+import { createAppTray, notifyMinimizedToTray, rebuildTrayMenu, setTrayUnreadBadge } from './tray';
+import { IPC_CHANNELS } from '../shared/ipc-contract';
 import { installCSP } from './security/csp';
 import { createTokenVault } from './vault/token-vault';
 import { createClientManager } from './discord/client-manager';
@@ -113,6 +114,10 @@ if (!gotLock) {
     if (process.platform !== 'darwin') {
       tray = createAppTray(trayDeps);
     }
+
+    ipcMain.handle(IPC_CHANNELS['tray.setUnreadBadge'], async (_e, hasUnread: unknown) => {
+      if (tray) setTrayUnreadBadge(tray, Boolean(hasUnread));
+    });
 
     app.on('before-quit', () => {
       (app as unknown as { isQuiting?: boolean }).isQuiting = true;
