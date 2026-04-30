@@ -3,7 +3,9 @@ type Listener = (action: ComposerBusAction) => void;
 export type ComposerBusAction =
   | { kind: 'append'; channelId: string; text: string }
   | { kind: 'replace'; channelId: string; text: string }
-  | { kind: 'clear'; channelId: string };
+  | { kind: 'clear'; channelId: string }
+  | { kind: 'generatingStart'; channelId: string }
+  | { kind: 'generatingEnd'; channelId: string };
 
 const listeners = new Set<Listener>();
 

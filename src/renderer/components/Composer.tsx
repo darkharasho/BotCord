@@ -77,15 +77,19 @@ export function Composer({
     return api.events.onGatewayState(setGateway);
   }, []);
 
+  const [generating, setGenerating] = useState(false);
   useEffect(() => {
     const off = subscribeComposerBus((action) => {
       if (action.channelId !== channelId) return;
       if (action.kind === 'append') setText(t => t + action.text);
       else if (action.kind === 'replace') setText(action.text);
       else if (action.kind === 'clear') setText('');
+      else if (action.kind === 'generatingStart') setGenerating(true);
+      else if (action.kind === 'generatingEnd') setGenerating(false);
     });
     return off;
   }, [channelId]);
+  useEffect(() => { setGenerating(false); }, [channelId]);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -396,6 +400,15 @@ export function Composer({
           >
             <IconX size={14} stroke={2} />
           </button>
+        </div>
+      )}
+      {generating && (
+        <div className="flex items-center gap-2 text-xs text-accent bg-accent/10 rounded-t-lg px-3 py-1.5 -mb-1 border-b border-bg">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+          </span>
+          <span>Generating with Claude…</span>
         </div>
       )}
       <div className="bg-bg-input rounded-lg relative">

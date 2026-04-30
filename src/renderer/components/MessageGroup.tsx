@@ -57,16 +57,22 @@ function generateReplyWithClaude(channelId: string, messageId: string): void {
       pushToast('warn', `Claude CLI not available: ${detect.reason ?? 'unknown'}`);
       return;
     }
+    emitComposerBus({ kind: 'clear', channelId });
+    emitComposerBus({ kind: 'generatingStart', channelId });
     const res = await api.autonomy.draftReply(channelId, messageId);
-    if (!res.ok) { pushToast('danger', `Generate failed: ${res.error.message}`); return; }
+    if (!res.ok) {
+      emitComposerBus({ kind: 'generatingEnd', channelId });
+      pushToast('danger', `Generate failed: ${res.error.message}`);
+      return;
+    }
     const requestId = res.data.requestId;
-    emitComposerBus({ kind: 'replace', channelId, text: '' });
     const offDelta = api.events.onAutonomyDraftDelta(({ requestId: rid, delta }) => {
       if (rid !== requestId) return;
       emitComposerBus({ kind: 'append', channelId, text: delta });
     });
     const offDone = api.events.onAutonomyDraftDone(({ requestId: rid }) => {
       if (rid !== requestId) return;
+      emitComposerBus({ kind: 'generatingEnd', channelId });
       offDelta();
       offDone();
     });

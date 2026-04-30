@@ -7,6 +7,7 @@ import type { AutonomyRepo } from '../db/repos/autonomy';
 import { summarizeMessage } from '../discord/client-manager';
 
 type SendableChannel = { send: (opts: MessageCreateOptions) => Promise<Message> };
+type TypingChannel = { sendTyping: () => Promise<void> };
 
 type Deps = {
   manager: ClientManager;
@@ -63,20 +64,31 @@ export function attachAutonomousListener({ manager, autonomy, repo }: Deps): () 
       channelTopic: 'topic' in ch && typeof ch.topic === 'string' ? ch.topic : null,
     };
 
-    const result = await autonomy.runAutonomous({
-      guildId: m.guildId,
-      channelId: m.channelId,
-      channelMeta,
-      history,
-      target: {
-        id: m.id,
-        authorId: m.author.id,
-        authorDisplayName: m.member?.displayName ?? m.author.globalName ?? m.author.username,
-        isBot: false,
-        createdAt: m.createdTimestamp,
-        content: m.content,
-      },
-    });
+    // Show "Bot is typing…" in Discord while Claude generates. The native
+    // indicator expires after ~10s; refresh on an interval until done.
+    const typingCh = ch as unknown as TypingChannel;
+    void typingCh.sendTyping().catch(() => {});
+    const typingInterval = setInterval(() => { void typingCh.sendTyping().catch(() => {}); }, 7000);
+
+    let result;
+    try {
+      result = await autonomy.runAutonomous({
+        guildId: m.guildId,
+        channelId: m.channelId,
+        channelMeta,
+        history,
+        target: {
+          id: m.id,
+          authorId: m.author.id,
+          authorDisplayName: m.member?.displayName ?? m.author.globalName ?? m.author.username,
+          isBot: false,
+          createdAt: m.createdTimestamp,
+          content: m.content,
+        },
+      });
+    } finally {
+      clearInterval(typingInterval);
+    }
 
     if (!result.ok) return;
 
