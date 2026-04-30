@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { pushToast } from './Toaster';
+import { GlobalAutonomySettings } from './GlobalAutonomySettings';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -89,6 +90,10 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           <p className="text-[11px] text-fg-dim leading-relaxed">
             Required for the GIF picker. Get a free key at <span className="text-accent">developers.giphy.com</span>. Stored locally only.
           </p>
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <GlobalAutonomySettings />
         </div>
 
         <div className="border-t border-border pt-4 space-y-2">
