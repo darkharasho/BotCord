@@ -92,6 +92,22 @@ describe('renderMessageContent (vision off)', () => {
     expect(lines).toContain('[sticker: Wow]');
   });
 
+  it('strips custom emoji ids — <:name:id> → :name:', async () => {
+    const { content } = await renderMessageContent(
+      baseMsg({ content: 'hello <:laughing:123456789> and <a:dance:987654321> too' }),
+      { vision: false, scratchDir: '/tmp/x' },
+    );
+    expect(content).toBe('hello :laughing: and :dance: too');
+  });
+
+  it('leaves unicode emoji untouched', async () => {
+    const { content } = await renderMessageContent(
+      baseMsg({ content: 'lol 😂 yeah' }),
+      { vision: false, scratchDir: '/tmp/x' },
+    );
+    expect(content).toBe('lol 😂 yeah');
+  });
+
   it('cleanup is a no-op when vision is off', async () => {
     const { cleanup } = await renderMessageContent(baseMsg({ content: 'hi' }), { vision: false, scratchDir: '/tmp/x' });
     await expect(cleanup()).resolves.toBeUndefined();

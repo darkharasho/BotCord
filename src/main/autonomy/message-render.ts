@@ -24,6 +24,13 @@ type EmbedLike = {
   thumbnail: { url: string } | null;
 };
 
+// Discord custom emoji come through as `<:name:id>` (static) or
+// `<a:name:id>` (animated). Strip the IDs to a clean `:name:` form so
+// Claude isn't distracted by the snowflake.
+const CUSTOM_EMOJI_RE = /<a?:([A-Za-z0-9_~]+):\d+>/g;
+const simplifyCustomEmoji = (text: string): string =>
+  text.replace(CUSTOM_EMOJI_RE, ':$1:');
+
 const isImage = (att: AttachmentLike): boolean => {
   if (att.contentType?.startsWith(IMAGE_MIME_PREFIX)) return true;
   const lower = att.name?.toLowerCase() ?? '';
@@ -88,7 +95,7 @@ export async function renderMessageContent(
   const stickers: Sticker[] = Array.from(m.stickers.values()).map(s => ({ name: s.name }));
 
   const lines: string[] = [];
-  if (m.content) lines.push(m.content);
+  if (m.content) lines.push(simplifyCustomEmoji(m.content));
 
   // Vision: download image attachments + inline file:// references
   let visionDir: string | null = null;
