@@ -187,6 +187,13 @@ export type SystemMessageKind =
   | 'poll_result'
   | 'other';
 
+export type VoiceConnectionState =
+  | { kind: 'idle' }
+  | { kind: 'connecting'; guildId: string; channelId: string }
+  | { kind: 'connected'; guildId: string; channelId: string }
+  | { kind: 'disconnected'; guildId: string; channelId: string }
+  | { kind: 'error'; guildId: string; channelId: string; message: string };
+
 export type PollResultSummary = {
   question: string;
   totalVotes: number;

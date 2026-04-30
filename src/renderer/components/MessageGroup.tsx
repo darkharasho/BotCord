@@ -474,10 +474,29 @@ function MoreMenu({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // `null` until measured to avoid a flash on the wrong side. Flipping up
+  // anchors to the trigger's top instead of its bottom when the viewport
+  // doesn't have room below — mirrors the EmojiPicker behaviour.
+  const [flipUp, setFlipUp] = useState<boolean | null>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const margin = 8;
+    setFlipUp(rect.bottom + margin > window.innerHeight);
+  }, []);
+
+  const positionClass = flipUp === null
+    ? 'top-full mt-1 invisible'
+    : flipUp
+      ? 'bottom-full mb-1 origin-bottom-right'
+      : 'top-full mt-1 origin-top-right';
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute top-full right-0 mt-1 z-50 min-w-[140px] bg-bg-subtle border border-white/[0.08] rounded-md shadow-2xl py-1 animate-fade-in-down origin-top-right">
+      <div ref={ref} className={`absolute right-0 ${positionClass} z-50 min-w-[140px] bg-bg-subtle border border-white/[0.08] rounded-md shadow-2xl py-1 animate-fade-in-down`}>
         {isOwn && (
           <button
             onClick={onEdit}

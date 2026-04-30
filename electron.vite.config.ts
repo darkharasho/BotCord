@@ -6,7 +6,15 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        external: ['better-sqlite3', 'discord.js'],
+        external: [
+          'better-sqlite3',
+          'discord.js',
+          '@discordjs/voice',
+          '@discordjs/opus',
+          '@snazzah/davey',
+          'prism-media',
+          'libsodium-wrappers',
+        ],
       },
     },
     resolve: {

@@ -1,7 +1,7 @@
 import type {
   AllMembersEntry, BotIdentity, BotStatus, BotCapabilities, BulkActionResult, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
   EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildRole, GuildSummary, ListAllMembersResult,
-  MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment,
+  MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment, VoiceConnectionState,
 } from './domain';
 import type { Result } from './errors';
 
@@ -81,6 +81,14 @@ export interface BotcordApi {
   prefs: {
     get<K extends keyof Prefs>(key: K): Promise<Result<Prefs[K]>>;
     set<K extends keyof Prefs>(key: K, value: Prefs[K]): Promise<Result<void>>;
+  };
+  voice: {
+    join(guildId: string, channelId: string): Promise<Result<VoiceConnectionState>>;
+    leave(): Promise<Result<VoiceConnectionState>>;
+    getState(): Promise<VoiceConnectionState>;
+    onState(cb: (s: VoiceConnectionState) => void): () => void;
+    onFrame(cb: (pcm: ArrayBuffer) => void): () => void;
+    onSpeakers(cb: (levels: Record<string, number>) => void): () => void;
   };
   events: {
     onBotStatus(cb: (s: BotStatus) => void): () => void;
@@ -170,6 +178,12 @@ export const IPC_CHANNELS = {
   'drafts.delete': 'drafts.delete',
   'prefs.get': 'prefs.get',
   'prefs.set': 'prefs.set',
+  'voice.join': 'voice.join',
+  'voice.leave': 'voice.leave',
+  'voice.getState': 'voice.getState',
+  'event.voiceState': 'event.voiceState',
+  'event.voiceFrame': 'event.voiceFrame',
+  'event.voiceSpeakers': 'event.voiceSpeakers',
   'system.appVersion': 'system.appVersion',
   'system.openExternal': 'system.openExternal',
   'system.editAction': 'system.editAction',

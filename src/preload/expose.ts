@@ -69,6 +69,25 @@ const api: BotcordApi = {
     get: (key) => invoke(IPC_CHANNELS['prefs.get'], key),
     set: (key, value) => invoke(IPC_CHANNELS['prefs.set'], key, value),
   },
+  voice: {
+    join: (guildId, channelId) => invoke(IPC_CHANNELS['voice.join'], guildId, channelId),
+    leave: () => invoke(IPC_CHANNELS['voice.leave']),
+    getState: () => invoke(IPC_CHANNELS['voice.getState']),
+    onState: (cb) => subscribe(IPC_CHANNELS['event.voiceState'], cb as (p: unknown) => void),
+    onFrame: (cb) => {
+      // Buffers cross the bridge as Uint8Array — slice into a fresh
+      // ArrayBuffer so the renderer owns the memory and can build typed
+      // views without worrying about the source backing store.
+      const handler = (_: unknown, payload: Uint8Array) => {
+        const out = new ArrayBuffer(payload.byteLength);
+        new Uint8Array(out).set(payload);
+        cb(out);
+      };
+      ipcRenderer.on(IPC_CHANNELS['event.voiceFrame'], handler);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS['event.voiceFrame'], handler);
+    },
+    onSpeakers: (cb) => subscribe(IPC_CHANNELS['event.voiceSpeakers'], cb as (p: unknown) => void),
+  },
   events: {
     onBotStatus: (cb) => subscribe(IPC_CHANNELS['event.botStatus'], cb as (p: unknown) => void),
     onGatewayState: (cb) => subscribe(IPC_CHANNELS['event.gatewayState'], cb as (p: unknown) => void),

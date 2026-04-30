@@ -360,7 +360,7 @@ export function Composer({
 
   return (
     <div
-      className="bg-bg relative px-4 pt-2 pb-6"
+      className="bg-bg relative px-4 pt-2 pb-2"
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}

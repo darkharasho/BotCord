@@ -15,9 +15,13 @@ import {
   IconChevronDown,
   IconBellOff,
   IconBell,
+  IconPhone,
+  IconPhoneOff,
 } from '@tabler/icons-react';
 import { openContextMenu } from './ContextMenu';
 import type { Icon } from '@tabler/icons-react';
+import { useVoiceState } from '../lib/use-voice-state';
+import { pushToast } from './Toaster';
 
 export function ChannelList({
   guildId, selected, onSelect, unreadIds, mentionIds, mutedIds, onToggleMute, view, onSelectMembers, memberCount,
@@ -34,6 +38,7 @@ export function ChannelList({
   memberCount: number | null;
 }) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
+  const voiceState = useVoiceState();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const loaded = useRef(false);
   const collapsedRef = useRef(collapsed);
@@ -168,6 +173,10 @@ export function ChannelList({
     const isSelected = selected === c.id;
     const isMuted = !!mutedIds?.has(c.id);
     const isMention = !isSelected && !!mentionIds?.has(c.id);
+    const isVoice = c.type === 'voice';
+    const isVoiceActive = isVoice
+      && (voiceState.kind === 'connected' || voiceState.kind === 'connecting')
+      && voiceState.channelId === c.id;
     // Muted channels don't show the normal unread treatment, but mentions
     // still light up red so the user can't miss being addressed directly.
     const isUnread = !isSelected && !!unreadIds?.has(c.id) && (!isMuted || isMention);
@@ -211,6 +220,26 @@ export function ChannelList({
           <span className="truncate flex-1">{c.name}</span>
           {isMuted && <IconBellOff size={14} stroke={1.75} className="text-fg-dim/70 shrink-0" />}
         </button>
+        {isVoice && c.guildId && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isVoiceActive) {
+                void window.botcord.voice.leave();
+              } else {
+                void window.botcord.voice.join(c.guildId!, c.id).then(res => {
+                  if (!res.ok) pushToast('danger', `Couldn't join voice: ${res.error.message}`);
+                });
+              }
+            }}
+            title={isVoiceActive ? 'Leave voice channel' : 'Join voice channel'}
+            className={`absolute right-2 top-1.5 p-1 rounded hover:bg-hover ${isVoiceActive ? 'text-ok' : 'text-fg-dim hover:text-fg'}`}
+          >
+            {isVoiceActive
+              ? <IconPhoneOff size={14} stroke={1.75} />
+              : <IconPhone size={14} stroke={1.75} />}
+          </button>
+        )}
         {voiceMembers.length > 0 && (
           <ul className="mt-0.5 space-y-px">
             {voiceMembers.map(m => (
