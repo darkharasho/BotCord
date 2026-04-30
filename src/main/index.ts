@@ -6,6 +6,7 @@ import { createTokenVault } from './vault/token-vault';
 import { createClientManager } from './discord/client-manager';
 import { openDatabase } from './db/database';
 import { registerAllIpc } from './ipc';
+import { registerUpdater } from './updater';
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -26,7 +27,8 @@ if (!gotLock) {
 
     registerAllIpc({ vault, manager, db });
 
-    createMainWindow();
+    const win = createMainWindow();
+    registerUpdater(win);
 
     if (vault.hasToken()) {
       manager.connect().catch(() => { /* surfaced via gateway state events */ });

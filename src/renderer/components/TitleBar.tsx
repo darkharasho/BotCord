@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Logo } from './Logo';
+import { UpdateNotification } from './UpdateNotification';
 
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false);
@@ -16,7 +17,7 @@ export function TitleBar() {
 
   return (
     <div
-      className="h-7 shrink-0 flex items-center bg-bg-sunken text-fg-dim text-xs select-none"
+      className="h-7 shrink-0 flex items-center bg-bg-sunken text-fg-dim text-xs select-none relative"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       {/* Left spacer — matches right side width for centering */}
@@ -26,6 +27,14 @@ export function TitleBar() {
       <div className="flex-1 flex items-center justify-center gap-2">
         <Logo className="h-3.5 w-auto text-fg" />
         <span className="font-medium tracking-tight text-fg">BotCord</span>
+      </div>
+      {/* Update pill floats over the title bar so it doesn't unbalance the
+          centered logo. Sits just left of the platform window controls. */}
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 ${isMac ? 'right-2' : 'right-[calc(3*2.75rem+0.375rem)]'}`}
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <UpdateNotification />
       </div>
       {!isMac ? (
         <div

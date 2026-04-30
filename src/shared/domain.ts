@@ -290,6 +290,7 @@ export type Prefs = {
   memberListOpen: boolean;
   channelLastSeen: Record<string, number>;
   mutedChannelIds: string[];
+  giphyApiKey: string;
 };
 
 export type SendAttachment = {

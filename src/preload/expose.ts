@@ -99,6 +99,16 @@ const api: BotcordApi = {
     platform: () => invoke(IPC_CHANNELS['window.platform']),
     onMaximizeChange: (cb) => subscribe(IPC_CHANNELS['event.windowMaximizeChange'], cb as (p: unknown) => void),
   },
+  update: {
+    getVersion: () => invoke(IPC_CHANNELS['update.getVersion']),
+    check: () => ipcRenderer.send(IPC_CHANNELS['update.check']),
+    install: () => ipcRenderer.send(IPC_CHANNELS['update.install']),
+    onStatus: (cb) => subscribe(IPC_CHANNELS['event.updateStatus'], cb as (p: unknown) => void),
+    onAvailable: (cb) => subscribe(IPC_CHANNELS['event.updateAvailable'], cb as (p: unknown) => void),
+    onProgress: (cb) => subscribe(IPC_CHANNELS['event.updateProgress'], cb as (p: unknown) => void),
+    onDownloaded: (cb) => subscribe(IPC_CHANNELS['event.updateDownloaded'], cb as (p: unknown) => void),
+    onError: (cb) => subscribe(IPC_CHANNELS['event.updateError'], cb as (p: unknown) => void),
+  },
 };
 
 contextBridge.exposeInMainWorld('botcord', api);

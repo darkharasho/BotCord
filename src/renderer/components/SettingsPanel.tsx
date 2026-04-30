@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { pushToast } from './Toaster';
@@ -6,7 +6,23 @@ import { pushToast } from './Toaster';
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [giphyKey, setGiphyKey] = useState('');
+  const [giphyKeyLoaded, setGiphyKeyLoaded] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.prefs.get('giphyApiKey').then(res => {
+      if (res.ok && typeof res.data === 'string') setGiphyKey(res.data);
+      setGiphyKeyLoaded(true);
+    });
+  }, []);
+
+  // Persist the GIPHY key on every change after the initial load. No debounce
+  // needed — typing in the field doesn't hit the network, only writes to prefs.
+  useEffect(() => {
+    if (!giphyKeyLoaded) return;
+    api.prefs.set('giphyApiKey', giphyKey);
+  }, [giphyKey, giphyKeyLoaded]);
 
   const reset = async () => {
     if (!confirm('Reset bot token? You will need to re-paste it on next launch.')) return;
@@ -59,6 +75,20 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               </code>
             </div>
           )}
+        </div>
+
+        <div className="border-t border-border pt-4 space-y-2">
+          <label className="block text-xs font-medium text-fg-muted">GIPHY API key</label>
+          <input
+            type="password"
+            value={giphyKey}
+            onChange={(e) => setGiphyKey(e.target.value)}
+            placeholder="Paste your GIPHY developer key"
+            className="w-full px-3 py-2 rounded bg-bg-sunken border border-border text-fg text-sm outline-none focus:border-accent"
+          />
+          <p className="text-[11px] text-fg-dim leading-relaxed">
+            Required for the GIF picker. Get a free key at <span className="text-accent">developers.giphy.com</span>. Stored locally only.
+          </p>
         </div>
 
         <div className="border-t border-border pt-4 space-y-2">

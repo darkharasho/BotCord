@@ -14,7 +14,57 @@
     "pretest": "npm rebuild better-sqlite3 --silent",
     "posttest": "electron-rebuild -f -w better-sqlite3 --silent",
     "lint": "eslint . --ext .ts,.tsx",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux AppImage",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip"
+  },
+  "build": {
+    "appId": "com.botcord.app",
+    "productName": "BotCord",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Network",
+      "icon": "resources/icon-512.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon-512.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.social-networking",
+      "icon": "resources/icon-512.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "darkharasho",
+      "repo": "BotCord"
+    },
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ]
   },
   "dependencies": {
     "@tabler/icons-react": "^3.41.1",
@@ -22,6 +72,7 @@
     "@types/react-window": "^1.8.8",
     "better-sqlite3": "^11.3.0",
     "discord.js": "^14.16.3",
+    "electron-updater": "^6.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
@@ -41,6 +92,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.0",
     "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "eslint": "^9.0.0",
     "jsdom": "^25.0.0",

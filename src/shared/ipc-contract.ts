@@ -112,6 +112,16 @@ export interface BotcordApi {
     platform(): Promise<NodeJS.Platform>;
     onMaximizeChange(cb: (maximized: boolean) => void): () => void;
   };
+  update: {
+    getVersion(): Promise<string>;
+    check(): void;
+    install(): void;
+    onStatus(cb: (status: 'checking' | 'up-to-date') => void): () => void;
+    onAvailable(cb: (info: { version: string }) => void): () => void;
+    onProgress(cb: (info: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void): () => void;
+    onDownloaded(cb: (info: { version: string }) => void): () => void;
+    onError(cb: (info: { message: string }) => void): () => void;
+  };
 }
 
 export const IPC_CHANNELS = {
@@ -171,7 +181,15 @@ export const IPC_CHANNELS = {
   'window.close': 'window.close',
   'window.isMaximized': 'window.isMaximized',
   'window.platform': 'window.platform',
+  'update.getVersion': 'update.getVersion',
+  'update.check': 'update.check',
+  'update.install': 'update.install',
   'event.windowMaximizeChange': 'event.windowMaximizeChange',
+  'event.updateStatus': 'event.updateStatus',
+  'event.updateAvailable': 'event.updateAvailable',
+  'event.updateProgress': 'event.updateProgress',
+  'event.updateDownloaded': 'event.updateDownloaded',
+  'event.updateError': 'event.updateError',
   'event.botStatus': 'event.botStatus',
   'event.gatewayState': 'event.gatewayState',
   'event.guildUpdate': 'event.guildUpdate',
