@@ -87,6 +87,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
         return {
           authorId: m.author.id,
           authorDisplayName: m.member?.displayName ?? m.author.globalName ?? m.author.username,
+          authorUsername: m.author.username,
           isBot: m.author.bot ?? false,
           createdAt: m.createdTimestamp,
           content,
@@ -107,6 +108,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
             id: triggerMsg.id,
             authorId: triggerMsg.author.id,
             authorDisplayName: triggerMsg.member?.displayName ?? triggerMsg.author.globalName ?? triggerMsg.author.username,
+            authorUsername: triggerMsg.author.username,
             isBot: triggerMsg.author.bot ?? false,
             createdAt: triggerMsg.createdTimestamp,
             content: target.content,

@@ -57,4 +57,15 @@ describe('buildPrompt', () => {
     const out = buildPrompt(inputs);
     expect(out).toMatch(/no recent messages/i);
   });
+
+  it('appends username in parens when it differs from display name', () => {
+    const inputs = baseInputs();
+    inputs.history[0]!.authorUsername = 'alice_smith';
+    inputs.history[1]!.authorUsername = 'bob';
+    inputs.history[1]!.authorDisplayName = 'bob';
+    const out = buildPrompt(inputs);
+    expect(out).toMatch(/Alice \(alice_smith\): hi all/);
+    expect(out).not.toMatch(/bob \(bob\)/);
+    expect(out).toMatch(/bob: hey/);
+  });
 });

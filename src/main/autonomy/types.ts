@@ -22,6 +22,10 @@ export interface AutonomySession {
 export type ChannelHistoryEntry = {
   authorId: string;
   authorDisplayName: string;
+  /** Discord username (the unique handle). Included in the prompt only when
+   * it differs from the display name, so Claude can disambiguate users
+   * with duplicate nicknames or match against `@username` references. */
+  authorUsername?: string;
   isBot: boolean;
   createdAt: number;
   content: string;

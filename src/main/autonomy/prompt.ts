@@ -16,8 +16,11 @@ const formatTime = (ts: number): string => {
   return `${hh}:${mm}`;
 };
 
-const renderEntry = (e: ChannelHistoryEntry): string =>
-  `[${formatTime(e.createdAt)}] ${e.authorDisplayName}${e.isBot ? ' (bot)' : ''}: ${e.content}`;
+const renderEntry = (e: ChannelHistoryEntry): string => {
+  const showUsername = e.authorUsername && e.authorUsername !== e.authorDisplayName;
+  const handle = showUsername ? `${e.authorDisplayName} (${e.authorUsername})` : e.authorDisplayName;
+  return `[${formatTime(e.createdAt)}] ${handle}${e.isBot ? ' (bot)' : ''}: ${e.content}`;
+};
 
 export function buildPrompt(inputs: PromptInputs): string {
   const { systemPrompt, channelMeta, history, target } = inputs;
