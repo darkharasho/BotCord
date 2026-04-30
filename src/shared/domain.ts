@@ -309,6 +309,9 @@ export type Prefs = {
   channelLastSeen: Record<string, number>;
   mutedChannelIds: string[];
   giphyApiKey: string;
+  autonomyGlobalEnabled: boolean;
+  autonomyGlobalSystemPrompt: string;
+  autonomyGlobalRateCapPerMin: number;
 };
 
 export type SendAttachment = {
@@ -374,3 +377,22 @@ export type BulkActionResult = {
   ok: string[];
   failed: Array<{ id: string; error: string }>;
 };
+
+export type GuildAutonomyConfig = {
+  guildId: string;
+  enabled: boolean;
+  channelIds: string[];
+  contextSize: number;
+  systemPrompt: string | null;
+  cooldownMs: number;
+  updatedAt: number;
+};
+
+export type GlobalAutonomyConfig = {
+  enabled: boolean;
+  systemPrompt: string;
+  rateCapPerMin: number;
+};
+
+export const DEFAULT_GLOBAL_SYSTEM_PROMPT =
+  "You are a helpful assistant participating in a Discord text channel. Reply briefly and conversationally. Stay on topic. Match the channel's tone. Use plain text — no markdown headings or code fences unless asked.";
