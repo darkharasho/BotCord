@@ -184,7 +184,17 @@ export type SystemMessageKind =
   | 'thread_create'
   | 'channel_follow'
   | 'recipient_add'
+  | 'poll_result'
   | 'other';
+
+export type PollResultSummary = {
+  question: string;
+  totalVotes: number;
+  victorAnswerText: string | null;
+  victorAnswerEmoji: string | null;
+  victorAnswerVotes: number;
+  tied: boolean;
+};
 
 export type PollVoter = {
   id: string;
@@ -234,6 +244,7 @@ export type MessageSummary = {
   } | null;
   systemKind: SystemMessageKind | null;
   poll: PollSummary | null;
+  pollResult: PollResultSummary | null;
   reactions: ReactionSummary[];
   pinned: boolean;
 };

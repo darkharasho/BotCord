@@ -1,6 +1,6 @@
 import { Client, Events, Partials, ChannelType, ChannelFlagsBitField, SnowflakeUtil } from 'discord.js';
 import type { Message, VoiceBasedChannel, GuildBasedChannel, ForumChannel, ThreadChannel, MediaChannel, Guild } from 'discord.js';
-import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, RoleIcon, SystemMessageKind, PollSummary, ReactionSummary, VoiceMemberSummary, ForumTag, ForumPostSummary, ForumChannelDetail } from '../../shared/domain';
+import type { BotIdentity, BotStatus, GatewayState, GuildSummary, ChannelSummary, ChannelKind, MessageSummary, MessageAttachment, MessageEmbedSummary, ResolvedMention, GuildEmoji, RoleIcon, SystemMessageKind, PollSummary, PollResultSummary, ReactionSummary, VoiceMemberSummary, ForumTag, ForumPostSummary, ForumChannelDetail } from '../../shared/domain';
 import { MessageType } from 'discord.js';
 import { REQUIRED_INTENTS } from './intents';
 import {
@@ -425,6 +425,7 @@ export function summarizeMessage(m: Message): MessageSummary {
     replyTo: projectReplyTo(m),
     systemKind: classifySystemMessage(m.type, m.system),
     poll: projectPoll(m.poll),
+    pollResult: projectPollResult(m),
     reactions: projectReactions(m),
     pinned: m.pinned ?? false,
   };
@@ -555,8 +556,36 @@ function classifySystemMessage(type: MessageType, isSystem: boolean | null): Sys
     case MessageType.ThreadCreated:
     case MessageType.ThreadStarterMessage: return 'thread_create';
     case MessageType.RecipientAdd: return 'recipient_add';
+    case MessageType.PollResult: return 'poll_result';
     default: return isSystem ? 'other' : null;
   }
+}
+
+// Discord delivers poll closure as a system message containing a single
+// `poll_result` embed whose `fields` carry the question, victor, and totals.
+// Pull the values out so the renderer can show the result inline rather than
+// just "<bot>'s poll has closed".
+function projectPollResult(m: Message): PollResultSummary | null {
+  if (m.type !== MessageType.PollResult) return null;
+  const embed = m.embeds.find(e => {
+    const t = (e as unknown as { data?: { type?: string } }).data?.type;
+    if (t === 'poll_result') return true;
+    return e.fields.some(f => f.name === 'poll_question_text');
+  });
+  if (!embed) return null;
+  const get = (n: string): string | null => embed.fields.find(f => f.name === n)?.value ?? null;
+  const question = get('poll_question_text') ?? '';
+  const totalVotes = Number.parseInt(get('total_votes') ?? '0', 10) || 0;
+  const victorAnswerVotes = Number.parseInt(get('victor_answer_votes') ?? '0', 10) || 0;
+  const victorAnswerText = get('victor_answer_text');
+  const emojiName = get('victor_answer_emoji_name');
+  const emojiId = get('victor_answer_emoji_id');
+  const emojiAnimated = get('victor_answer_emoji_animated') === 'true';
+  const victorAnswerEmoji = emojiId
+    ? `<${emojiAnimated ? 'a' : ''}:${emojiName ?? 'emoji'}:${emojiId}>`
+    : emojiName;
+  const tied = get('victor_answer_id') === null && victorAnswerText === null;
+  return { question, totalVotes, victorAnswerText, victorAnswerEmoji, victorAnswerVotes, tied };
 }
 
 export function projectForumTag(t: { id: string; name: string; emoji?: { id?: string | null; name?: string | null } | null; moderated?: boolean }): ForumTag {

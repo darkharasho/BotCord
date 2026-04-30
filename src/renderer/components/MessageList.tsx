@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { MessageSummary } from '../../shared/domain';
 import { useChannelMessages } from '../lib/use-channel-messages';
 import { useBotIdentity } from '../lib/use-bot-identity';
@@ -47,6 +47,7 @@ function DateSeparator({ ts }: { ts: number }) {
 function renderGroupsWithDateSeparators(
   groups: MessageSummary[][],
   onReply?: ((m: MessageSummary) => void) | undefined,
+  onJumpToMessage?: ((id: string) => void) | undefined,
 ): ReactNode[] {
   const out: ReactNode[] = [];
   let lastDayKey: string | null = null;
@@ -60,7 +61,7 @@ function renderGroupsWithDateSeparators(
     if (head.systemKind) {
       out.push(<SystemMessageRow key={`s-${gi}-${head.id}`} message={head} />);
     } else {
-      out.push(<MessageGroup key={`g-${gi}-${head.id}`} messages={g} onReply={onReply} />);
+      out.push(<MessageGroup key={`g-${gi}-${head.id}`} messages={g} onReply={onReply} onJumpToMessage={onJumpToMessage} />);
     }
   });
   return out;
@@ -149,20 +150,26 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
   // short-lived highlight class. If the row isn't in the DOM (loaded from
   // older history we don't have), we silently noop — extending to fetch
   // older pages is a follow-up.
+  const jumpToId = useCallback((id: string) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.querySelector(`[data-message-id="${id}"]`) as HTMLElement | null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('bc-jump-flash');
+    window.setTimeout(() => target.classList.remove('bc-jump-flash'), 1600);
+  }, []);
+
   useEffect(() => {
     if (!jumpToMessageId) return;
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el) { onJumpComplete?.(); return; }
     const target = el.querySelector(`[data-message-id="${jumpToMessageId}"]`) as HTMLElement | null;
     if (!target) { onJumpComplete?.(); return; }
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    target.classList.add('bc-jump-flash');
-    const t = window.setTimeout(() => {
-      target.classList.remove('bc-jump-flash');
-      onJumpComplete?.();
-    }, 1600);
+    jumpToId(jumpToMessageId);
+    const t = window.setTimeout(() => onJumpComplete?.(), 1600);
     return () => window.clearTimeout(t);
-  }, [jumpToMessageId, onJumpComplete]);
+  }, [jumpToMessageId, onJumpComplete, jumpToId]);
 
   // Scroll to bottom when triggered externally (e.g. reply bar appearing).
   useEffect(() => {
@@ -297,7 +304,7 @@ export function MessageList({ channelId, filter, onReply, header, jumpToMessageI
           )}
           {messages.length > 0 && (
             <div key={channelId} className="animate-fade-in">
-              {renderGroupsWithDateSeparators(groups, onReply)}
+              {renderGroupsWithDateSeparators(groups, onReply, jumpToId)}
             </div>
           )}
         </div>

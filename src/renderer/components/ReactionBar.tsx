@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { IconX } from '@tabler/icons-react';
+import { IconMoodPlus, IconX } from '@tabler/icons-react';
 import { api } from '../lib/api';
 import { TwemojiOne } from '../lib/twemoji';
 import type { MessageSummary, ReactionSummary } from '../../shared/domain';
@@ -32,7 +32,7 @@ async function loadUsers(channelId: string, messageId: string, r: ReactionSummar
   return promise;
 }
 
-export function ReactionBar({ message }: { message: MessageSummary }) {
+export function ReactionBar({ message, onAddReaction }: { message: MessageSummary; onAddReaction?: ((rect: DOMRect) => void) | undefined }) {
   if (message.reactions.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -51,7 +51,26 @@ export function ReactionBar({ message }: { message: MessageSummary }) {
           }}
         />
       ))}
+      {onAddReaction && <AddReactionButton onAddReaction={onAddReaction} />}
     </div>
+  );
+}
+
+function AddReactionButton({ onAddReaction }: { onAddReaction: (rect: DOMRect) => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      title="Add reaction"
+      onClick={() => {
+        const rect = ref.current?.getBoundingClientRect();
+        if (rect) onAddReaction(rect);
+      }}
+      className="inline-flex items-center justify-center h-[30px] px-2 rounded-md border bg-white/[0.04] border-white/[0.06] text-fg-muted hover:bg-white/[0.08] hover:border-white/[0.12] hover:text-fg transition-colors duration-150"
+    >
+      <IconMoodPlus size={18} stroke={1.75} />
+    </button>
   );
 }
 

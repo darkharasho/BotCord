@@ -38,7 +38,7 @@ function shouldHideContent(content: string, embeds: MessageEmbedSummary[]): bool
   return tokens.every(t => sourceUrls.has(t));
 }
 
-export function MessageContent({ message }: { message: MessageSummary }) {
+export function MessageContent({ message, onAddReaction }: { message: MessageSummary; onAddReaction?: ((rect: DOMRect) => void) | undefined }) {
   const hideContent = shouldHideContent(message.content, message.embeds);
   return (
     <div className="space-y-0.5">
@@ -55,7 +55,7 @@ export function MessageContent({ message }: { message: MessageSummary }) {
           : <EmbedCard key={i} embed={e} mentions={message.mentions} />
       )}
       {message.poll && <PollCard poll={message.poll} channelId={message.channelId} messageId={message.id} mentions={message.mentions} />}
-      <ReactionBar message={message} />
+      <ReactionBar message={message} onAddReaction={onAddReaction} />
     </div>
   );
 }

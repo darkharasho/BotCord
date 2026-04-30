@@ -134,7 +134,7 @@ function buildMessageMenu({
   return items;
 }
 
-export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]; onReply?: ((m: MessageSummary) => void) | undefined }) {
+export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages: MessageSummary[]; onReply?: ((m: MessageSummary) => void) | undefined; onJumpToMessage?: ((id: string) => void) | undefined }) {
   if (messages.length === 0) return null;
   const head = messages[0]!;
   const bot = useBotIdentity();
@@ -158,7 +158,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
 
   const renderBody = (m: MessageSummary) => editingId === m.id
     ? <MessageEditor message={m} onDone={() => setEditingId(null)} />
-    : <MessageContent message={m} />;
+    : <MessageContent message={m} onAddReaction={(rect) => setReactState({ message: m, rect })} />;
 
   const onAuthorContextMenu = async (e: React.MouseEvent, authorId: string, displayName: string, username: string) => {
     if (!head.guildId) return;
@@ -242,7 +242,7 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
 
   return (
     <div className={`${head.replyTo ? 'mt-6' : 'mt-4'} first:mt-2 px-4`}>
-      {head.replyTo && <ReplyPreview replyTo={head.replyTo} />}
+      {head.replyTo && <ReplyPreview replyTo={head.replyTo} onJump={onJumpToMessage} />}
       <div onContextMenu={(e) => onContextMenu(e, head)} className={`relative flex gap-4 -mx-4 px-4 py-0.5 group ${headHighlight}`}>
         <HoverActions
           message={head}
@@ -325,7 +325,8 @@ export function MessageGroup({ messages, onReply }: { messages: MessageSummary[]
   );
 }
 
-function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyTo']> }) {
+function ReplyPreview({ replyTo, onJump }: { replyTo: NonNullable<MessageSummary['replyTo']>; onJump?: ((id: string) => void) | undefined }) {
+  const clickable = Boolean(onJump);
   return (
     <div className="relative flex items-center gap-1.5 pl-[86px] pr-4 pt-1 mb-1 text-[13px] text-fg-muted">
       {/* Discord-style elbow line: vertical from avatar top, curving right into the preview. */}
@@ -335,20 +336,28 @@ function ReplyPreview({ replyTo }: { replyTo: NonNullable<MessageSummary['replyT
       />
       {/* Reply arrow at the end of the elbow */}
       <IconArrowRight aria-hidden size={14} className="absolute left-[67px] top-[5px] text-ok" />
-      {replyTo.authorAvatarUrl && (
-        <img src={replyTo.authorAvatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
-      )}
-      <span
-        className="font-medium shrink-0 truncate max-w-[12rem]"
-        style={replyTo.authorRoleColor ? { color: replyTo.authorRoleColor } : undefined}
+      <button
+        type="button"
+        onClick={clickable ? () => onJump!(replyTo.id) : undefined}
+        disabled={!clickable}
+        title={clickable ? 'Jump to message' : undefined}
+        className={`flex items-center gap-1.5 min-w-0 text-left ${clickable ? 'cursor-pointer hover:text-fg' : ''}`}
       >
-        @{replyTo.authorDisplayName ?? 'unknown'}
-      </span>
-      <span className="text-fg-dim truncate min-w-0 leading-tight">
-        {replyTo.content
-          ? <Markdown source={replyTo.content.split('\n')[0]!.slice(0, 200)} mentions={replyTo.mentions ?? []} jumbo={false} />
-          : (replyTo.authorDisplayName ? '' : 'Original message')}
-      </span>
+        {replyTo.authorAvatarUrl && (
+          <img src={replyTo.authorAvatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
+        )}
+        <span
+          className="font-medium shrink-0 truncate max-w-[12rem]"
+          style={replyTo.authorRoleColor ? { color: replyTo.authorRoleColor } : undefined}
+        >
+          @{replyTo.authorDisplayName ?? 'unknown'}
+        </span>
+        <span className="text-fg-dim truncate min-w-0 leading-tight group-hover:text-fg">
+          {replyTo.content
+            ? <Markdown source={replyTo.content.split('\n')[0]!.slice(0, 200)} mentions={replyTo.mentions ?? []} jumbo={false} />
+            : (replyTo.authorDisplayName ? '' : 'Original message')}
+        </span>
+      </button>
     </div>
   );
 }
