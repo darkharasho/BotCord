@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { GlobalAutonomyConfig } from '../../shared/domain';
 import { pushToast } from './Toaster';
 import { useGlobalAutonomy } from '../lib/use-global-autonomy';
+import { CheckBox } from './CheckBox';
 
 export function GlobalAutonomySettings() {
   const { cfg, set } = useGlobalAutonomy();
@@ -24,8 +25,13 @@ export function GlobalAutonomySettings() {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold text-fg">Autonomy</h3>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={cfg.enabled} onChange={e => save({ enabled: e.target.checked })} disabled={busy} />
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <CheckBox
+          checked={cfg.enabled}
+          onChange={() => save({ enabled: !cfg.enabled })}
+          ariaLabel="Enable autonomy globally"
+          disabled={busy}
+        />
         Enable autonomy globally (kill switch)
       </label>
       <label className="block text-sm">
