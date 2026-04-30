@@ -20,3 +20,5 @@ export const FORUM_POST_DELETE_CHANNEL = IPC_CHANNELS['event.forumPostDelete'];
 export const TYPING_START_CHANNEL = IPC_CHANNELS['event.typingStart'];
 export const AUTONOMY_DRAFT_DELTA_CHANNEL = 'event.autonomyDraftDelta';
 export const AUTONOMY_DRAFT_DONE_CHANNEL = 'event.autonomyDraftDone';
+export const AUTONOMY_THINKING_START_CHANNEL = 'event.autonomyThinkingStart';
+export const AUTONOMY_THINKING_END_CHANNEL = 'event.autonomyThinkingEnd';

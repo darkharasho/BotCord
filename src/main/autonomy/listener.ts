@@ -1,8 +1,12 @@
 import { Events, type Client, type Message, type MessageCreateOptions } from 'discord.js';
 import type { ClientManager } from '../discord/client-manager';
 import type { AutonomyModule } from './index';
-import { broadcast } from '../events/gateway-events';
-import { MESSAGE_CREATE_CHANNEL } from '../events/gateway-events';
+import {
+  broadcast,
+  MESSAGE_CREATE_CHANNEL,
+  AUTONOMY_THINKING_START_CHANNEL,
+  AUTONOMY_THINKING_END_CHANNEL,
+} from '../events/gateway-events';
 import type { AutonomyRepo } from '../db/repos/autonomy';
 import { summarizeMessage } from '../discord/client-manager';
 import { renderMessageContent } from './message-render';
@@ -78,6 +82,9 @@ export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, 
     void typingCh.sendTyping().catch(() => {});
     const typingInterval = setInterval(() => { void typingCh.sendTyping().catch(() => {}); }, 7000);
 
+    // Inline "thinking" indicator in the renderer's chat for this channel.
+    broadcast(AUTONOMY_THINKING_START_CHANNEL, { channelId: m.channelId, triggerMessageId: m.id, botId });
+
     const target = await renderMessageContent(m, { vision: isVisionEnabled(), scratchDir });
 
     let result;
@@ -98,6 +105,7 @@ export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, 
       });
     } finally {
       clearInterval(typingInterval);
+      broadcast(AUTONOMY_THINKING_END_CHANNEL, { channelId: m.channelId, triggerMessageId: m.id });
       await target.cleanup();
     }
 

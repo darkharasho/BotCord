@@ -114,6 +114,8 @@ export interface BotcordApi {
     onSystemContextMenu(cb: (p: SystemContextMenuPayload) => void): () => void;
     onAutonomyDraftDelta(cb: (p: { requestId: string; delta: string }) => void): () => void;
     onAutonomyDraftDone(cb: (p: { requestId: string; text: string; stopReason: string | undefined }) => void): () => void;
+    onAutonomyThinkingStart(cb: (p: { channelId: string; triggerMessageId: string; botId: string }) => void): () => void;
+    onAutonomyThinkingEnd(cb: (p: { channelId: string; triggerMessageId: string }) => void): () => void;
   };
   system: {
     appVersion(): Promise<string>;
@@ -236,6 +238,8 @@ export const IPC_CHANNELS = {
   'autonomy.cancelDraft': 'autonomy.cancelDraft',
   'event.autonomyDraftDelta': 'event.autonomyDraftDelta',
   'event.autonomyDraftDone': 'event.autonomyDraftDone',
+  'event.autonomyThinkingStart': 'event.autonomyThinkingStart',
+  'event.autonomyThinkingEnd': 'event.autonomyThinkingEnd',
 } as const;
 
 export type IpcChannel = keyof typeof IPC_CHANNELS;

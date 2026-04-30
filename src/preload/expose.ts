@@ -112,6 +112,8 @@ const api: BotcordApi = {
     onSystemContextMenu: (cb) => subscribe(IPC_CHANNELS['event.systemContextMenu'], cb as (p: unknown) => void),
     onAutonomyDraftDelta: (cb) => subscribe(IPC_CHANNELS['event.autonomyDraftDelta'], cb as (p: unknown) => void),
     onAutonomyDraftDone: (cb) => subscribe(IPC_CHANNELS['event.autonomyDraftDone'], cb as (p: unknown) => void),
+    onAutonomyThinkingStart: (cb) => subscribe(IPC_CHANNELS['event.autonomyThinkingStart'], cb as (p: unknown) => void),
+    onAutonomyThinkingEnd: (cb) => subscribe(IPC_CHANNELS['event.autonomyThinkingEnd'], cb as (p: unknown) => void),
   },
   system: {
     appVersion: () => invoke(IPC_CHANNELS['system.appVersion']),
