@@ -1,6 +1,6 @@
 {
   "name": "botcord",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "Desktop admin cockpit for Discord (BYOB).",
   "main": "out/main/index.js",
