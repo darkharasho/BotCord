@@ -69,6 +69,15 @@ const api: BotcordApi = {
     get: (key) => invoke(IPC_CHANNELS['prefs.get'], key),
     set: (key, value) => invoke(IPC_CHANNELS['prefs.set'], key, value),
   },
+  autonomy: {
+    detect: () => invoke(IPC_CHANNELS['autonomy.detect']),
+    getGuildConfig: (guildId) => invoke(IPC_CHANNELS['autonomy.getGuildConfig'], guildId),
+    setGuildConfig: (guildId, partial) => invoke(IPC_CHANNELS['autonomy.setGuildConfig'], guildId, partial),
+    getGlobalConfig: () => invoke(IPC_CHANNELS['autonomy.getGlobalConfig']),
+    setGlobalConfig: (partial) => invoke(IPC_CHANNELS['autonomy.setGlobalConfig'], partial),
+    draftReply: (channelId, messageId) => invoke(IPC_CHANNELS['autonomy.draftReply'], channelId, messageId),
+    cancelDraft: (requestId) => invoke(IPC_CHANNELS['autonomy.cancelDraft'], requestId),
+  },
   voice: {
     join: (guildId, channelId) => invoke(IPC_CHANNELS['voice.join'], guildId, channelId),
     leave: () => invoke(IPC_CHANNELS['voice.leave']),
@@ -101,6 +110,8 @@ const api: BotcordApi = {
     onForumPostDelete: (cb) => subscribe(IPC_CHANNELS['event.forumPostDelete'], cb as (p: unknown) => void),
     onTypingStart: (cb) => subscribe(IPC_CHANNELS['event.typingStart'], cb as (p: unknown) => void),
     onSystemContextMenu: (cb) => subscribe(IPC_CHANNELS['event.systemContextMenu'], cb as (p: unknown) => void),
+    onAutonomyDraftDelta: (cb) => subscribe(IPC_CHANNELS['event.autonomyDraftDelta'], cb as (p: unknown) => void),
+    onAutonomyDraftDone: (cb) => subscribe(IPC_CHANNELS['event.autonomyDraftDone'], cb as (p: unknown) => void),
   },
   system: {
     appVersion: () => invoke(IPC_CHANNELS['system.appVersion']),

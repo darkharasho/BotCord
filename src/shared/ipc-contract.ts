@@ -1,6 +1,6 @@
 import type {
   AllMembersEntry, BotIdentity, BotStatus, BotCapabilities, BulkActionResult, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
-  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GuildEmoji, GuildRole, GuildSummary, ListAllMembersResult,
+  EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GlobalAutonomyConfig, GuildAutonomyConfig, GuildEmoji, GuildRole, GuildSummary, ListAllMembersResult,
   MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment, VoiceConnectionState,
 } from './domain';
 import type { Result } from './errors';
@@ -82,6 +82,15 @@ export interface BotcordApi {
     get<K extends keyof Prefs>(key: K): Promise<Result<Prefs[K]>>;
     set<K extends keyof Prefs>(key: K, value: Prefs[K]): Promise<Result<void>>;
   };
+  autonomy: {
+    detect(): Promise<{ found: boolean; version?: string; reason?: string }>;
+    getGuildConfig(guildId: string): Promise<Result<GuildAutonomyConfig>>;
+    setGuildConfig(guildId: string, partial: Partial<Omit<GuildAutonomyConfig, 'guildId' | 'updatedAt'>>): Promise<Result<GuildAutonomyConfig>>;
+    getGlobalConfig(): Promise<Result<GlobalAutonomyConfig>>;
+    setGlobalConfig(partial: Partial<GlobalAutonomyConfig>): Promise<Result<GlobalAutonomyConfig>>;
+    draftReply(channelId: string, messageId: string): Promise<Result<{ requestId: string }>>;
+    cancelDraft(requestId: string): Promise<Result<void>>;
+  };
   voice: {
     join(guildId: string, channelId: string): Promise<Result<VoiceConnectionState>>;
     leave(): Promise<Result<VoiceConnectionState>>;
@@ -103,6 +112,8 @@ export interface BotcordApi {
     onForumPostDelete(cb: (p: { forumId: string; postId: string }) => void): () => void;
     onTypingStart(cb: (p: { channelId: string; userId: string; displayName: string; startedAt: number }) => void): () => void;
     onSystemContextMenu(cb: (p: SystemContextMenuPayload) => void): () => void;
+    onAutonomyDraftDelta(cb: (p: { requestId: string; delta: string }) => void): () => void;
+    onAutonomyDraftDone(cb: (p: { requestId: string; text: string; stopReason: string | undefined }) => void): () => void;
   };
   system: {
     appVersion(): Promise<string>;
@@ -216,6 +227,15 @@ export const IPC_CHANNELS = {
   'event.forumPostDelete': 'event.forumPostDelete',
   'event.typingStart': 'event.typingStart',
   'event.systemContextMenu': 'event.systemContextMenu',
+  'autonomy.detect': 'autonomy.detect',
+  'autonomy.getGuildConfig': 'autonomy.getGuildConfig',
+  'autonomy.setGuildConfig': 'autonomy.setGuildConfig',
+  'autonomy.getGlobalConfig': 'autonomy.getGlobalConfig',
+  'autonomy.setGlobalConfig': 'autonomy.setGlobalConfig',
+  'autonomy.draftReply': 'autonomy.draftReply',
+  'autonomy.cancelDraft': 'autonomy.cancelDraft',
+  'event.autonomyDraftDelta': 'event.autonomyDraftDelta',
+  'event.autonomyDraftDone': 'event.autonomyDraftDone',
 } as const;
 
 export type IpcChannel = keyof typeof IPC_CHANNELS;
