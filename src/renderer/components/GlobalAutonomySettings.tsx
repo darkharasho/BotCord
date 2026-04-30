@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
 import type { GlobalAutonomyConfig } from '../../shared/domain';
 import { pushToast } from './Toaster';
+import { useGlobalAutonomy } from '../lib/use-global-autonomy';
 
 export function GlobalAutonomySettings() {
-  const [cfg, setCfg] = useState<GlobalAutonomyConfig | null>(null);
+  const { cfg, set } = useGlobalAutonomy();
+  const [draftPrompt, setDraftPrompt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.autonomy.getGlobalConfig().then(r => { if (r.ok) setCfg(r.data); });
-  }, []);
+    if (cfg && draftPrompt === null) setDraftPrompt(cfg.systemPrompt);
+  }, [cfg, draftPrompt]);
 
-  if (!cfg) return null;
+  if (!cfg || draftPrompt === null) return null;
 
   const save = async (partial: Partial<GlobalAutonomyConfig>) => {
     setBusy(true);
-    const res = await api.autonomy.setGlobalConfig(partial);
-    setBusy(false);
-    if (res.ok) setCfg(res.data);
-    else pushToast('danger', res.error.message);
+    try { await set(partial); }
+    catch (e) { pushToast('danger', e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -32,9 +32,9 @@ export function GlobalAutonomySettings() {
         <span className="block text-xs font-medium text-fg-muted mb-1">Default persona (used when a server has no override)</span>
         <textarea
           rows={5}
-          value={cfg.systemPrompt}
-          onChange={e => setCfg({ ...cfg, systemPrompt: e.target.value })}
-          onBlur={() => save({ systemPrompt: cfg.systemPrompt })}
+          value={draftPrompt}
+          onChange={e => setDraftPrompt(e.target.value)}
+          onBlur={() => save({ systemPrompt: draftPrompt })}
           className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
           disabled={busy}
         />
