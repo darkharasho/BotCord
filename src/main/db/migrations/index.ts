@@ -33,6 +33,19 @@ CREATE TABLE prefs (
 );
 `;
 
+const M002_AUTONOMY = `
+CREATE TABLE autonomy_guild_config (
+  guild_id        TEXT PRIMARY KEY,
+  enabled         INTEGER NOT NULL DEFAULT 0,
+  channel_ids     TEXT    NOT NULL DEFAULT '[]',
+  context_size    INTEGER NOT NULL DEFAULT 20,
+  system_prompt   TEXT,
+  cooldown_ms     INTEGER NOT NULL DEFAULT 5000,
+  updated_at      INTEGER NOT NULL
+);
+`;
+
 export const MIGRATIONS: ReadonlyArray<Migration> = [
   { version: 1, sql: M001_INIT },
+  { version: 2, sql: M002_AUTONOMY },
 ];
