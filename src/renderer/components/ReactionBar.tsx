@@ -190,7 +190,7 @@ function ReactionTooltip({
         {url
           ? <img src={url} alt="" draggable={false} className="w-8 h-8 shrink-0 select-none" />
           : <TwemojiOne char={reaction.emojiName} className="w-8 h-8 shrink-0 select-none" fallbackClassName="text-[28px] leading-none shrink-0" />}
-        <span className="truncate">
+        <span className="min-w-0 break-words">
           <span className="text-fg-muted">:{reaction.emojiName}:</span>
           <span className="text-fg-muted"> reacted by </span>
           {showOverflow && users
