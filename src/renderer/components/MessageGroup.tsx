@@ -4,7 +4,7 @@ import { MessageContent } from './MessageContent';
 import { Markdown } from './Markdown';
 import {
   IconCornerUpLeft, IconMoodPlus, IconDots, IconPencil, IconTrash,
-  IconPinned, IconCopy, IconLink, IconHash, IconPinnedOff, IconArrowRight,
+  IconPinned, IconCopy, IconLink, IconHash, IconPinnedOff, IconArrowRight, IconSparkles,
 } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
@@ -12,6 +12,7 @@ import { useExclusivePopover } from '../lib/use-exclusive-popover';
 import { EmojiPicker } from './EmojiPicker';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
+import { emitComposerBus } from '../lib/composer-bus';
 import { openContextMenu, updateContextMenuItems, type ContextMenuEntry } from './ContextMenu';
 import { Avatar } from './Avatar';
 import { UserProfileCard } from './UserProfileCard';
@@ -49,15 +50,39 @@ function formatGutterTimestamp(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+function generateReplyWithClaude(channelId: string, messageId: string): void {
+  void (async () => {
+    const detect = await api.autonomy.detect();
+    if (!detect.found) {
+      pushToast('warn', `Claude CLI not available: ${detect.reason ?? 'unknown'}`);
+      return;
+    }
+    const res = await api.autonomy.draftReply(channelId, messageId);
+    if (!res.ok) { pushToast('danger', `Generate failed: ${res.error.message}`); return; }
+    const requestId = res.data.requestId;
+    emitComposerBus({ kind: 'replace', channelId, text: '' });
+    const offDelta = api.events.onAutonomyDraftDelta(({ requestId: rid, delta }) => {
+      if (rid !== requestId) return;
+      emitComposerBus({ kind: 'append', channelId, text: delta });
+    });
+    const offDone = api.events.onAutonomyDraftDone(({ requestId: rid }) => {
+      if (rid !== requestId) return;
+      offDelta();
+      offDone();
+    });
+  })();
+}
+
 // Builds the right-click menu items for a single message.
 function buildMessageMenu({
-  message, isOwn, onReply, onEdit, onAddReaction,
+  message, isOwn, onReply, onEdit, onAddReaction, onGenerateClaudeReply,
 }: {
   message: MessageSummary;
   isOwn: boolean;
   onReply?: () => void;
   onEdit: () => void;
   onAddReaction: () => void;
+  onGenerateClaudeReply?: () => void;
 }): ContextMenuEntry[] {
   const iconCls = 'w-4 h-4 stroke-[1.75]';
   const items: ContextMenuEntry[] = [
@@ -66,6 +91,15 @@ function buildMessageMenu({
   ];
   if (onReply) {
     items.push({ type: 'item', label: 'Reply', onClick: onReply, icon: <IconCornerUpLeft className={`${iconCls} scale-x-[-1]`} /> });
+    items.push({ type: 'separator' });
+  }
+  if (onGenerateClaudeReply) {
+    items.push({
+      type: 'item',
+      label: 'Generate reply with Claude',
+      onClick: onGenerateClaudeReply,
+      icon: <IconSparkles className={iconCls} />,
+    });
     items.push({ type: 'separator' });
   }
   if (message.content) {
@@ -227,6 +261,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
       ...(onReply ? { onReply: () => onReply(m) } : {}),
       onEdit: () => setEditingId(m.id),
       onAddReaction: () => setReactState({ message: m, rect }),
+      onGenerateClaudeReply: () => generateReplyWithClaude(m.channelId, m.id),
     }));
   };
 
@@ -435,6 +470,13 @@ function HoverActions({
             <IconCornerUpLeft size={18} stroke={1.75} className="scale-x-[-1]" />
           </button>
         )}
+        <button
+          onClick={() => generateReplyWithClaude(message.channelId, message.id)}
+          className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
+          title="Generate reply with Claude"
+        >
+          <IconSparkles size={18} stroke={1.75} />
+        </button>
         <div className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
