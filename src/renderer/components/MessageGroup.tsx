@@ -50,7 +50,7 @@ function formatGutterTimestamp(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function generateReplyWithClaude(channelId: string, messageId: string): void {
+function generateReplyWithClaude(channelId: string, messageId: string, authorDisplayName: string): void {
   void (async () => {
     const detect = await api.autonomy.detect();
     if (!detect.found) {
@@ -58,6 +58,7 @@ function generateReplyWithClaude(channelId: string, messageId: string): void {
       return;
     }
     emitComposerBus({ kind: 'clear', channelId });
+    emitComposerBus({ kind: 'setReplyTarget', channelId, messageId, authorDisplayName });
     emitComposerBus({ kind: 'generatingStart', channelId });
     const res = await api.autonomy.draftReply(channelId, messageId);
     if (!res.ok) {
@@ -267,7 +268,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
       ...(onReply ? { onReply: () => onReply(m) } : {}),
       onEdit: () => setEditingId(m.id),
       onAddReaction: () => setReactState({ message: m, rect }),
-      onGenerateClaudeReply: () => generateReplyWithClaude(m.channelId, m.id),
+      onGenerateClaudeReply: () => generateReplyWithClaude(m.channelId, m.id, m.authorDisplayName ?? m.authorTag),
     }));
   };
 
@@ -477,7 +478,7 @@ function HoverActions({
           </button>
         )}
         <button
-          onClick={() => generateReplyWithClaude(message.channelId, message.id)}
+          onClick={() => generateReplyWithClaude(message.channelId, message.id, message.authorDisplayName ?? message.authorTag)}
           className="w-8 h-8 flex items-center justify-center text-fg-muted hover:text-fg hover:bg-hover rounded"
           title="Generate reply with Claude"
         >

@@ -8,6 +8,7 @@ import { IconHash, IconSearch, IconUsers, IconX, IconArrowLeft, IconPinned } fro
 import { api } from '../../lib/api';
 import { PinnedMessagesPopover } from '../../components/PinnedMessagesPopover';
 import { WelcomePane } from '../../components/WelcomePane';
+import { subscribeComposerBus } from '../../lib/composer-bus';
 
 export function ChannelView({ channelId, guildId, channelName, backToForum }: {
   channelId: string | null;
@@ -37,6 +38,17 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
 
   // Reset transient header state when switching channels.
   useEffect(() => { setSearch(''); setSearchOpen(false); setPinnedOpen(false); setJumpTarget(null); setReplyTo(null); }, [channelId]);
+
+  // Let the composer-bus drive the reply target — used by "Generate reply
+  // with Claude" so the drafted message sends as a Discord reply.
+  useEffect(() => {
+    return subscribeComposerBus((action) => {
+      if (action.channelId !== channelId) return;
+      if (action.kind === 'setReplyTarget') {
+        setReplyTo({ messageId: action.messageId, authorDisplayName: action.authorDisplayName });
+      }
+    });
+  }, [channelId]);
 
   if (!channelId) {
     return (

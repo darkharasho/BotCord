@@ -5,7 +5,8 @@ export type ComposerBusAction =
   | { kind: 'replace'; channelId: string; text: string }
   | { kind: 'clear'; channelId: string }
   | { kind: 'generatingStart'; channelId: string }
-  | { kind: 'generatingEnd'; channelId: string };
+  | { kind: 'generatingEnd'; channelId: string }
+  | { kind: 'setReplyTarget'; channelId: string; messageId: string; authorDisplayName: string };
 
 const listeners = new Set<Listener>();
 
