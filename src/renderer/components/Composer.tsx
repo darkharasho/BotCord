@@ -257,7 +257,7 @@ export function Composer({
       const id = mentionMap.current.get(name);
       if (!id) continue;
       const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      out = out.replace(new RegExp(`@${escaped}\\b`, 'g'), `<@${id}>`);
+      out = out.replace(new RegExp(`@${escaped}(?![\\p{L}\\p{N}_])`, 'gu'), `<@${id}>`);
     }
     return out;
   };
@@ -543,7 +543,7 @@ function buildHighlightFragments(text: string, mentions: Map<string, string>): H
   // Match @ followed by any of the known names (longest first so 'John Smith' wins over 'John').
   const names = Array.from(mentions.keys()).sort((a, b) => b.length - a.length);
   const escaped = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const re = new RegExp(`@(?:${escaped.join('|')})\\b`, 'g');
+  const re = new RegExp(`@(?:${escaped.join('|')})(?![\\p{L}\\p{N}_])`, 'gu');
   const out: HighlightFragment[] = [];
   let lastIndex = 0;
   let m: RegExpExecArray | null;
