@@ -32,7 +32,7 @@ export type RunAutonomousRequest = {
 
 export type RunAutonomousResult =
   | { ok: true; text: string }
-  | { ok: false; reason: 'global-disabled' | 'guild-disabled' | 'not-allowed' | 'cooldown' | 'in-flight' | 'rate-cap' | 'cli-missing' | 'empty-output' | 'host-error'; message?: string };
+  | { ok: false; reason: 'global-disabled' | 'guild-disabled' | 'not-allowed' | 'rate-cap' | 'cli-missing' | 'empty-output' | 'host-error' | 'dropped'; message?: string };
 
 export type AutonomyModule = {
   draftReply(req: DraftRequest): Promise<DraftResult>;
@@ -48,9 +48,30 @@ type CreateOpts = {
   cwd: string;
   events: AutonomyEvents;
   now?: () => number;
+  /**
+   * Per-channel queue policy. Items beyond `maxDepth` drop the oldest.
+   * Items older than `ttlMs` are dropped before processing — past that
+   * the conversation context has likely moved on.
+   */
+  queue?: { maxDepth?: number; ttlMs?: number; pollMs?: number };
+};
+
+const DEFAULT_QUEUE_DEPTH = 5;
+const DEFAULT_QUEUE_TTL_MS = 30_000;
+const DEFAULT_QUEUE_POLL_MS = 500;
+
+type QueueItem = {
+  req: RunAutonomousRequest;
+  enqueuedAt: number;
+  resolve: (r: RunAutonomousResult) => void;
 };
 
 export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
+  const now = opts.now ?? (() => Date.now());
+  const maxDepth = opts.queue?.maxDepth ?? DEFAULT_QUEUE_DEPTH;
+  const ttlMs = opts.queue?.ttlMs ?? DEFAULT_QUEUE_TTL_MS;
+  const pollMs = opts.queue?.pollMs ?? DEFAULT_QUEUE_POLL_MS;
+
   const throttle: Throttle = createThrottle({
     rateCapPerMin: () => opts.globalConfig().rateCapPerMin,
     ...(opts.now !== undefined ? { now: opts.now } : {}),
@@ -58,6 +79,9 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
 
   const draftSessions = new Map<string, AutonomySession>();
   const channelSessions = new Map<string, AutonomySession>();
+
+  const queues = new Map<string, QueueItem[]>();
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const resolveSystemPrompt = (guildId: string | null): string => {
     const g = opts.globalConfig();
@@ -83,6 +107,95 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
       }
     }
     return { text, stopReason };
+  };
+
+  const processItem = async (item: QueueItem): Promise<RunAutonomousResult> => {
+    const { req } = item;
+    const sysPrompt = resolveSystemPrompt(req.guildId);
+    const prompt = buildPrompt({
+      systemPrompt: sysPrompt,
+      channelMeta: req.channelMeta,
+      history: req.history,
+      target: req.target,
+    });
+
+    let session: AutonomySession;
+    try {
+      const model = opts.globalConfig().model;
+      session = await opts.host.startSession({ cwd: opts.cwd, ...(model ? { model } : {}) });
+    } catch (e) {
+      return { ok: false, reason: 'host-error', message: e instanceof Error ? e.message : String(e) };
+    }
+    channelSessions.set(req.channelId, session);
+    try {
+      const { text } = await collectText(session, prompt);
+      const cleaned = postProcess(text);
+      if (!cleaned) return { ok: false, reason: 'empty-output' };
+      return { ok: true, text: cleaned };
+    } catch (e) {
+      return { ok: false, reason: 'host-error', message: e instanceof Error ? e.message : String(e) };
+    } finally {
+      channelSessions.delete(req.channelId);
+      try { await session.close(); } catch { /* ignore */ }
+    }
+  };
+
+  const schedule = (channelId: string, delayMs: number) => {
+    if (timers.has(channelId)) return;
+    const t = setTimeout(() => {
+      timers.delete(channelId);
+      void tryProcess(channelId);
+    }, delayMs);
+    timers.set(channelId, t);
+  };
+
+  const drainAll = (channelId: string, reason: RunAutonomousResult & { ok: false }) => {
+    const q = queues.get(channelId);
+    if (!q) return;
+    while (q.length > 0) q.shift()!.resolve(reason);
+    queues.delete(channelId);
+    const t = timers.get(channelId);
+    if (t) { clearTimeout(t); timers.delete(channelId); }
+  };
+
+  const tryProcess = async (channelId: string): Promise<void> => {
+    const q = queues.get(channelId);
+    if (!q || q.length === 0) { queues.delete(channelId); return; }
+
+    // Drop stale items.
+    const t = now();
+    while (q.length > 0 && t - q[0]!.enqueuedAt > ttlMs) {
+      const stale = q.shift()!;
+      stale.resolve({ ok: false, reason: 'dropped', message: 'queue TTL expired' });
+    }
+    if (q.length === 0) { queues.delete(channelId); return; }
+
+    // Re-check policy gates against current config — they may have changed
+    // while items were waiting (kill switch flipped, channel deallowlisted).
+    const g = opts.globalConfig();
+    if (!g.enabled) { drainAll(channelId, { ok: false, reason: 'global-disabled' }); return; }
+    const head = q[0]!;
+    const cfg = opts.guildConfig(head.req.guildId);
+    if (!cfg.enabled) { drainAll(channelId, { ok: false, reason: 'guild-disabled' }); return; }
+    if (!cfg.channelIds.includes(channelId)) { drainAll(channelId, { ok: false, reason: 'not-allowed' }); return; }
+
+    const start = throttle.tryStart(channelId, cfg.cooldownMs);
+    if (start !== 'ok') {
+      // Blocked — retry later. For in-flight, the running item's finally
+      // will re-trigger. For cooldown/rate-cap, poll until clear.
+      if (start !== 'in-flight') schedule(channelId, pollMs);
+      return;
+    }
+
+    const item = q.shift()!;
+    if (q.length === 0) queues.delete(channelId);
+
+    void processItem(item).then(result => {
+      item.resolve(result);
+      throttle.finish(channelId);
+      // Drain next if any items remain.
+      if (queues.has(channelId)) void tryProcess(channelId);
+    });
   };
 
   return {
@@ -117,47 +230,26 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
     },
 
     async runAutonomous(req) {
+      // Quick gate-checks before queueing — saves a queue slot for items
+      // that have no chance of being processed.
       const g = opts.globalConfig();
       if (!g.enabled) return { ok: false, reason: 'global-disabled' };
       const cfg = opts.guildConfig(req.guildId);
       if (!cfg.enabled) return { ok: false, reason: 'guild-disabled' };
       if (!cfg.channelIds.includes(req.channelId)) return { ok: false, reason: 'not-allowed' };
 
-      const start = throttle.tryStart(req.channelId, cfg.cooldownMs);
-      if (start === 'cooldown') return { ok: false, reason: 'cooldown' };
-      if (start === 'in-flight') return { ok: false, reason: 'in-flight' };
-      if (start === 'rate-cap') return { ok: false, reason: 'rate-cap' };
+      // Enqueue and schedule processing.
+      let q = queues.get(req.channelId);
+      if (!q) { q = []; queues.set(req.channelId, q); }
+      if (q.length >= maxDepth) {
+        const dropped = q.shift()!;
+        dropped.resolve({ ok: false, reason: 'dropped', message: 'queue full' });
+      }
 
-      const sysPrompt = resolveSystemPrompt(req.guildId);
-      const prompt = buildPrompt({
-        systemPrompt: sysPrompt,
-        channelMeta: req.channelMeta,
-        history: req.history,
-        target: req.target,
+      return new Promise<RunAutonomousResult>(resolve => {
+        q!.push({ req, enqueuedAt: now(), resolve });
+        void tryProcess(req.channelId);
       });
-
-      let session: AutonomySession;
-      try {
-        const model = opts.globalConfig().model;
-        session = await opts.host.startSession({ cwd: opts.cwd, ...(model ? { model } : {}) });
-      } catch (e) {
-        throttle.finish(req.channelId);
-        const msg = e instanceof Error ? e.message : String(e);
-        return { ok: false, reason: 'host-error', message: msg };
-      }
-      channelSessions.set(req.channelId, session);
-      try {
-        const { text } = await collectText(session, prompt);
-        const cleaned = postProcess(text);
-        if (!cleaned) return { ok: false, reason: 'empty-output' };
-        return { ok: true, text: cleaned };
-      } catch (e) {
-        return { ok: false, reason: 'host-error', message: e instanceof Error ? e.message : String(e) };
-      } finally {
-        channelSessions.delete(req.channelId);
-        throttle.finish(req.channelId);
-        try { await session.close(); } catch { /* ignore */ }
-      }
     },
 
     abortChannel(channelId) {
