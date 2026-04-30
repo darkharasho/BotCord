@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
+import { subscribeComposerBus } from '../lib/composer-bus';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
 import { useExclusivePopover } from '../lib/use-exclusive-popover';
 import { EmojiPicker } from './EmojiPicker';
@@ -75,6 +76,16 @@ export function Composer({
     api.bot.getStatus().then(s => { if (s.kind === 'configured') setGateway(s.gateway); });
     return api.events.onGatewayState(setGateway);
   }, []);
+
+  useEffect(() => {
+    const off = subscribeComposerBus((action) => {
+      if (action.channelId !== channelId) return;
+      if (action.kind === 'append') setText(t => t + action.text);
+      else if (action.kind === 'replace') setText(action.text);
+      else if (action.kind === 'clear') setText('');
+    });
+    return off;
+  }, [channelId]);
 
   useEffect(() => {
     const ta = taRef.current;
