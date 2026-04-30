@@ -76,6 +76,11 @@ export type ChannelSummary = {
   // Populated only for voice channels. `null` everywhere else so consumers
   // don't need to special-case the field.
   voiceMembers: VoiceMemberSummary[] | null;
+  // Discord snowflake of the most recent message in this channel, or null
+  // if unknown. Used to detect "unread since last open" across restarts —
+  // the renderer derives a timestamp from the snowflake and compares it
+  // against the persisted `lastSeen` per channel.
+  lastMessageId: string | null;
 };
 
 export type MessageAttachment = {
@@ -218,6 +223,7 @@ export type MessageSummary = {
   attachments: MessageAttachment[];
   embeds: MessageEmbedSummary[];
   mentions: ResolvedMention[];
+  mentionsEveryone: boolean;
   replyTo: {
     id: string;
     authorDisplayName: string | null;
@@ -283,6 +289,7 @@ export type Prefs = {
   collapsedCategoryIds: string[];
   memberListOpen: boolean;
   channelLastSeen: Record<string, number>;
+  mutedChannelIds: string[];
 };
 
 export type SendAttachment = {

@@ -106,6 +106,8 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
       const m = mentions.find(x => x.type === 'role' && x.id === n.id);
       return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
+    case 'mention_broadcast':
+      return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">@{n.name}</span>;
     case 'custom_emoji':
       return <CustomEmoji key={key} id={n.id} name={n.name} animated={n.animated} jumbo={jumbo} />;
   }

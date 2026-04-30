@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
+import { useBotIdentity } from './use-bot-identity';
 
 export type Unreads = {
   channelIds: Set<string>;
   guildIds: Set<string>;
+  // Channels/guilds with at least one *mention* (bot @-mention or
+  // @everyone/@here) since lastSeen — rendered in red.
+  mentionChannelIds: Set<string>;
+  mentionGuildIds: Set<string>;
+  // Channels the user has muted via the right-click menu. Muted channels
+  // are excluded from the regular unread sets above (they still receive
+  // mentions, matching Discord's behavior).
+  mutedChannelIds: Set<string>;
+  toggleMuted: (channelId: string) => void;
 };
 
 /**
@@ -19,13 +29,21 @@ export type Unreads = {
  */
 export function useUnreads(activeChannelId: string | null): Unreads {
   const [, force] = useState(0);
+  const muted = useRef<Set<string>>(new Set());
   const lastSeen = useRef<Map<string, number>>(new Map());
   const latest = useRef<Map<string, number>>(new Map());
+  // Per-channel timestamp of the most recent message that mentioned the
+  // bot or used @everyone/@here. Compared against lastSeen the same way
+  // `latest` is, so a mention "clears" once the channel is opened.
+  const latestMention = useRef<Map<string, number>>(new Map());
   const channelGuild = useRef<Map<string, string>>(new Map());
   const activeRef = useRef(activeChannelId);
   const loaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   activeRef.current = activeChannelId;
+  const bot = useBotIdentity();
+  const botIdRef = useRef<string | null>(null);
+  botIdRef.current = bot?.id ?? null;
 
   // Persist lastSeen to prefs (debounced to avoid hammering SQLite)
   const persistLastSeen = () => {
@@ -37,13 +55,19 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     }, 2000);
   };
 
-  // Load persisted lastSeen on mount
+  // Load persisted lastSeen + muted set on mount
   useEffect(() => {
-    api.prefs.get('channelLastSeen').then(res => {
-      if (res.ok && res.data) {
-        for (const [k, v] of Object.entries(res.data)) {
+    Promise.all([
+      api.prefs.get('channelLastSeen'),
+      api.prefs.get('mutedChannelIds'),
+    ]).then(([seenRes, mutedRes]) => {
+      if (seenRes.ok && seenRes.data) {
+        for (const [k, v] of Object.entries(seenRes.data)) {
           lastSeen.current.set(k, v);
         }
+      }
+      if (mutedRes.ok && Array.isArray(mutedRes.data)) {
+        for (const id of mutedRes.data) muted.current.add(id);
       }
       loaded.current = true;
       force(n => n + 1);
@@ -53,6 +77,13 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     };
   }, []);
 
+  const toggleMuted = (channelId: string) => {
+    if (muted.current.has(channelId)) muted.current.delete(channelId);
+    else muted.current.add(channelId);
+    api.prefs.set('mutedChannelIds', Array.from(muted.current));
+    force(n => n + 1);
+  };
+
   useEffect(() => {
     if (!activeChannelId) return;
     const t = latest.current.get(activeChannelId) ?? Date.now();
@@ -61,10 +92,44 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     force(n => n + 1);
   }, [activeChannelId]);
 
+  // Seed `latest` from each channel's `lastMessageId` so unreads survive
+  // restart: even before any live messageCreate fires, we know the most
+  // recent message timestamp per channel from the snowflake.
+  useEffect(() => {
+    let cancelled = false;
+    const seedFromChannels = async () => {
+      const guildsRes = await api.guilds.list();
+      if (!guildsRes.ok || cancelled) return;
+      await Promise.all(guildsRes.data.map(async g => {
+        const channelsRes = await api.guilds.listChannels(g.id);
+        if (!channelsRes.ok || cancelled) return;
+        for (const c of channelsRes.data) {
+          channelGuild.current.set(c.id, g.id);
+          if (c.lastMessageId) {
+            const ts = snowflakeTimestamp(c.lastMessageId);
+            const existing = latest.current.get(c.id) ?? 0;
+            if (ts > existing) latest.current.set(c.id, ts);
+          }
+        }
+      }));
+      if (!cancelled) force(n => n + 1);
+    };
+    seedFromChannels();
+    const unsub = api.events.onGatewayState(s => { if (s.status === 'ready') seedFromChannels(); });
+    return () => { cancelled = true; unsub(); };
+  }, []);
+
   useEffect(() => {
     return api.events.onMessageCreate(({ channelId, message }) => {
       latest.current.set(channelId, message.createdAt);
       if (message.guildId) channelGuild.current.set(channelId, message.guildId);
+      const botId = botIdRef.current;
+      const mentionsBot = botId
+        ? message.mentions.some(m => m.type === 'user' && m.id === botId)
+        : false;
+      if (message.mentionsEveryone || mentionsBot) {
+        latestMention.current.set(channelId, message.createdAt);
+      }
       if (channelId === activeRef.current) {
         lastSeen.current.set(channelId, message.createdAt);
         if (loaded.current) persistLastSeen();
@@ -75,13 +140,45 @@ export function useUnreads(activeChannelId: string | null): Unreads {
 
   const channelIds = new Set<string>();
   const guildIds = new Set<string>();
+  const mentionChannelIds = new Set<string>();
+  const mentionGuildIds = new Set<string>();
   for (const [cid, latestTs] of latest.current) {
     const seenTs = lastSeen.current.get(cid) ?? 0;
     if (latestTs > seenTs) {
-      channelIds.add(cid);
       const gid = channelGuild.current.get(cid);
-      if (gid) guildIds.add(gid);
+      const isMuted = muted.current.has(cid);
+      const mentionTs = latestMention.current.get(cid) ?? 0;
+      const hasMention = mentionTs > seenTs;
+      // Muted channels suppress the normal unread state but still light up
+      // for mentions — matches Discord's "Suppress @everyone notifications"
+      // off-by-default but mentions-still-ping behavior.
+      if (!isMuted) {
+        channelIds.add(cid);
+        if (gid) guildIds.add(gid);
+      }
+      if (hasMention) {
+        mentionChannelIds.add(cid);
+        if (gid) mentionGuildIds.add(gid);
+      }
     }
   }
-  return { channelIds, guildIds };
+  return {
+    channelIds,
+    guildIds,
+    mentionChannelIds,
+    mentionGuildIds,
+    mutedChannelIds: muted.current,
+    toggleMuted,
+  };
+}
+
+const DISCORD_EPOCH = 1420070400000;
+function snowflakeTimestamp(id: string): number {
+  // Snowflake high bits encode (ms since Discord epoch). Use BigInt because
+  // 64-bit snowflakes overflow JS Number precision past 53 bits.
+  try {
+    return Number((BigInt(id) >> 22n)) + DISCORD_EPOCH;
+  } catch {
+    return 0;
+  }
 }

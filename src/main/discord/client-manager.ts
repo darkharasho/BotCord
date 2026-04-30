@@ -259,7 +259,7 @@ export function createClientManager(vault: TokenVault): ClientManager {
 }
 
 export function projectChannel(
-  ch: { id: string; guildId: string | null; name: string | null; type: number; parentId: string | null; position?: number; topic?: string | null },
+  ch: { id: string; guildId: string | null; name: string | null; type: number; parentId: string | null; position?: number; topic?: string | null; lastMessageId?: string | null },
   voiceMembers: VoiceMemberSummary[] | null = null,
 ): ChannelSummary {
   return {
@@ -271,6 +271,7 @@ export function projectChannel(
     position: ch.position ?? 0,
     topic: ch.topic ?? null,
     voiceMembers,
+    lastMessageId: ch.lastMessageId ?? null,
   };
 }
 
@@ -420,6 +421,7 @@ export function summarizeMessage(m: Message): MessageSummary {
     attachments,
     embeds,
     mentions,
+    mentionsEveryone: m.mentions.everyone ?? false,
     replyTo: projectReplyTo(m),
     systemKind: classifySystemMessage(m.type, m.system),
     poll: projectPoll(m.poll),

@@ -13,16 +13,22 @@ import {
   IconUsers,
   IconChevronUp,
   IconChevronDown,
+  IconBellOff,
+  IconBell,
 } from '@tabler/icons-react';
+import { openContextMenu } from './ContextMenu';
 import type { Icon } from '@tabler/icons-react';
 
 export function ChannelList({
-  guildId, selected, onSelect, unreadIds, view, onSelectMembers, memberCount,
+  guildId, selected, onSelect, unreadIds, mentionIds, mutedIds, onToggleMute, view, onSelectMembers, memberCount,
 }: {
   guildId: string | null;
   selected: string | null;
   onSelect: (id: string) => void;
   unreadIds?: Set<string>;
+  mentionIds?: Set<string>;
+  mutedIds?: Set<string>;
+  onToggleMute?: (channelId: string) => void;
   view: 'channel' | 'members';
   onSelectMembers: () => void;
   memberCount: number | null;
@@ -33,7 +39,7 @@ export function ChannelList({
   const collapsedRef = useRef(collapsed);
   collapsedRef.current = collapsed;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [unreadOffscreen, setUnreadOffscreen] = useState<{ above: boolean; below: boolean }>({ above: false, below: false });
+  const [unreadOffscreen, setUnreadOffscreen] = useState<{ above: boolean; below: boolean; mentionAbove: boolean; mentionBelow: boolean }>({ above: false, below: false, mentionAbove: false, mentionBelow: false });
 
   // Hydrate from prefs once, then mark loaded so the persistence effect can
   // start saving without overwriting the just-loaded value.
@@ -80,17 +86,28 @@ export function ChannelList({
     const buttons = scroller.querySelectorAll<HTMLElement>('[data-unread-channel]');
     let above = false;
     let below = false;
+    let mentionAbove = false;
+    let mentionBelow = false;
     buttons.forEach(btn => {
       const r = btn.getBoundingClientRect();
-      if (r.bottom <= sr.top + 1) above = true;
-      else if (r.top >= sr.bottom - 1) below = true;
+      const isMention = btn.dataset.mention === 'true';
+      if (r.bottom <= sr.top + 1) {
+        above = true;
+        if (isMention) mentionAbove = true;
+      } else if (r.top >= sr.bottom - 1) {
+        below = true;
+        if (isMention) mentionBelow = true;
+      }
     });
-    setUnreadOffscreen(prev => (prev.above === above && prev.below === below) ? prev : { above, below });
+    setUnreadOffscreen(prev =>
+      (prev.above === above && prev.below === below && prev.mentionAbove === mentionAbove && prev.mentionBelow === mentionBelow)
+        ? prev
+        : { above, below, mentionAbove, mentionBelow });
   };
 
   useEffect(() => {
     recomputeUnreadOffscreen();
-  }, [channels, unreadIds, collapsed]);
+  }, [channels, unreadIds, mentionIds, collapsed]);
 
   const scrollToOffscreenUnread = (direction: 'up' | 'down') => {
     const scroller = scrollRef.current;
@@ -102,7 +119,10 @@ export function ChannelList({
       return direction === 'up' ? r.bottom <= sr.top + 1 : r.top >= sr.bottom - 1;
     });
     if (offscreen.length === 0) return;
-    const target = direction === 'up' ? offscreen[offscreen.length - 1]! : offscreen[0]!;
+    // Prefer jumping to a mention if any is offscreen in this direction.
+    const mentions = offscreen.filter(b => b.dataset.mention === 'true');
+    const pool = mentions.length > 0 ? mentions : offscreen;
+    const target = direction === 'up' ? pool[pool.length - 1]! : pool[0]!;
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
@@ -146,26 +166,50 @@ export function ChannelList({
   const renderChannel = (c: ChannelSummary, indent = false) => {
     const Glyph = kindGlyph(c.type);
     const isSelected = selected === c.id;
-    const isUnread = !isSelected && unreadIds?.has(c.id);
+    const isMuted = !!mutedIds?.has(c.id);
+    const isMention = !isSelected && !!mentionIds?.has(c.id);
+    // Muted channels don't show the normal unread treatment, but mentions
+    // still light up red so the user can't miss being addressed directly.
+    const isUnread = !isSelected && !!unreadIds?.has(c.id) && (!isMuted || isMention);
     const voiceMembers = c.type === 'voice' ? (c.voiceMembers ?? []) : [];
+
+    const onContextMenu = (e: React.MouseEvent) => {
+      if (!onToggleMute) return;
+      openContextMenu(e, [
+        {
+          type: 'item',
+          label: isMuted ? 'Unmute Channel' : 'Mute Channel',
+          icon: isMuted
+            ? <IconBell size={16} stroke={1.75} />
+            : <IconBellOff size={16} stroke={1.75} />,
+          onClick: () => onToggleMute(c.id),
+        },
+      ]);
+    };
+
     return (
       <div key={c.id} className="relative">
         {isUnread && (
-          <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-fg rounded-r-full animate-fade-in" />
+          <span className={`absolute -left-2 top-1/2 -translate-y-1/2 w-1 ${isMention ? 'h-5 bg-danger' : 'h-2 bg-fg'} rounded-r-full animate-fade-in`} />
         )}
         <button
           {...(isUnread ? { 'data-unread-channel': c.id } : {})}
+          {...(isMention ? { 'data-mention': 'true' } : {})}
           onClick={() => onSelect(c.id)}
+          onContextMenu={onContextMenu}
           className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5 transition-colors duration-150
             ${indent ? 'pl-7' : ''}
             ${isSelected
               ? 'bg-selected text-fg'
               : isUnread
                 ? 'text-fg font-medium hover:bg-hover'
-                : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
+                : isMuted
+                  ? 'text-fg-dim/60 hover:bg-hover hover:text-fg-dim'
+                  : 'text-fg-dim hover:bg-hover hover:text-fg-muted'}`}
         >
-          <Glyph size={20} stroke={1.75} className={isUnread ? 'text-fg shrink-0' : 'text-fg-dim shrink-0'} />
-          <span className="truncate">{c.name}</span>
+          <Glyph size={20} stroke={1.75} className={`${isUnread ? 'text-fg' : isMuted ? 'text-fg-dim/60' : 'text-fg-dim'} shrink-0`} />
+          <span className="truncate flex-1">{c.name}</span>
+          {isMuted && <IconBellOff size={14} stroke={1.75} className="text-fg-dim/70 shrink-0" />}
         </button>
         {voiceMembers.length > 0 && (
           <ul className="mt-0.5 space-y-px">
@@ -197,17 +241,27 @@ export function ChannelList({
       {unreadOffscreen.above && (
         <button
           onClick={() => scrollToOffscreenUnread('up')}
-          className="absolute z-10 top-2 inset-x-0 mx-auto w-fit px-2.5 py-1 bg-selected text-fg-muted rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg hover:text-fg animate-fade-in-down transition-colors flex items-center gap-1"
+          className={`absolute z-10 top-2 inset-x-0 mx-auto w-fit px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg animate-fade-in-down transition-colors flex items-center gap-1 ${
+            unreadOffscreen.mentionAbove
+              ? 'bg-danger text-white hover:brightness-110'
+              : 'bg-selected text-fg-muted hover:text-fg'
+          }`}
         >
-          <IconChevronUp size={12} stroke={2.5} aria-hidden /> New unreads
+          <IconChevronUp size={12} stroke={2.5} aria-hidden />
+          {unreadOffscreen.mentionAbove ? 'Mentions' : 'New unreads'}
         </button>
       )}
       {unreadOffscreen.below && (
         <button
           onClick={() => scrollToOffscreenUnread('down')}
-          className="absolute z-10 bottom-2 inset-x-0 mx-auto w-fit px-2.5 py-1 bg-selected text-fg-muted rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg hover:text-fg animate-fade-in-up transition-colors flex items-center gap-1"
+          className={`absolute z-10 bottom-2 inset-x-0 mx-auto w-fit px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg animate-fade-in-up transition-colors flex items-center gap-1 ${
+            unreadOffscreen.mentionBelow
+              ? 'bg-danger text-white hover:brightness-110'
+              : 'bg-selected text-fg-muted hover:text-fg'
+          }`}
         >
-          <IconChevronDown size={12} stroke={2.5} aria-hidden /> New unreads
+          <IconChevronDown size={12} stroke={2.5} aria-hidden />
+          {unreadOffscreen.mentionBelow ? 'Mentions' : 'New unreads'}
         </button>
       )}
       <div ref={scrollRef} onScroll={recomputeUnreadOffscreen} className="h-full overflow-y-auto px-2 pt-2 pb-4">

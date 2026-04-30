@@ -6,8 +6,13 @@ import { Tooltip } from './Tooltip';
 const ANIMATED_PLAY_MS = 3000; // play once on mount for ~3s, then freeze on first frame
 
 export function ServerRail({
-  selected, onSelect, unreadGuildIds,
-}: { selected: string | null; onSelect: (g: GuildSummary) => void; unreadGuildIds?: Set<string> }) {
+  selected, onSelect, unreadGuildIds, mentionGuildIds,
+}: {
+  selected: string | null;
+  onSelect: (g: GuildSummary) => void;
+  unreadGuildIds?: Set<string>;
+  mentionGuildIds?: Set<string>;
+}) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +42,7 @@ export function ServerRail({
           guild={g}
           selected={selected === g.id}
           unread={!!unreadGuildIds?.has(g.id)}
+          mention={!!mentionGuildIds?.has(g.id)}
           onSelect={onSelect}
         />
       ))}
@@ -48,8 +54,8 @@ export function ServerRail({
 }
 
 function GuildRailItem({
-  guild, selected, unread, onSelect,
-}: { guild: GuildSummary; selected: boolean; unread: boolean; onSelect: (g: GuildSummary) => void }) {
+  guild, selected, unread, mention, onSelect,
+}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; onSelect: (g: GuildSummary) => void }) {
   const [hovered, setHovered] = useState(false);
   const [playOnMount, setPlayOnMount] = useState(true);
 
@@ -93,6 +99,9 @@ function GuildRailItem({
             ? <img src={iconSrc} alt="" className="w-full h-full object-cover" />
             : guild.name.slice(0, 2).toUpperCase()}
         </div>
+        {mention && (
+          <span className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in" aria-label="mention" />
+        )}
       </button>
     </Tooltip>
   );

@@ -13,6 +13,7 @@ export type MdNode =
   | { type: 'mention_user'; id: string }
   | { type: 'mention_channel'; id: string }
   | { type: 'mention_role'; id: string }
+  | { type: 'mention_broadcast'; name: 'everyone' | 'here' }
   | { type: 'custom_emoji'; name: string; id: string; animated: boolean };
 
 export function parseMarkdown(input: string): MdNode[] {
@@ -124,6 +125,22 @@ function parseInline(text: string, opts: { preserveNewlines?: boolean } = {}): M
         out.push({ type: 'code_inline', value: text.slice(i + 1, end) });
         i = end + 1;
         continue;
+      }
+    }
+
+    // @everyone / @here broadcast mentions (plain text, not wrapped in <>).
+    // Only match at a word boundary so we don't grab "foo@everyone".
+    if (c === '@') {
+      const prev = i > 0 ? text[i - 1]! : '';
+      const atWordBoundary = i === 0 || /\s|[.,;:!?(\[{<>"']/.test(prev);
+      if (atWordBoundary) {
+        const broadcastMatch = /^@(everyone|here)\b/.exec(text.slice(i));
+        if (broadcastMatch) {
+          flushBuf();
+          out.push({ type: 'mention_broadcast', name: broadcastMatch[1] as 'everyone' | 'here' });
+          i += broadcastMatch[0].length;
+          continue;
+        }
       }
     }
 

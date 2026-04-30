@@ -59,6 +59,7 @@ export function ShellRoute() {
             setForumPostRef(null);
           }}
           unreadGuildIds={unreads.guildIds}
+          mentionGuildIds={unreads.mentionGuildIds}
         />
       </aside>
       <aside className="w-[310px] shrink-0 min-h-0 bg-bg-sunken flex flex-col rounded-tl-xl border-t border-l border-white/[0.04] overflow-hidden">
@@ -72,6 +73,9 @@ export function ShellRoute() {
             selected={channelId}
             onSelect={setChannelView}
             unreadIds={unreads.channelIds}
+            mentionIds={unreads.mentionChannelIds}
+            mutedIds={unreads.mutedChannelIds}
+            onToggleMute={unreads.toggleMuted}
             view={view.kind}
             onSelectMembers={setMembersView}
             memberCount={guild?.memberCount ?? null}
