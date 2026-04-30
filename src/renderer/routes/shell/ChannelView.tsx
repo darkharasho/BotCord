@@ -4,7 +4,6 @@ import { Composer } from '../../components/Composer';
 import { MemberList } from '../../components/MemberList';
 import { ForumPostHeader } from '../../components/ForumPostHeader';
 import { TypingIndicator } from '../../components/TypingIndicator';
-import { AutonomyThinkingIndicator } from '../../components/AutonomyThinkingIndicator';
 import { IconHash, IconSearch, IconUsers, IconX, IconArrowLeft, IconPinned } from '@tabler/icons-react';
 import { api } from '../../lib/api';
 import { PinnedMessagesPopover } from '../../components/PinnedMessagesPopover';
@@ -147,7 +146,6 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
             onJumpComplete={() => setJumpTarget(null)}
             scrollToBottomTrigger={replyTo}
           />
-          <AutonomyThinkingIndicator channelId={channelId} />
           <TypingIndicator channelId={channelId} />
           <Composer
             channelId={channelId}

@@ -8,6 +8,8 @@ import {
 } from '@tabler/icons-react';
 import { useBotIdentity } from '../lib/use-bot-identity';
 import { useGuildEmojis } from '../lib/use-guild-emojis';
+import { useAutonomyThinkingForChannel } from '../lib/use-autonomy-thinking';
+import { MessageThinkingIndicator } from './MessageThinkingIndicator';
 import { useExclusivePopover } from '../lib/use-exclusive-popover';
 import { EmojiPicker } from './EmojiPicker';
 import { api } from '../lib/api';
@@ -179,6 +181,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
   if (messages.length === 0) return null;
   const head = messages[0]!;
   const bot = useBotIdentity();
+  const thinkingSet = useAutonomyThinkingForChannel(head.channelId);
   // One message in the group at most can be in inline-edit mode.
   const [editingId, setEditingId] = useState<string | null>(null);
   // Profile card state — anchored to the avatar/name that was clicked.
@@ -323,25 +326,28 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
           </div>
         </div>
       </div>
+      {thinkingSet.has(head.id) && <MessageThinkingIndicator />}
       {messages.slice(1).map(m => (
-        <div
-          key={m.id}
-          data-message-id={m.id}
-          onContextMenu={(e) => onContextMenu(e, m)}
-          className={`relative flex gap-4 -mx-4 px-4 py-0.5 group ${mentionsBot(m, bot?.id) ? MENTION_ROW : 'hover:bg-hover/40'}`}
-        >
-          <HoverActions
-            message={m}
-            isOwn={bot?.id === m.authorId}
-            onReply={onReply}
-            onEdit={() => setEditingId(m.id)}
-          />
-          <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-[21px] whitespace-nowrap tracking-tight">
-            {formatGutterTimestamp(m.createdAt)}
+        <div key={m.id}>
+          <div
+            data-message-id={m.id}
+            onContextMenu={(e) => onContextMenu(e, m)}
+            className={`relative flex gap-4 -mx-4 px-4 py-0.5 group ${mentionsBot(m, bot?.id) ? MENTION_ROW : 'hover:bg-hover/40'}`}
+          >
+            <HoverActions
+              message={m}
+              isOwn={bot?.id === m.authorId}
+              onReply={onReply}
+              onEdit={() => setEditingId(m.id)}
+            />
+            <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-[21px] whitespace-nowrap tracking-tight">
+              {formatGutterTimestamp(m.createdAt)}
+            </div>
+            <div className="flex-1 min-w-0">
+              {renderBody(m)}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            {renderBody(m)}
-          </div>
+          {thinkingSet.has(m.id) && <MessageThinkingIndicator />}
         </div>
       ))}
       {reactState && (
