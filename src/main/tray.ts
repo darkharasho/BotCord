@@ -9,7 +9,12 @@ type TrayDeps = {
   onQuit: () => void;
 };
 
+// Tray icon prefers the monochrome wordmark — system trays are typically
+// dark on Linux/Windows and white-on-transparent reads cleanly. Falls back
+// to the full colored icon if the white variant isn't bundled.
 const ICON_CANDIDATES = [
+  () => join(app.getAppPath(), 'public', 'botcord-white.png'),
+  () => join(__dirname, '../../public/botcord-white.png'),
   () => join(app.getAppPath(), 'public', 'botcord-icon.png'),
   () => join(__dirname, '../../public/botcord-icon.png'),
   () => join(process.resourcesPath, 'resources', 'icon-256.png'),
@@ -22,8 +27,12 @@ function loadTrayIcon(): Electron.NativeImage {
     const p = get();
     if (existsSync(p)) {
       const img = nativeImage.createFromPath(p);
-      // 22x22 is the canonical AppIndicator size on Linux; macOS auto-scales.
-      return img.resize({ width: 22, height: 22 });
+      // Scale by height only so non-square wordmarks (e.g. the white logo)
+      // keep their aspect ratio. 22px is the canonical AppIndicator size on
+      // Linux; macOS / Windows trays auto-scale from there.
+      const { height } = img.getSize();
+      if (height === 0) return img;
+      return img.resize({ height: 22 });
     }
   }
   return nativeImage.createEmpty();
