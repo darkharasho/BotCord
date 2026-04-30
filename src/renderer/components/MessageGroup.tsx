@@ -370,14 +370,14 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
 function ReplyPreview({ replyTo, onJump }: { replyTo: NonNullable<MessageSummary['replyTo']>; onJump?: ((id: string) => void) | undefined }) {
   const clickable = Boolean(onJump);
   return (
-    <div className="relative flex items-center gap-1.5 pl-[86px] pr-4 pt-1 mb-1 text-[13px] text-fg-muted">
+    <div className="relative flex items-center gap-1.5 pl-[60px] pr-4 pt-1 mb-1 text-[13px] text-fg-muted">
       {/* Discord-style elbow line: vertical from avatar top, curving right into the preview. */}
       <span
         aria-hidden
-        className="absolute left-[20px] top-[11px] bottom-[-18px] w-[44px] border-l-2 border-t-2 border-white/[0.12] rounded-tl-[6px]"
+        className="absolute left-[20px] top-[13px] bottom-[-16px] w-[24px] border-l-[2.5px] border-t-[2.5px] border-white/[0.12] rounded-tl-[6px]"
       />
       {/* Reply arrow at the end of the elbow */}
-      <IconArrowRight aria-hidden size={14} className="absolute left-[67px] top-[5px] text-ok" />
+      <IconArrowRight aria-hidden size={12} className="absolute left-[46px] top-[8px] text-ok z-10" />
       <button
         type="button"
         onClick={clickable ? () => onJump!(replyTo.id) : undefined}
