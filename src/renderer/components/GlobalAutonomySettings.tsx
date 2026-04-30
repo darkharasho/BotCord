@@ -86,6 +86,39 @@ export function GlobalAutonomySettings() {
           </span>
         </span>
       </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-sm">
+          <span className="block text-xs font-medium text-fg-muted mb-1">Queue depth (per channel)</span>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={cfg.queueMaxDepth}
+            onChange={e => save({ queueMaxDepth: Math.max(1, Math.min(50, parseInt(e.target.value || '5', 10))) })}
+            className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
+            disabled={busy}
+          />
+          <span className="block text-[11px] text-fg-dim mt-0.5">
+            Max queued mentions/replies waiting per channel. Beyond this, oldest gets dropped.
+          </span>
+        </label>
+        <label className="block text-sm">
+          <span className="block text-xs font-medium text-fg-muted mb-1">Queue TTL (seconds)</span>
+          <input
+            type="number"
+            min={5}
+            max={600}
+            value={cfg.queueTtlSeconds}
+            onChange={e => save({ queueTtlSeconds: Math.max(5, Math.min(600, parseInt(e.target.value || '60', 10))) })}
+            className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
+            disabled={busy}
+          />
+          <span className="block text-[11px] text-fg-dim mt-0.5">
+            How long a queued trigger waits before being dropped as stale.
+          </span>
+        </label>
+      </div>
     </div>
   );
 }

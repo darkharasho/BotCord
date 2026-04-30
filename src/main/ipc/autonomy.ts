@@ -23,6 +23,8 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
     rateCapPerMin: prefs.get('autonomyGlobalRateCapPerMin') ?? 20,
     visionEnabled: prefs.get('autonomyVisionEnabled') ?? false,
     model: prefs.get('autonomyModel') ?? '',
+    queueMaxDepth: prefs.get('autonomyQueueMaxDepth') ?? 5,
+    queueTtlSeconds: prefs.get('autonomyQueueTtlSeconds') ?? 60,
   });
 
   ipcMain.handle(IPC_CHANNELS['autonomy.detect'], async () => host.detect());
@@ -49,6 +51,12 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
     if (typeof p.rateCapPerMin === 'number' && p.rateCapPerMin > 0) prefs.set('autonomyGlobalRateCapPerMin', Math.floor(p.rateCapPerMin));
     if (typeof p.visionEnabled === 'boolean') prefs.set('autonomyVisionEnabled', p.visionEnabled);
     if (typeof p.model === 'string') prefs.set('autonomyModel', p.model);
+    if (typeof p.queueMaxDepth === 'number' && p.queueMaxDepth >= 1 && p.queueMaxDepth <= 50) {
+      prefs.set('autonomyQueueMaxDepth', Math.floor(p.queueMaxDepth));
+    }
+    if (typeof p.queueTtlSeconds === 'number' && p.queueTtlSeconds >= 5 && p.queueTtlSeconds <= 600) {
+      prefs.set('autonomyQueueTtlSeconds', Math.floor(p.queueTtlSeconds));
+    }
     return ok(readGlobal());
   });
 

@@ -314,6 +314,8 @@ export type Prefs = {
   autonomyGlobalRateCapPerMin: number;
   autonomyVisionEnabled: boolean;
   autonomyModel: string;
+  autonomyQueueMaxDepth: number;
+  autonomyQueueTtlSeconds: number;
   closeToTray: boolean;
   closeToTrayHintShown: boolean;
 };
@@ -398,6 +400,8 @@ export type GlobalAutonomyConfig = {
   rateCapPerMin: number;
   visionEnabled: boolean;
   model: string; // empty string = use claude CLI default
+  queueMaxDepth: number;
+  queueTtlSeconds: number;
 };
 
 export const AUTONOMY_MODEL_OPTIONS = [

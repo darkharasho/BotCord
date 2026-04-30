@@ -48,16 +48,14 @@ type CreateOpts = {
   cwd: string;
   events: AutonomyEvents;
   now?: () => number;
-  /**
-   * Per-channel queue policy. Items beyond `maxDepth` drop the oldest.
-   * Items older than `ttlMs` are dropped before processing — past that
-   * the conversation context has likely moved on.
-   */
-  queue?: { maxDepth?: number; ttlMs?: number; pollMs?: number };
+  /** Polling interval (ms) when waiting for cooldown / rate-cap to clear.
+   * Pure mechanics; not user-tunable. Per-channel queue depth and TTL
+   * come from globalConfig() so changes take effect immediately. */
+  pollMs?: number;
 };
 
 const DEFAULT_QUEUE_DEPTH = 5;
-const DEFAULT_QUEUE_TTL_MS = 30_000;
+const DEFAULT_QUEUE_TTL_SECONDS = 60;
 const DEFAULT_QUEUE_POLL_MS = 500;
 
 type QueueItem = {
@@ -68,9 +66,15 @@ type QueueItem = {
 
 export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
   const now = opts.now ?? (() => Date.now());
-  const maxDepth = opts.queue?.maxDepth ?? DEFAULT_QUEUE_DEPTH;
-  const ttlMs = opts.queue?.ttlMs ?? DEFAULT_QUEUE_TTL_MS;
-  const pollMs = opts.queue?.pollMs ?? DEFAULT_QUEUE_POLL_MS;
+  const pollMs = opts.pollMs ?? DEFAULT_QUEUE_POLL_MS;
+  const currentMaxDepth = (): number => {
+    const v = opts.globalConfig().queueMaxDepth;
+    return typeof v === 'number' && v >= 1 ? Math.floor(v) : DEFAULT_QUEUE_DEPTH;
+  };
+  const currentTtlMs = (): number => {
+    const v = opts.globalConfig().queueTtlSeconds;
+    return (typeof v === 'number' && v >= 1 ? Math.floor(v) : DEFAULT_QUEUE_TTL_SECONDS) * 1000;
+  };
 
   const throttle: Throttle = createThrottle({
     rateCapPerMin: () => opts.globalConfig().rateCapPerMin,
@@ -164,6 +168,7 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
 
     // Drop stale items.
     const t = now();
+    const ttlMs = currentTtlMs();
     while (q.length > 0 && t - q[0]!.enqueuedAt > ttlMs) {
       const stale = q.shift()!;
       stale.resolve({ ok: false, reason: 'dropped', message: 'queue TTL expired' });
@@ -241,6 +246,7 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
       // Enqueue and schedule processing.
       let q = queues.get(req.channelId);
       if (!q) { q = []; queues.set(req.channelId, q); }
+      const maxDepth = currentMaxDepth();
       if (q.length >= maxDepth) {
         const dropped = q.shift()!;
         dropped.resolve({ ok: false, reason: 'dropped', message: 'queue full' });

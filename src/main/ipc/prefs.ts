@@ -11,6 +11,7 @@ const VALID_KEYS: ReadonlyArray<keyof Prefs> = [
   'mutedChannelIds', 'giphyApiKey',
   'autonomyGlobalEnabled', 'autonomyGlobalSystemPrompt', 'autonomyGlobalRateCapPerMin',
   'autonomyVisionEnabled', 'autonomyModel',
+  'autonomyQueueMaxDepth', 'autonomyQueueTtlSeconds',
   'closeToTray', 'closeToTrayHintShown',
 ];
 

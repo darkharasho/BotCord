@@ -60,6 +60,8 @@ if (!gotLock) {
         rateCapPerMin: prefs.get('autonomyGlobalRateCapPerMin') ?? 20,
         visionEnabled: prefs.get('autonomyVisionEnabled') ?? false,
         model: prefs.get('autonomyModel') ?? '',
+        queueMaxDepth: prefs.get('autonomyQueueMaxDepth') ?? 5,
+        queueTtlSeconds: prefs.get('autonomyQueueTtlSeconds') ?? 60,
       }),
       guildConfig: (guildId) => autonomyDbRepo.getGuildConfig(guildId),
       cwd: cdkScratch,
