@@ -18,3 +18,5 @@ export const GUILD_EMOJIS_UPDATE_CHANNEL = IPC_CHANNELS['event.guildEmojisUpdate
 export const FORUM_POST_UPDATE_CHANNEL = IPC_CHANNELS['event.forumPostUpdate'];
 export const FORUM_POST_DELETE_CHANNEL = IPC_CHANNELS['event.forumPostDelete'];
 export const TYPING_START_CHANNEL = IPC_CHANNELS['event.typingStart'];
+export const AUTONOMY_DRAFT_DELTA_CHANNEL = 'event.autonomyDraftDelta';
+export const AUTONOMY_DRAFT_DONE_CHANNEL = 'event.autonomyDraftDone';

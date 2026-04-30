@@ -8,7 +8,10 @@ import { registerDraftsHandlers } from './drafts';
 import { registerPrefsHandlers } from './prefs';
 import { registerMembersBulkHandlers } from './members-bulk';
 import { registerVoiceHandlers } from './voice';
+import { registerAutonomyHandlers } from './autonomy';
 import type { ClientManager } from '../discord/client-manager';
+import type { AutonomyModule } from '../autonomy';
+import type { AutonomyHost } from '../autonomy/types';
 
 export type IpcDeps = {
   vault: TokenVault;
@@ -16,7 +19,9 @@ export type IpcDeps = {
   db: DB;
 };
 
-export function registerAllIpc(deps: IpcDeps): void {
+export type IpcDepsWithAutonomy = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost };
+
+export function registerAllIpc(deps: IpcDepsWithAutonomy): void {
   registerBotHandlers(deps);
   registerGuildHandlers(deps);
   registerMessageHandlers(deps);
@@ -25,4 +30,5 @@ export function registerAllIpc(deps: IpcDeps): void {
   registerPrefsHandlers(deps);
   registerMembersBulkHandlers(deps);
   registerVoiceHandlers(deps);
+  registerAutonomyHandlers(deps);
 }
