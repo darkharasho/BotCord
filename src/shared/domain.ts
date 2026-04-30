@@ -314,6 +314,8 @@ export type Prefs = {
   autonomyGlobalRateCapPerMin: number;
   autonomyVisionEnabled: boolean;
   autonomyModel: string;
+  closeToTray: boolean;
+  closeToTrayHintShown: boolean;
 };
 
 export type SendAttachment = {

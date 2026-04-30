@@ -3,13 +3,21 @@ import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import { pushToast } from './Toaster';
 import { GlobalAutonomySettings } from './GlobalAutonomySettings';
+import { CheckBox } from './CheckBox';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [giphyKey, setGiphyKey] = useState('');
   const [giphyKeyLoaded, setGiphyKeyLoaded] = useState(false);
+  const [closeToTray, setCloseToTray] = useState<boolean | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.prefs.get('closeToTray').then(res => {
+      setCloseToTray(res.ok && typeof res.data === 'boolean' ? res.data : true);
+    });
+  }, []);
 
   useEffect(() => {
     api.prefs.get('giphyApiKey').then(res => {
@@ -95,6 +103,28 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         <div className="border-t border-border pt-4">
           <GlobalAutonomySettings />
         </div>
+
+        {closeToTray !== null && (
+          <div className="border-t border-border pt-4">
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <CheckBox
+                checked={closeToTray}
+                onChange={() => {
+                  const next = !closeToTray;
+                  setCloseToTray(next);
+                  api.prefs.set('closeToTray', next);
+                }}
+                ariaLabel="Minimize to tray on close"
+              />
+              <span>
+                Minimize to system tray on close
+                <span className="block text-[11px] text-fg-muted">
+                  When off, clicking the close button quits BotCord. macOS uses the dock and ignores this.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         <div className="border-t border-border pt-4 space-y-2">
           <button

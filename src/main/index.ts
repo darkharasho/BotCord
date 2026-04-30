@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, type Tray } from 'electron';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { createMainWindow } from './window';
+import { createAppTray, notifyMinimizedToTray, rebuildTrayMenu } from './tray';
 import { installCSP } from './security/csp';
 import { createTokenVault } from './vault/token-vault';
 import { createClientManager } from './discord/client-manager';
@@ -78,13 +79,52 @@ if (!gotLock) {
 
     registerAllIpc({ vault, manager, db, autonomy, host, scratchDir: cdkScratch });
 
-    const win = createMainWindow();
-    registerUpdater(win);
+    let mainWindow: BrowserWindow | null = null;
+    let tray: Tray | null = null;
+
+    const trayDeps = {
+      getWindow: () => mainWindow,
+      getAutonomyEnabled: () => prefs.get('autonomyGlobalEnabled') ?? false,
+      setAutonomyEnabled: (enabled: boolean) => {
+        prefs.set('autonomyGlobalEnabled', enabled);
+        if (tray) rebuildTrayMenu(tray, trayDeps);
+      },
+      onQuit: () => {
+        (app as unknown as { isQuiting?: boolean }).isQuiting = true;
+        app.quit();
+      },
+    };
+
+    mainWindow = createMainWindow({
+      shouldCloseToTray: () => prefs.get('closeToTray') ?? true,
+      onMinimizedToTray: () => {
+        if (!(prefs.get('closeToTrayHintShown') ?? false)) {
+          notifyMinimizedToTray();
+          prefs.set('closeToTrayHintShown', true);
+        }
+      },
+    });
+    registerUpdater(mainWindow);
+
+    // Tray is unsupported on macOS in the same way (apps stay in dock); still
+    // create one for parity but it's primarily for Windows/Linux users.
+    if (process.platform !== 'darwin') {
+      tray = createAppTray(trayDeps);
+    }
+
+    app.on('before-quit', () => {
+      (app as unknown as { isQuiting?: boolean }).isQuiting = true;
+    });
 
     if (vault.hasToken()) {
       manager.connect().catch(() => { /* surfaced via gateway state events */ });
     }
   });
 
-  app.on('window-all-closed', () => app.quit());
+  app.on('window-all-closed', () => {
+    // Don't quit when the only window was hidden to tray; the tray icon keeps
+    // the app alive until the user explicitly chooses Quit.
+    if (process.platform === 'darwin') return;
+    if ((app as unknown as { isQuiting?: boolean }).isQuiting) app.quit();
+  });
 }

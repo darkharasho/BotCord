@@ -41,10 +41,15 @@ function loadAppIcon(): Electron.NativeImage | undefined {
   return path ? nativeImage.createFromPath(path) : undefined;
 }
 
-export function createMainWindow(): BrowserWindow {
+export type CreateWindowOpts = {
+  shouldCloseToTray?: () => boolean;
+  onMinimizedToTray?: () => void;
+};
+
+export function createMainWindow(opts: CreateWindowOpts = {}): BrowserWindow {
   const isMac = process.platform === 'darwin';
   const saved = loadWindowState();
-  const opts: Electron.BrowserWindowConstructorOptions = {
+  const winOpts: Electron.BrowserWindowConstructorOptions = {
     width: saved?.width ?? 1280,
     height: saved?.height ?? 820,
     minWidth: 960,
@@ -63,13 +68,13 @@ export function createMainWindow(): BrowserWindow {
     },
   };
   if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
-    opts.x = saved.x;
-    opts.y = saved.y;
+    winOpts.x = saved.x;
+    winOpts.y = saved.y;
   }
-  if (isMac) opts.trafficLightPosition = { x: 12, y: 9 };
+  if (isMac) winOpts.trafficLightPosition = { x: 12, y: 9 };
   const icon = loadAppIcon();
-  if (icon) opts.icon = icon;
-  const win = new BrowserWindow(opts);
+  if (icon) winOpts.icon = icon;
+  const win = new BrowserWindow(winOpts);
   if (saved?.maximized) win.maximize();
 
   // KDE/X11 needs an explicit setIcon after window creation for the taskbar
@@ -105,7 +110,19 @@ export function createMainWindow(): BrowserWindow {
   win.on('move', persist);
   win.on('maximize', persist);
   win.on('unmaximize', persist);
-  win.on('close', () => { if (saveTimer) clearTimeout(saveTimer); persist(); });
+  win.on('close', (e) => {
+    // Intercept the user-initiated close on Windows/Linux when "minimize to
+    // tray" is enabled. macOS keeps the existing dock-based behavior.
+    const isQuitting = (app as unknown as { isQuiting?: boolean }).isQuiting;
+    if (!isMac && !isQuitting && opts.shouldCloseToTray?.()) {
+      e.preventDefault();
+      win.hide();
+      opts.onMinimizedToTray?.();
+      return;
+    }
+    if (saveTimer) clearTimeout(saveTimer);
+    persist();
+  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://discord.com/') || url.startsWith('https://cdn.discordapp.com/')) {
