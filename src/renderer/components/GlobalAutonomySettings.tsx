@@ -57,6 +57,20 @@ export function GlobalAutonomySettings() {
           disabled={busy}
         />
       </label>
+      <label className="flex items-start gap-2 text-sm cursor-pointer">
+        <CheckBox
+          checked={cfg.visionEnabled}
+          onChange={() => save({ visionEnabled: !cfg.visionEnabled })}
+          ariaLabel="Send images to Claude"
+          disabled={busy}
+        />
+        <span>
+          Send images to Claude (vision)
+          <span className="block text-[11px] text-fg-muted">
+            When off, image attachments are described as <code>[image: name.png]</code>. When on, the actual image is downloaded and shown to Claude. Slower and uses more tokens.
+          </span>
+        </span>
+      </label>
     </div>
   );
 }

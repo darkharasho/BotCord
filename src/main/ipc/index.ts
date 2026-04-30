@@ -19,7 +19,7 @@ export type IpcDeps = {
   db: DB;
 };
 
-export type IpcDepsWithAutonomy = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost };
+export type IpcDepsWithAutonomy = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost; scratchDir: string };
 
 export function registerAllIpc(deps: IpcDepsWithAutonomy): void {
   registerBotHandlers(deps);

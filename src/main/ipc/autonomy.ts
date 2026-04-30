@@ -9,10 +9,11 @@ import { createAutonomyRepo } from '../db/repos/autonomy';
 import { createPrefsRepo } from '../db/repos/prefs';
 import type { AutonomyModule } from '../autonomy';
 import type { AutonomyHost } from '../autonomy/types';
+import { renderMessageContent } from '../autonomy/message-render';
 
-type Deps = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost };
+type Deps = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost; scratchDir: string };
 
-export function registerAutonomyHandlers({ db, manager, autonomy, host }: Deps): void {
+export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchDir }: Deps): void {
   const repo = createAutonomyRepo(db);
   const prefs = createPrefsRepo(db);
 
@@ -20,6 +21,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host }: Deps):
     enabled: prefs.get('autonomyGlobalEnabled') ?? false,
     systemPrompt: prefs.get('autonomyGlobalSystemPrompt') ?? DEFAULT_GLOBAL_SYSTEM_PROMPT,
     rateCapPerMin: prefs.get('autonomyGlobalRateCapPerMin') ?? 20,
+    visionEnabled: prefs.get('autonomyVisionEnabled') ?? false,
   });
 
   ipcMain.handle(IPC_CHANNELS['autonomy.detect'], async () => host.detect());
@@ -44,6 +46,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host }: Deps):
     if (typeof p.enabled === 'boolean') prefs.set('autonomyGlobalEnabled', p.enabled);
     if (typeof p.systemPrompt === 'string') prefs.set('autonomyGlobalSystemPrompt', p.systemPrompt);
     if (typeof p.rateCapPerMin === 'number' && p.rateCapPerMin > 0) prefs.set('autonomyGlobalRateCapPerMin', Math.floor(p.rateCapPerMin));
+    if (typeof p.visionEnabled === 'boolean') prefs.set('autonomyVisionEnabled', p.visionEnabled);
     return ok(readGlobal());
   });
 
@@ -66,41 +69,50 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host }: Deps):
     }
 
     const requestId = randomUUID();
+    const visionEnabled = readGlobal().visionEnabled;
     void (async () => {
       if (!channel || !channel.isTextBased()) return;
       const cfg = repo.getGuildConfig(triggerMsg.guildId ?? '');
       const histLimit = Math.min(cfg.contextSize, 100);
       const fetched = await channel.messages.fetch({ limit: histLimit + 1, before: triggerMsg.id }).catch(() => null);
-      const history = fetched
+      const historyRaw = fetched
         ? Array.from(fetched.values())
             .filter(m => m.id !== triggerMsg.id)
             .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-            .map(m => ({
-              authorId: m.author.id,
-              authorDisplayName: m.member?.displayName ?? m.author.globalName ?? m.author.username,
-              isBot: m.author.bot ?? false,
-              createdAt: m.createdTimestamp,
-              content: m.content,
-            }))
         : [];
+      const history = await Promise.all(historyRaw.map(async m => {
+        const { content } = await renderMessageContent(m, { vision: false, scratchDir });
+        return {
+          authorId: m.author.id,
+          authorDisplayName: m.member?.displayName ?? m.author.globalName ?? m.author.username,
+          isBot: m.author.bot ?? false,
+          createdAt: m.createdTimestamp,
+          content,
+        };
+      }));
       const channelMeta = {
         guildName: triggerMsg.guild?.name ?? '(direct message)',
         channelName: 'name' in channel && typeof channel.name === 'string' ? channel.name : 'channel',
         channelTopic: 'topic' in channel && typeof channel.topic === 'string' ? channel.topic : null,
       };
-      await autonomy.draftReply({
-        requestId,
-        channelMeta,
-        history,
-        target: {
-          id: triggerMsg.id,
-          authorId: triggerMsg.author.id,
-          authorDisplayName: triggerMsg.member?.displayName ?? triggerMsg.author.globalName ?? triggerMsg.author.username,
-          isBot: triggerMsg.author.bot ?? false,
-          createdAt: triggerMsg.createdTimestamp,
-          content: triggerMsg.content,
-        },
-      });
+      const target = await renderMessageContent(triggerMsg, { vision: visionEnabled, scratchDir });
+      try {
+        await autonomy.draftReply({
+          requestId,
+          channelMeta,
+          history,
+          target: {
+            id: triggerMsg.id,
+            authorId: triggerMsg.author.id,
+            authorDisplayName: triggerMsg.member?.displayName ?? triggerMsg.author.globalName ?? triggerMsg.author.username,
+            isBot: triggerMsg.author.bot ?? false,
+            createdAt: triggerMsg.createdTimestamp,
+            content: target.content,
+          },
+        });
+      } finally {
+        await target.cleanup();
+      }
     })();
     return ok({ requestId });
   });

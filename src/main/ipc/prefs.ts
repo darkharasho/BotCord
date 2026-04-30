@@ -10,6 +10,7 @@ const VALID_KEYS: ReadonlyArray<keyof Prefs> = [
   'collapsedCategoryIds', 'memberListOpen', 'channelLastSeen',
   'mutedChannelIds', 'giphyApiKey',
   'autonomyGlobalEnabled', 'autonomyGlobalSystemPrompt', 'autonomyGlobalRateCapPerMin',
+  'autonomyVisionEnabled',
 ];
 
 export function registerPrefsHandlers({ db }: IpcDeps): void {

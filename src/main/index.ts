@@ -57,6 +57,7 @@ if (!gotLock) {
         enabled: prefs.get('autonomyGlobalEnabled') ?? false,
         systemPrompt: prefs.get('autonomyGlobalSystemPrompt') ?? '',
         rateCapPerMin: prefs.get('autonomyGlobalRateCapPerMin') ?? 20,
+        visionEnabled: prefs.get('autonomyVisionEnabled') ?? false,
       }),
       guildConfig: (guildId) => autonomyDbRepo.getGuildConfig(guildId),
       cwd: cdkScratch,
@@ -66,9 +67,15 @@ if (!gotLock) {
       },
     });
 
-    attachAutonomousListener({ manager, autonomy, repo: autonomyDbRepo });
+    attachAutonomousListener({
+      manager,
+      autonomy,
+      repo: autonomyDbRepo,
+      scratchDir: cdkScratch,
+      isVisionEnabled: () => prefs.get('autonomyVisionEnabled') ?? false,
+    });
 
-    registerAllIpc({ vault, manager, db, autonomy, host });
+    registerAllIpc({ vault, manager, db, autonomy, host, scratchDir: cdkScratch });
 
     const win = createMainWindow();
     registerUpdater(win);

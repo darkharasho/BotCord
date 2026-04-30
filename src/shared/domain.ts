@@ -312,6 +312,7 @@ export type Prefs = {
   autonomyGlobalEnabled: boolean;
   autonomyGlobalSystemPrompt: string;
   autonomyGlobalRateCapPerMin: number;
+  autonomyVisionEnabled: boolean;
 };
 
 export type SendAttachment = {
@@ -392,6 +393,7 @@ export type GlobalAutonomyConfig = {
   enabled: boolean;
   systemPrompt: string;
   rateCapPerMin: number;
+  visionEnabled: boolean;
 };
 
 export const DEFAULT_GLOBAL_SYSTEM_PROMPT =

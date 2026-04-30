@@ -5,6 +5,7 @@ import { broadcast } from '../events/gateway-events';
 import { MESSAGE_CREATE_CHANNEL } from '../events/gateway-events';
 import type { AutonomyRepo } from '../db/repos/autonomy';
 import { summarizeMessage } from '../discord/client-manager';
+import { renderMessageContent } from './message-render';
 
 type SendableChannel = { send: (opts: MessageCreateOptions) => Promise<Message> };
 type TypingChannel = { sendTyping: () => Promise<void> };
@@ -13,9 +14,11 @@ type Deps = {
   manager: ClientManager;
   autonomy: AutonomyModule;
   repo: AutonomyRepo;
+  scratchDir: string;
+  isVisionEnabled: () => boolean;
 };
 
-export function attachAutonomousListener({ manager, autonomy, repo }: Deps): () => void {
+export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, isVisionEnabled }: Deps): () => void {
   let attached = false;
   let bound: ((m: Message) => void) | null = null;
 
@@ -45,18 +48,23 @@ export function attachAutonomousListener({ manager, autonomy, repo }: Deps): () 
     const ch = m.channel;
     const histLimit = Math.min(cfg.contextSize, 100);
     const fetched = await ch.messages.fetch({ limit: histLimit + 1, before: m.id }).catch(() => null);
-    const history = fetched
+    // Background messages get cheap text-only enrichment; only the target
+    // gets vision treatment when enabled (keeps token cost bounded).
+    const historyRaw = fetched
       ? Array.from(fetched.values())
           .filter(x => x.id !== m.id)
           .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-          .map(x => ({
-            authorId: x.author.id,
-            authorDisplayName: x.member?.displayName ?? x.author.globalName ?? x.author.username,
-            isBot: x.author.bot ?? false,
-            createdAt: x.createdTimestamp,
-            content: x.content,
-          }))
       : [];
+    const history = await Promise.all(historyRaw.map(async x => {
+      const { content } = await renderMessageContent(x, { vision: false, scratchDir });
+      return {
+        authorId: x.author.id,
+        authorDisplayName: x.member?.displayName ?? x.author.globalName ?? x.author.username,
+        isBot: x.author.bot ?? false,
+        createdAt: x.createdTimestamp,
+        content,
+      };
+    }));
 
     const channelMeta = {
       guildName: m.guild?.name ?? '(unknown server)',
@@ -69,6 +77,8 @@ export function attachAutonomousListener({ manager, autonomy, repo }: Deps): () 
     const typingCh = ch as unknown as TypingChannel;
     void typingCh.sendTyping().catch(() => {});
     const typingInterval = setInterval(() => { void typingCh.sendTyping().catch(() => {}); }, 7000);
+
+    const target = await renderMessageContent(m, { vision: isVisionEnabled(), scratchDir });
 
     let result;
     try {
@@ -83,11 +93,12 @@ export function attachAutonomousListener({ manager, autonomy, repo }: Deps): () 
           authorDisplayName: m.member?.displayName ?? m.author.globalName ?? m.author.username,
           isBot: false,
           createdAt: m.createdTimestamp,
-          content: m.content,
+          content: target.content,
         },
       });
     } finally {
       clearInterval(typingInterval);
+      await target.cleanup();
     }
 
     if (!result.ok) return;
