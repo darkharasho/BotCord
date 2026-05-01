@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import type { GuildSummary } from '../../shared/domain';
 import { Tooltip } from './Tooltip';
 import { openContextMenu } from './ContextMenu';
+import { Logo } from './Logo';
 
 const ANIMATED_PLAY_MS = 3000; // play once on mount for ~3s, then freeze on first frame
 
@@ -105,7 +106,7 @@ function HomeRailItem({
           className={`w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center transition-colors duration-150
             ${active ? 'bg-[#007f68]' : 'bg-bg-subtle hover:bg-hover'}`}
         >
-          <img src="/botcord-white.svg" alt="Home" className="w-6 h-6" />
+          <Logo className="w-6 h-6 text-white" />
         </div>
         {hasMention && (
           <span
