@@ -9,14 +9,17 @@ import { registerPrefsHandlers } from './prefs';
 import { registerMembersBulkHandlers } from './members-bulk';
 import { registerVoiceHandlers } from './voice';
 import { registerAutonomyHandlers } from './autonomy';
+import { registerDMHandlers } from './dms';
 import type { ClientManager } from '../discord/client-manager';
 import type { AutonomyModule } from '../autonomy';
 import type { AutonomyHost } from '../autonomy/types';
+import type { DMChannelsRepo } from '../db/repos/dm-channels';
 
 export type IpcDeps = {
   vault: TokenVault;
   manager: ClientManager;
   db: DB;
+  dmRepo: DMChannelsRepo;
 };
 
 export type IpcDepsWithAutonomy = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost; scratchDir: string };
@@ -25,6 +28,7 @@ export function registerAllIpc(deps: IpcDepsWithAutonomy): void {
   registerBotHandlers(deps);
   registerGuildHandlers(deps);
   registerMessageHandlers(deps);
+  registerDMHandlers(deps);
   registerSystemHandlers();
   registerDraftsHandlers(deps);
   registerPrefsHandlers(deps);
