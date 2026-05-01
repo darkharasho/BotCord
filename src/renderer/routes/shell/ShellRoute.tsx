@@ -66,6 +66,7 @@ export function ShellRoute() {
           }}
           unreadGuildIds={unreads.guildIds}
           mentionGuildIds={unreads.mentionGuildIds}
+          mentionGuildCounts={unreads.mentionGuildCounts}
           onMarkRead={unreads.markGuildRead}
         />
       </aside>

@@ -9,6 +9,8 @@ export type Unreads = {
   // @everyone/@here) since lastSeen — rendered in red.
   mentionChannelIds: Set<string>;
   mentionGuildIds: Set<string>;
+  mentionGuildCounts: Map<string, number>;
+  mentionChannelCounts: Map<string, number>;
   // Channels the user has muted via the right-click menu. Muted channels
   // are excluded from the regular unread sets above (they still receive
   // mentions, matching Discord's behavior).
@@ -33,15 +35,12 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   const muted = useRef<Set<string>>(new Set());
   const lastSeen = useRef<Map<string, number>>(new Map());
   const latest = useRef<Map<string, number>>(new Map());
-  // Per-channel timestamp of the most recent message that mentioned the
-  // bot or used @everyone/@here. Compared against lastSeen the same way
-  // `latest` is, so a mention "clears" once the channel is opened.
-  const latestMention = useRef<Map<string, number>>(new Map());
-  // Per-channel id of the message that produced `latestMention[cid]`. We
-  // need this to clear a stuck mention when the source message is deleted
-  // in Discord — without it the red dot would persist forever for any
-  // mention message the moderator removes.
-  const latestMentionMsg = useRef<Map<string, string>>(new Map());
+  // Per-channel map of mention message id -> timestamp. Tracks every
+  // unread message that mentioned the bot or used @everyone/@here so we
+  // can render an accurate count badge. Entries are pruned when the
+  // channel is read or when the source message is deleted in Discord
+  // (otherwise moderating away an @-ping would leave the badge stuck).
+  const mentionMsgs = useRef<Map<string, Map<string, number>>>(new Map());
   const channelGuild = useRef<Map<string, string>>(new Map());
   const activeRef = useRef(activeChannelId);
   const loaded = useRef(false);
@@ -130,9 +129,9 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   // forever, with nothing the user can open to clear it.
   useEffect(() => {
     return api.events.onMessageDelete(({ channelId, messageId }) => {
-      if (latestMentionMsg.current.get(channelId) === messageId) {
-        latestMention.current.delete(channelId);
-        latestMentionMsg.current.delete(channelId);
+      const channel = mentionMsgs.current.get(channelId);
+      if (channel?.delete(messageId)) {
+        if (channel.size === 0) mentionMsgs.current.delete(channelId);
         force(n => n + 1);
       }
     });
@@ -143,10 +142,12 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     let changed = false;
     for (const [cid, gid] of channelGuild.current) {
       if (gid !== guildId) continue;
-      const ts = Math.max(latest.current.get(cid) ?? 0, latestMention.current.get(cid) ?? 0, now);
+      const mentions = mentionMsgs.current.get(cid);
+      let maxMention = 0;
+      if (mentions) for (const ts of mentions.values()) if (ts > maxMention) maxMention = ts;
+      const ts = Math.max(latest.current.get(cid) ?? 0, maxMention, now);
       lastSeen.current.set(cid, ts);
-      latestMention.current.delete(cid);
-      latestMentionMsg.current.delete(cid);
+      mentionMsgs.current.delete(cid);
       changed = true;
     }
     if (changed) {
@@ -164,8 +165,9 @@ export function useUnreads(activeChannelId: string | null): Unreads {
         ? message.mentions.some(m => m.type === 'user' && m.id === botId)
         : false;
       if (message.mentionsEveryone || mentionsBot) {
-        latestMention.current.set(channelId, message.createdAt);
-        latestMentionMsg.current.set(channelId, message.id);
+        let channel = mentionMsgs.current.get(channelId);
+        if (!channel) { channel = new Map(); mentionMsgs.current.set(channelId, channel); }
+        channel.set(message.id, message.createdAt);
       }
       if (channelId === activeRef.current) {
         lastSeen.current.set(channelId, message.createdAt);
@@ -179,22 +181,29 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   const guildIds = new Set<string>();
   const mentionChannelIds = new Set<string>();
   const mentionGuildIds = new Set<string>();
+  const mentionChannelCounts = new Map<string, number>();
+  const mentionGuildCounts = new Map<string, number>();
   for (const [cid, latestTs] of latest.current) {
     const seenTs = lastSeen.current.get(cid) ?? 0;
     if (latestTs > seenTs) {
       const gid = channelGuild.current.get(cid);
       const isMuted = muted.current.has(cid);
-      const mentionTs = latestMention.current.get(cid) ?? 0;
-      const hasMention = mentionTs > seenTs;
       // Muted channels suppress all unread state — including mentions —
       // since BotCord has no UI to clear a mention without opening the
       // channel, and the user explicitly opted out of notifications.
       if (!isMuted) {
         channelIds.add(cid);
         if (gid) guildIds.add(gid);
-        if (hasMention) {
+        const mentions = mentionMsgs.current.get(cid);
+        let count = 0;
+        if (mentions) for (const ts of mentions.values()) if (ts > seenTs) count++;
+        if (count > 0) {
           mentionChannelIds.add(cid);
-          if (gid) mentionGuildIds.add(gid);
+          mentionChannelCounts.set(cid, count);
+          if (gid) {
+            mentionGuildIds.add(gid);
+            mentionGuildCounts.set(gid, (mentionGuildCounts.get(gid) ?? 0) + count);
+          }
         }
       }
     }
@@ -204,6 +213,8 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     guildIds,
     mentionChannelIds,
     mentionGuildIds,
+    mentionChannelCounts,
+    mentionGuildCounts,
     mutedChannelIds: muted.current,
     toggleMuted,
     markGuildRead,

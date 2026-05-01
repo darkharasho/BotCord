@@ -8,12 +8,13 @@ import { openContextMenu } from './ContextMenu';
 const ANIMATED_PLAY_MS = 3000; // play once on mount for ~3s, then freeze on first frame
 
 export function ServerRail({
-  selected, onSelect, unreadGuildIds, mentionGuildIds, onMarkRead,
+  selected, onSelect, unreadGuildIds, mentionGuildIds, mentionGuildCounts, onMarkRead,
 }: {
   selected: string | null;
   onSelect: (g: GuildSummary) => void;
   unreadGuildIds?: Set<string>;
   mentionGuildIds?: Set<string>;
+  mentionGuildCounts?: Map<string, number>;
   onMarkRead?: (guildId: string) => void;
 }) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
@@ -47,6 +48,7 @@ export function ServerRail({
             selected={selected === g.id}
             unread={!!unreadGuildIds?.has(g.id)}
             mention={!!mentionGuildIds?.has(g.id)}
+            mentionCount={mentionGuildCounts?.get(g.id) ?? 0}
             onSelect={onSelect}
             {...(onMarkRead ? { onMarkRead: () => onMarkRead(g.id) } : {})}
             hasUnread={!!unreadGuildIds?.has(g.id) || !!mentionGuildIds?.has(g.id)}
@@ -61,8 +63,8 @@ export function ServerRail({
 }
 
 function GuildRailItem({
-  guild, selected, unread, mention, onSelect, onMarkRead, hasUnread,
-}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; onSelect: (g: GuildSummary) => void; onMarkRead?: () => void; hasUnread: boolean }) {
+  guild, selected, unread, mention, mentionCount, onSelect, onMarkRead, hasUnread,
+}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; mentionCount: number; onSelect: (g: GuildSummary) => void; onMarkRead?: () => void; hasUnread: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [playOnMount, setPlayOnMount] = useState(true);
 
@@ -120,7 +122,12 @@ function GuildRailItem({
             : guild.name.slice(0, 2).toUpperCase()}
         </div>
         {mention && (
-          <span className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in" aria-label="mention" />
+          <span
+            className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-4 min-w-4 px-1 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in flex items-center justify-center text-white text-[10px] font-bold leading-none tabular-nums"
+            aria-label={mentionCount > 1 ? `${mentionCount} mentions` : 'mention'}
+          >
+            {mentionCount > 99 ? '99+' : mentionCount > 0 ? mentionCount : ''}
+          </span>
         )}
       </button>
     </Tooltip>
