@@ -60,6 +60,16 @@ const api: BotcordApi = {
     toggleReaction: (channelId, messageId, emoji) => invoke(IPC_CHANNELS['messages.toggleReaction'], channelId, messageId, emoji),
     fetchReactionUsers: (channelId, messageId, emoji) => invoke(IPC_CHANNELS['messages.fetchReactionUsers'], channelId, messageId, emoji),
   },
+  dms: {
+    list: (opts) => invoke(IPC_CHANNELS['dms.list'], opts),
+    fetchMessages: (channelId, opts) => invoke(IPC_CHANNELS['dms.fetchMessages'], channelId, opts),
+    openWithUser: (userId) => invoke(IPC_CHANNELS['dms.openWithUser'], userId),
+    send: (channelId, content, opts) => invoke(IPC_CHANNELS['dms.send'], channelId, content, opts),
+    sendWithAttachments: (channelId, content, attachments) =>
+      invoke(IPC_CHANNELS['dms.sendWithAttachments'], channelId, content, attachments),
+    markRead: (channelId) => invoke(IPC_CHANNELS['dms.markRead'], channelId),
+    close: (channelId) => invoke(IPC_CHANNELS['dms.close'], channelId),
+  },
   drafts: {
     list: () => invoke(IPC_CHANNELS['drafts.list']),
     upsert: (draft) => invoke(IPC_CHANNELS['drafts.upsert'], draft),

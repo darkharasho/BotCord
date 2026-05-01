@@ -343,6 +343,7 @@ export type Prefs = {
   closeToTrayHintShown: boolean;
   audioOutputDeviceId: string;
   audioInputDeviceId: string;
+  notifyOnDM?: boolean;
 };
 
 export type SendAttachment = {

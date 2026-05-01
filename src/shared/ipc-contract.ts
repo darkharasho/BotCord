@@ -1,5 +1,5 @@
 import type {
-  AllMembersEntry, BotIdentity, BotStatus, BotCapabilities, BulkActionResult, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DraftInput, DraftRow,
+  AllMembersEntry, BotIdentity, BotStatus, BotCapabilities, BulkActionResult, ChannelMemberSummary, ChannelSummary, CreateForumPostPayload, DMChannelRow, DraftInput, DraftRow,
   EmbedPayload, ForumChannelDetail, ForumPostSummary, GatewayState, GlobalAutonomyConfig, GuildAutonomyConfig, GuildEmoji, GuildRole, GuildSummary, ListAllMembersResult,
   MemberDetail, MemberSummary, MessageSummary, PollPayload, PollVoter, Prefs, SendAttachment, VoiceConnectionState,
 } from './domain';
@@ -72,6 +72,15 @@ export interface BotcordApi {
     createForumPost(forumId: string, payload: CreateForumPostPayload): Promise<Result<ForumPostSummary>>;
     toggleReaction(channelId: string, messageId: string, emoji: { id: string | null; name: string; animated?: boolean }): Promise<Result<void>>;
     fetchReactionUsers(channelId: string, messageId: string, emoji: { id: string | null; name: string }): Promise<Result<{ id: string; displayName: string; avatarUrl: string | null }[]>>;
+  };
+  dms: {
+    list(opts?: { includeInert?: boolean }): Promise<Result<DMChannelRow[]>>;
+    fetchMessages(channelId: string, opts: { before?: string; limit: number }): Promise<Result<MessageSummary[]>>;
+    openWithUser(userId: string): Promise<Result<DMChannelRow>>;
+    send(channelId: string, content: string, opts?: { replyToMessageId?: string }): Promise<Result<MessageSummary>>;
+    sendWithAttachments(channelId: string, content: string, attachments: SendAttachment[]): Promise<Result<MessageSummary>>;
+    markRead(channelId: string): Promise<Result<void>>;
+    close(channelId: string): Promise<Result<void>>;
   };
   drafts: {
     list(): Promise<Result<DraftRow[]>>;
@@ -189,6 +198,13 @@ export const IPC_CHANNELS = {
   'messages.createForumPost': 'messages.createForumPost',
   'messages.toggleReaction': 'messages.toggleReaction',
   'messages.fetchReactionUsers': 'messages.fetchReactionUsers',
+  'dms.list': 'dms.list',
+  'dms.fetchMessages': 'dms.fetchMessages',
+  'dms.openWithUser': 'dms.openWithUser',
+  'dms.send': 'dms.send',
+  'dms.sendWithAttachments': 'dms.sendWithAttachments',
+  'dms.markRead': 'dms.markRead',
+  'dms.close': 'dms.close',
   'drafts.list': 'drafts.list',
   'drafts.upsert': 'drafts.upsert',
   'drafts.delete': 'drafts.delete',
