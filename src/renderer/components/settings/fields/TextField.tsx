@@ -27,7 +27,7 @@ export function TextField({
 
   return (
     <Field label={label} hint={hint} htmlFor={id}>
-      <div className="group relative flex items-center rounded-md border border-border bg-bg-sunken focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-colors">
+      <div className="group relative flex items-center rounded-md border border-border bg-bg focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-colors">
         {leadingIcon && (
           <span className="pl-3 text-fg-dim group-focus-within:text-fg-muted shrink-0 flex items-center">
             {leadingIcon}

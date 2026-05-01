@@ -20,7 +20,7 @@ export function SelectField({
 
   return (
     <Field label={label} hint={hint} htmlFor={id}>
-      <div className="relative inline-flex w-full max-w-sm items-stretch rounded-md border border-border bg-bg-sunken focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-colors">
+      <div className="relative inline-flex w-full max-w-sm items-stretch rounded-md border border-border bg-bg focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-colors">
         <select
           id={id}
           value={value}

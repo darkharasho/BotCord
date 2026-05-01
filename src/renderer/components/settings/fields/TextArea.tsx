@@ -20,7 +20,7 @@ export function TextArea({
 
   return (
     <Field label={label} hint={hint} htmlFor={id}>
-      <div className="rounded-md border border-border bg-bg-sunken focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-colors">
+      <div className="rounded-md border border-border bg-bg focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-colors">
         <textarea
           id={id}
           value={value}

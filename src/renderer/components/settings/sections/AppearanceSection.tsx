@@ -9,7 +9,7 @@ export function AppearanceSection() {
       <div className="relative overflow-hidden rounded-xl border border-border bg-bg-input p-8 text-center">
         <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(circle_at_center,theme(colors.accent.DEFAULT),transparent_60%)] pointer-events-none" />
         <div className="relative flex flex-col items-center gap-3 text-fg-muted">
-          <div className="w-12 h-12 rounded-full bg-bg-sunken border border-border flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-bg border border-border flex items-center justify-center">
             <IconPalette size={22} stroke={1.75} className="text-accent" />
           </div>
           <div className="space-y-1">

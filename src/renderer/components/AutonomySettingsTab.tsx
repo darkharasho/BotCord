@@ -94,7 +94,7 @@ export function AutonomySettingsTab({ guildId }: { guildId: string }) {
             {query.trim() ? ' (filtered)' : ''}
           </button>
         </div>
-        <div className="rounded border border-border bg-bg-sunken">
+        <div className="rounded-md border border-border bg-bg">
           <div className="px-3 py-2 border-b border-border flex items-center gap-2">
             <IconSearch size={14} stroke={2} className="text-fg-dim shrink-0" />
             <input

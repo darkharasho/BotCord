@@ -94,7 +94,7 @@ export function ServersSection() {
             >
               {g.iconUrl
                 ? <img src={g.iconUrl} alt="" className="w-9 h-9 rounded-xl ring-1 ring-border group-hover:ring-accent/40 transition-shadow" />
-                : <div className="w-9 h-9 rounded-xl bg-bg-sunken border border-border flex items-center justify-center text-xs font-semibold text-fg group-hover:border-accent/40 transition-colors">{g.name.slice(0, 2).toUpperCase()}</div>
+                : <div className="w-9 h-9 rounded-xl bg-bg border border-border flex items-center justify-center text-xs font-semibold text-fg group-hover:border-accent/40 transition-colors">{g.name.slice(0, 2).toUpperCase()}</div>
               }
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-fg truncate font-medium">{g.name}</div>
