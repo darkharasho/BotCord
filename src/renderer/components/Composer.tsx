@@ -541,7 +541,7 @@ export function Composer({
             >
               {highlightFragments.map((f, i) =>
                 f.kind === 'mention' || f.kind === 'channel'
-                  ? <span key={i} className="bg-[#5865f2]/30 text-[#a9bbff]">{f.text}</span>
+                  ? <span key={i} className="bg-[#282b50] text-[#a9bbff]">{f.text}</span>
                   : f.kind === 'link'
                     ? <span key={i} className="text-link group-hover/input:underline">{f.text}</span>
                     : <span key={i} className="text-fg">{f.text}</span>
