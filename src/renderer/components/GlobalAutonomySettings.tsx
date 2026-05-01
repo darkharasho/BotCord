@@ -5,11 +5,13 @@ import { pushToast } from './Toaster';
 import { useGlobalAutonomy } from '../lib/use-global-autonomy';
 import { CheckBox } from './CheckBox';
 import { TextArea, NumberField, SelectField } from './settings/fields';
+import { useSaver } from './settings/SavingState';
 
 export function GlobalAutonomySettings() {
   const { cfg, set } = useGlobalAutonomy();
   const [draftPrompt, setDraftPrompt] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { trigger } = useSaver();
 
   useEffect(() => {
     if (cfg && draftPrompt === null) setDraftPrompt(cfg.systemPrompt);
@@ -19,7 +21,9 @@ export function GlobalAutonomySettings() {
 
   const save = async (partial: Partial<GlobalAutonomyConfig>) => {
     setBusy(true);
-    try { await set(partial); }
+    const p = set(partial);
+    trigger(p);
+    try { await p; }
     catch (e) { pushToast('danger', e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   };
@@ -44,7 +48,7 @@ export function GlobalAutonomySettings() {
         value={draftPrompt}
         onChange={setDraftPrompt}
         onBlur={() => save({ systemPrompt: draftPrompt })}
-        rows={5}
+        rows={10}
         disabled={busy}
       />
 

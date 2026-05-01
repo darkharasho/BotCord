@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import { CheckBox } from '../../CheckBox';
 import { SectionHeader } from './AccountSection';
+import { useSaver } from '../SavingState';
 
 export function NotificationsSection() {
   const [closeToTray, setCloseToTray] = useState<boolean | null>(null);
+  const { trigger } = useSaver();
 
   useEffect(() => {
     api.prefs.get('closeToTray').then(res => {
@@ -17,7 +19,7 @@ export function NotificationsSection() {
   const toggleTray = () => {
     const next = !closeToTray;
     setCloseToTray(next);
-    api.prefs.set('closeToTray', next);
+    trigger(api.prefs.set('closeToTray', next));
   };
 
   return (

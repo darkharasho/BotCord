@@ -29,7 +29,7 @@ export function TextArea({
           placeholder={placeholder}
           rows={rows}
           disabled={disabled}
-          className={`block w-full bg-transparent px-3 py-2 text-sm text-fg outline-none placeholder:text-fg-dim resize-y disabled:opacity-50 disabled:cursor-not-allowed leading-relaxed ${monospace ? 'font-mono' : ''}`}
+          className={`block w-full bg-transparent px-3 py-2 text-sm text-fg outline-none placeholder:text-fg-dim resize-none disabled:opacity-50 disabled:cursor-not-allowed leading-relaxed ${monospace ? 'font-mono' : ''}`}
         />
       </div>
     </Field>

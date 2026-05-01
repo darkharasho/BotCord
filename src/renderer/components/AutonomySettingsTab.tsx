@@ -5,6 +5,7 @@ import { pushToast } from './Toaster';
 import { CheckBox } from './CheckBox';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { TextArea, NumberField } from './settings/fields';
+import { useSaver } from './settings/SavingState';
 
 export function AutonomySettingsTab({ guildId }: { guildId: string }) {
   const [cfg, setCfg] = useState<GuildAutonomyConfig | null>(null);
@@ -12,6 +13,7 @@ export function AutonomySettingsTab({ guildId }: { guildId: string }) {
   const [detect, setDetect] = useState<{ found: boolean; version?: string; reason?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const { trigger } = useSaver();
 
   useEffect(() => {
     api.autonomy.detect().then(setDetect);
@@ -36,7 +38,9 @@ export function AutonomySettingsTab({ guildId }: { guildId: string }) {
 
   const save = async (partial: Partial<Omit<GuildAutonomyConfig, 'guildId' | 'updatedAt'>>) => {
     setBusy(true);
-    const res = await api.autonomy.setGuildConfig(guildId, partial);
+    const p = api.autonomy.setGuildConfig(guildId, partial);
+    trigger(p);
+    const res = await p;
     setBusy(false);
     if (res.ok) setCfg(res.data);
     else pushToast('danger', res.error.message);
@@ -173,7 +177,7 @@ export function AutonomySettingsTab({ guildId }: { guildId: string }) {
         value={cfg.systemPrompt ?? ''}
         onChange={(v) => setCfg({ ...cfg, systemPrompt: v })}
         onBlur={() => save({ systemPrompt: cfg.systemPrompt && cfg.systemPrompt.trim().length > 0 ? cfg.systemPrompt : null })}
-        rows={6}
+        rows={12}
         disabled={busy}
       />
 

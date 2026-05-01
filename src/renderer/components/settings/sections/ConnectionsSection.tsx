@@ -3,10 +3,12 @@ import { IconKey } from '@tabler/icons-react';
 import { api } from '../../../lib/api';
 import { SectionHeader } from './AccountSection';
 import { TextField } from '../fields';
+import { useSaver } from '../SavingState';
 
 export function ConnectionsSection() {
   const [giphyKey, setGiphyKey] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const { trigger } = useSaver();
 
   useEffect(() => {
     api.prefs.get('giphyApiKey').then(res => {
@@ -19,8 +21,8 @@ export function ConnectionsSection() {
   // network — only writes to prefs — so no debounce needed.
   useEffect(() => {
     if (!loaded) return;
-    api.prefs.set('giphyApiKey', giphyKey);
-  }, [giphyKey, loaded]);
+    trigger(api.prefs.set('giphyApiKey', giphyKey));
+  }, [giphyKey, loaded, trigger]);
 
   return (
     <div className="max-w-2xl space-y-8">
