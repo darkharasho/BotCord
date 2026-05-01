@@ -186,16 +186,16 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       const isMuted = muted.current.has(cid);
       const mentionTs = latestMention.current.get(cid) ?? 0;
       const hasMention = mentionTs > seenTs;
-      // Muted channels suppress the normal unread state but still light up
-      // for mentions — matches Discord's "Suppress @everyone notifications"
-      // off-by-default but mentions-still-ping behavior.
+      // Muted channels suppress all unread state — including mentions —
+      // since BotCord has no UI to clear a mention without opening the
+      // channel, and the user explicitly opted out of notifications.
       if (!isMuted) {
         channelIds.add(cid);
         if (gid) guildIds.add(gid);
-      }
-      if (hasMention) {
-        mentionChannelIds.add(cid);
-        if (gid) mentionGuildIds.add(gid);
+        if (hasMention) {
+          mentionChannelIds.add(cid);
+          if (gid) mentionGuildIds.add(gid);
+        }
       }
     }
   }
