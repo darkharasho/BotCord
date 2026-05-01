@@ -4,6 +4,7 @@ import type { GuildAutonomyConfig, ChannelSummary } from '../../shared/domain';
 import { pushToast } from './Toaster';
 import { CheckBox } from './CheckBox';
 import { IconSearch, IconX } from '@tabler/icons-react';
+import { TextArea, NumberField } from './settings/fields';
 
 export function AutonomySettingsTab({ guildId }: { guildId: string }) {
   const [cfg, setCfg] = useState<GuildAutonomyConfig | null>(null);
@@ -68,14 +69,14 @@ export function AutonomySettingsTab({ guildId }: { guildId: string }) {
         </div>
       )}
 
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
+      <label className="flex items-center gap-3 text-sm cursor-pointer">
         <CheckBox
           checked={cfg.enabled}
           onChange={() => save({ enabled: !cfg.enabled })}
           ariaLabel="Enable autonomous replies in this server"
           disabled={busy}
         />
-        Enable autonomous replies in this server
+        <span className="text-fg font-medium">Enable autonomous replies in this server</span>
       </label>
 
       <div>
@@ -155,43 +156,37 @@ export function AutonomySettingsTab({ guildId }: { guildId: string }) {
         </div>
       </div>
 
-      <label className="block text-sm">
-        <span className="block text-xs font-medium text-fg-muted mb-1">Context window (recent messages used as background)</span>
-        <input
-          type="number"
-          min={5}
-          max={100}
-          value={cfg.contextSize}
-          onChange={e => save({ contextSize: Math.max(5, Math.min(100, parseInt(e.target.value || '20', 10))) })}
-          className="w-24 px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-          disabled={busy}
-        />
-      </label>
+      <NumberField
+        label="Context window"
+        unit="msgs"
+        hint="Recent messages used as background context."
+        value={cfg.contextSize}
+        onChange={(v) => save({ contextSize: v })}
+        min={5}
+        max={100}
+        disabled={busy}
+      />
 
-      <label className="block text-sm">
-        <span className="block text-xs font-medium text-fg-muted mb-1">Persona (system prompt — empty uses global default)</span>
-        <textarea
-          rows={6}
-          value={cfg.systemPrompt ?? ''}
-          onChange={e => setCfg({ ...cfg, systemPrompt: e.target.value })}
-          onBlur={() => save({ systemPrompt: cfg.systemPrompt && cfg.systemPrompt.trim().length > 0 ? cfg.systemPrompt : null })}
-          className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-          disabled={busy}
-        />
-      </label>
+      <TextArea
+        label="Persona"
+        hint="System prompt for this server. Leave empty to use the global default."
+        value={cfg.systemPrompt ?? ''}
+        onChange={(v) => setCfg({ ...cfg, systemPrompt: v })}
+        onBlur={() => save({ systemPrompt: cfg.systemPrompt && cfg.systemPrompt.trim().length > 0 ? cfg.systemPrompt : null })}
+        rows={6}
+        disabled={busy}
+      />
 
-      <label className="block text-sm">
-        <span className="block text-xs font-medium text-fg-muted mb-1">Cooldown (ms between auto-replies in same channel)</span>
-        <input
-          type="number"
-          min={1000}
-          step={500}
-          value={cfg.cooldownMs}
-          onChange={e => save({ cooldownMs: Math.max(1000, parseInt(e.target.value || '5000', 10)) })}
-          className="w-32 px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-          disabled={busy}
-        />
-      </label>
+      <NumberField
+        label="Cooldown"
+        unit="ms"
+        hint="Minimum gap between auto-replies in the same channel."
+        value={cfg.cooldownMs}
+        onChange={(v) => save({ cooldownMs: v })}
+        min={1000}
+        step={500}
+        disabled={busy}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { AUTONOMY_MODEL_OPTIONS } from '../../shared/domain';
 import { pushToast } from './Toaster';
 import { useGlobalAutonomy } from '../lib/use-global-autonomy';
 import { CheckBox } from './CheckBox';
+import { TextArea, NumberField, SelectField } from './settings/fields';
 
 export function GlobalAutonomySettings() {
   const { cfg, set } = useGlobalAutonomy();
@@ -24,55 +25,49 @@ export function GlobalAutonomySettings() {
   };
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-fg">Autonomy</h3>
-      <label className="flex items-center gap-2 text-sm cursor-pointer">
+    <div className="space-y-6">
+      <label className="flex items-center gap-3 cursor-pointer">
         <CheckBox
           checked={cfg.enabled}
           onChange={() => save({ enabled: !cfg.enabled })}
           ariaLabel="Enable autonomy globally"
           disabled={busy}
         />
-        Enable autonomy globally (kill switch)
-      </label>
-      <label className="block text-sm">
-        <span className="block text-xs font-medium text-fg-muted mb-1">Default persona (used when a server has no override)</span>
-        <textarea
-          rows={5}
-          value={draftPrompt}
-          onChange={e => setDraftPrompt(e.target.value)}
-          onBlur={() => save({ systemPrompt: draftPrompt })}
-          className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-          disabled={busy}
-        />
-      </label>
-      <label className="block text-sm">
-        <span className="block text-xs font-medium text-fg-muted mb-1">Model</span>
-        <select
-          value={cfg.model}
-          onChange={e => save({ model: e.target.value })}
-          disabled={busy}
-          className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-        >
-          {AUTONOMY_MODEL_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <span className="text-sm text-fg font-medium">
+          Enable autonomy globally <span className="text-fg-dim font-normal">(kill switch)</span>
+        </span>
       </label>
 
-      <label className="block text-sm">
-        <span className="block text-xs font-medium text-fg-muted mb-1">Global rate cap (responses per minute)</span>
-        <input
-          type="number"
-          min={1}
-          max={120}
-          value={cfg.rateCapPerMin}
-          onChange={e => save({ rateCapPerMin: Math.max(1, Math.min(120, parseInt(e.target.value || '20', 10))) })}
-          className="w-24 px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-          disabled={busy}
-        />
-      </label>
-      <label className="flex items-start gap-2 text-sm cursor-pointer">
+      <TextArea
+        label="Default persona"
+        hint="System prompt used when a server has no override."
+        value={draftPrompt}
+        onChange={setDraftPrompt}
+        onBlur={() => save({ systemPrompt: draftPrompt })}
+        rows={5}
+        disabled={busy}
+      />
+
+      <SelectField
+        label="Model"
+        value={cfg.model}
+        onChange={(v) => save({ model: v })}
+        options={AUTONOMY_MODEL_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+        disabled={busy}
+      />
+
+      <NumberField
+        label="Global rate cap"
+        unit="/min"
+        hint="Maximum responses per minute across all servers."
+        value={cfg.rateCapPerMin}
+        onChange={(v) => save({ rateCapPerMin: v })}
+        min={1}
+        max={120}
+        disabled={busy}
+      />
+
+      <label className="flex items-start gap-3 cursor-pointer">
         <CheckBox
           checked={cfg.visionEnabled}
           onChange={() => save({ visionEnabled: !cfg.visionEnabled })}
@@ -80,44 +75,34 @@ export function GlobalAutonomySettings() {
           disabled={busy}
         />
         <span>
-          Send images to Claude (vision)
-          <span className="block text-[11px] text-fg-muted">
-            When off, image attachments are described as <code>[image: name.png]</code>. When on, the actual image is downloaded and shown to Claude. Slower and uses more tokens.
+          <span className="block text-sm text-fg font-medium">Send images to Claude (vision)</span>
+          <span className="block text-[11px] text-fg-muted mt-0.5 leading-relaxed">
+            When off, image attachments are described as <code className="font-mono">[image: name.png]</code>. When on, the actual image is downloaded and shown to Claude. Slower and uses more tokens.
           </span>
         </span>
       </label>
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block text-sm">
-          <span className="block text-xs font-medium text-fg-muted mb-1">Queue depth (per channel)</span>
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={cfg.queueMaxDepth}
-            onChange={e => save({ queueMaxDepth: Math.max(1, Math.min(50, parseInt(e.target.value || '5', 10))) })}
-            className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-            disabled={busy}
-          />
-          <span className="block text-[11px] text-fg-dim mt-0.5">
-            Max queued mentions/replies waiting per channel. Beyond this, oldest gets dropped.
-          </span>
-        </label>
-        <label className="block text-sm">
-          <span className="block text-xs font-medium text-fg-muted mb-1">Queue TTL (seconds)</span>
-          <input
-            type="number"
-            min={5}
-            max={600}
-            value={cfg.queueTtlSeconds}
-            onChange={e => save({ queueTtlSeconds: Math.max(5, Math.min(600, parseInt(e.target.value || '60', 10))) })}
-            className="w-full px-2 py-1 rounded bg-bg-sunken border border-border text-fg text-sm"
-            disabled={busy}
-          />
-          <span className="block text-[11px] text-fg-dim mt-0.5">
-            How long a queued trigger waits before being dropped as stale.
-          </span>
-        </label>
+      <div className="grid grid-cols-2 gap-4">
+        <NumberField
+          label="Queue depth"
+          unit="msgs"
+          hint="Per-channel max. Beyond this, oldest is dropped."
+          value={cfg.queueMaxDepth}
+          onChange={(v) => save({ queueMaxDepth: v })}
+          min={1}
+          max={50}
+          disabled={busy}
+        />
+        <NumberField
+          label="Queue TTL"
+          unit="sec"
+          hint="How long a queued trigger waits before being dropped as stale."
+          value={cfg.queueTtlSeconds}
+          onChange={(v) => save({ queueTtlSeconds: v })}
+          min={5}
+          max={600}
+          disabled={busy}
+        />
       </div>
     </div>
   );
