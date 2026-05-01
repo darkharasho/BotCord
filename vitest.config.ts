@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/__tests__/**/*.test.ts?(x)', 'src/**/*.test.ts?(x)'],
     environmentMatchGlobs: [['src/renderer/**', 'jsdom']],
-    setupFiles: [],
+    setupFiles: ['src/renderer/test-setup.ts'],
   },
   resolve: {
     alias: { '@shared': resolve(__dirname, 'src/shared') },
