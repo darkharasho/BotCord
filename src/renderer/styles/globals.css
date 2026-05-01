@@ -6,6 +6,16 @@ html, body, #root { height: 100%; }
 body {
   @apply bg-bg text-fg font-sans antialiased;
   margin: 0;
+  /* Inter is metric-similar to Discord's GG Sans; nudge tracking and enable
+     stylistic alternates so it reads closer to Discord at body sizes. */
+  letter-spacing: -0.005em;
+  font-feature-settings: 'cv11', 'ss03';
+  font-optical-sizing: auto;
+}
+/* Inter Display optical-size at large text (headings, big titles). */
+h1, h2, h3, h4, .text-display {
+  font-variation-settings: 'opsz' 32;
+  letter-spacing: -0.015em;
 }
 
 /* Consistent keyboard-focus ring across the app. Pointer focus stays quiet
