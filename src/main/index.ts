@@ -81,6 +81,7 @@ if (!gotLock) {
       repo: autonomyDbRepo,
       scratchDir: cdkScratch,
       isVisionEnabled: () => prefs.get('autonomyVisionEnabled') ?? false,
+      isGlobalEnabled: () => prefs.get('autonomyGlobalEnabled') ?? false,
     });
 
     registerAllIpc({ vault, manager, db, dmRepo, autonomy, host, scratchDir: cdkScratch });

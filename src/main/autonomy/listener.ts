@@ -20,9 +20,10 @@ type Deps = {
   repo: AutonomyRepo;
   scratchDir: string;
   isVisionEnabled: () => boolean;
+  isGlobalEnabled: () => boolean;
 };
 
-export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, isVisionEnabled }: Deps): () => void {
+export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, isVisionEnabled, isGlobalEnabled }: Deps): () => void {
   let attached = false;
   let bound: ((m: Message) => void) | null = null;
 
@@ -46,6 +47,7 @@ export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, 
     const isReplyToBot = !!m.reference?.messageId && (await isReplyTargetingBot(m, botId));
     if (!isMention && !isReplyToBot) return;
 
+    if (!isGlobalEnabled()) return;
     const cfg = repo.getGuildConfig(m.guildId);
     if (!cfg.enabled || !cfg.channelIds.includes(m.channelId)) return;
 
