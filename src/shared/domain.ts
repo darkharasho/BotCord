@@ -330,6 +330,8 @@ export type Prefs = {
   collapsedCategoryIds: string[];
   memberListOpen: boolean;
   channelLastSeen: Record<string, number>;
+  channelLatest: Record<string, number>;
+  channelMentions: Record<string, Record<string, number>>;
   mutedChannelIds: string[];
   giphyApiKey: string;
   autonomyGlobalEnabled: boolean;

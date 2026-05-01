@@ -11,15 +11,23 @@ export function DMListItem({
   onClick: () => void;
 }) {
   const displayName = row.userGlobalName ?? row.userUsername;
+  const showUnread = unread && !active;
   return (
     <button
       type="button"
       onClick={onClick}
       className={
-        'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors duration-150 ' +
+        'relative flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors duration-150 ' +
         (active ? 'bg-selected text-fg' : 'hover:bg-hover')
       }
     >
+      {/* Discord-style unread pill on the left edge */}
+      {showUnread && (
+        <span
+          aria-hidden
+          className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-2 bg-fg rounded-r"
+        />
+      )}
       <Avatar
         src={row.userAvatar}
         alt={displayName}
@@ -27,11 +35,18 @@ export function DMListItem({
         fallback={<div className="w-8 h-8 rounded-full bg-bg-input shrink-0" />}
       />
       <div className="min-w-0 flex-1">
-        <div className={'truncate text-sm ' + (active || unread ? 'text-fg' : 'text-fg-dim')}>
+        <div
+          className={
+            'truncate text-sm ' +
+            (active ? 'text-fg' : showUnread ? 'text-fg font-semibold' : 'text-fg-dim')
+          }
+        >
           {displayName}
         </div>
         {row.lastMessagePreview && (
-          <div className="truncate text-xs text-fg-dim">{row.lastMessagePreview}</div>
+          <div className={'truncate text-xs ' + (showUnread ? 'text-fg-muted' : 'text-fg-dim')}>
+            {row.lastMessagePreview}
+          </div>
         )}
       </div>
       {mentionCount > 0 && (

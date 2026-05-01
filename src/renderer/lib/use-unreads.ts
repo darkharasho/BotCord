@@ -54,22 +54,36 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   const botIdRef = useRef<string | null>(null);
   botIdRef.current = bot?.id ?? null;
 
-  // Persist lastSeen to prefs (debounced to avoid hammering SQLite)
-  const persistLastSeen = () => {
+  // Persist all unread state (debounced) so it survives restarts even when
+  // a channel's `lastMessageId` snowflake doesn't reflect the most recent
+  // message we observed live.
+  const persistAll = () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const obj: Record<string, number> = {};
-      for (const [k, v] of lastSeen.current) obj[k] = v;
-      api.prefs.set('channelLastSeen', obj);
+      const seen: Record<string, number> = {};
+      for (const [k, v] of lastSeen.current) seen[k] = v;
+      const lat: Record<string, number> = {};
+      for (const [k, v] of latest.current) lat[k] = v;
+      const men: Record<string, Record<string, number>> = {};
+      for (const [cid, msgs] of mentionMsgs.current) {
+        const inner: Record<string, number> = {};
+        for (const [mid, ts] of msgs) inner[mid] = ts;
+        men[cid] = inner;
+      }
+      void api.prefs.set('channelLastSeen', seen);
+      void api.prefs.set('channelLatest', lat);
+      void api.prefs.set('channelMentions', men);
     }, 2000);
   };
 
-  // Load persisted lastSeen + muted set on mount
+  // Load persisted state on mount.
   useEffect(() => {
     Promise.all([
       api.prefs.get('channelLastSeen'),
       api.prefs.get('mutedChannelIds'),
-    ]).then(([seenRes, mutedRes]) => {
+      api.prefs.get('channelLatest'),
+      api.prefs.get('channelMentions'),
+    ]).then(([seenRes, mutedRes, latestRes, mentionsRes]) => {
       if (seenRes.ok && seenRes.data) {
         for (const [k, v] of Object.entries(seenRes.data)) {
           lastSeen.current.set(k, v);
@@ -77,6 +91,18 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       }
       if (mutedRes.ok && Array.isArray(mutedRes.data)) {
         for (const id of mutedRes.data) muted.current.add(id);
+      }
+      if (latestRes.ok && latestRes.data) {
+        for (const [k, v] of Object.entries(latestRes.data)) {
+          latest.current.set(k, v);
+        }
+      }
+      if (mentionsRes.ok && mentionsRes.data) {
+        for (const [cid, inner] of Object.entries(mentionsRes.data)) {
+          const map = new Map<string, number>();
+          for (const [mid, ts] of Object.entries(inner)) map.set(mid, ts);
+          mentionMsgs.current.set(cid, map);
+        }
       }
       loaded.current = true;
       force(n => n + 1);
@@ -107,7 +133,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     if (!activeChannelId) return;
     const t = latest.current.get(activeChannelId) ?? Date.now();
     lastSeen.current.set(activeChannelId, t);
-    if (loaded.current) persistLastSeen();
+    if (loaded.current) persistAll();
     force(n => n + 1);
   }, [activeChannelId]);
 
@@ -165,7 +191,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       changed = true;
     }
     if (changed) {
-      if (loaded.current) persistLastSeen();
+      if (loaded.current) persistAll();
       force(n => n + 1);
     }
   };
@@ -183,7 +209,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       changed = true;
     }
     if (changed) {
-      if (loaded.current) persistLastSeen();
+      if (loaded.current) persistAll();
       force(n => n + 1);
     }
   };
@@ -206,8 +232,10 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       }
       if (channelId === activeRef.current) {
         lastSeen.current.set(channelId, message.createdAt);
-        if (loaded.current) persistLastSeen();
       }
+      // Save on every message so unread state (latest + mentions) survives
+      // a restart even when the user never reads the channel.
+      if (loaded.current) persistAll();
       force(n => n + 1);
     });
   }, []);

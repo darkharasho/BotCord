@@ -69,6 +69,40 @@ export function createClientManager(vault: TokenVault): ClientManager {
     c.on(Events.ClientReady, () => {
       identity = toIdentity(c);
       reconnectAttempt = 0;
+      const raw = (c.options.intents as unknown) as { bitfield?: unknown } | number;
+      const bitsNum: number = typeof raw === 'number'
+        ? raw
+        : typeof raw?.bitfield === 'number' ? raw.bitfield
+        : typeof raw?.bitfield === 'bigint' ? Number(raw.bitfield)
+        : 0;
+      console.log('[client-manager] ready as', c.user?.tag, 'id=', c.user?.id, 'intents =', bitsNum, 'DM bit set?', (bitsNum & 4096) !== 0);
+      // Workaround for discord.js v14 dropping DM messageCreate events:
+      // the gateway MESSAGE_CREATE payload omits channel `type` and
+      // `recipients`, so createChannel() returns undefined when the DM
+      // channel isn't pre-cached, and the event is silently dropped.
+      // We pre-cache the DM channel on the raw dispatch so discord.js's
+      // own MessageCreate action can then resolve it normally.
+      const ws = (c as unknown as { ws: { on: (e: string, cb: (...args: unknown[]) => void) => void } }).ws;
+      if (ws && typeof ws.on === 'function') {
+        ws.on('MESSAGE_CREATE', (data: unknown) => {
+          const d = data as { id?: string; channel_id?: string; guild_id?: string | null; author?: { id?: string; username?: string } };
+          if (d.guild_id || !d.channel_id || !d.author?.id) return;
+          if (c.channels.cache.has(d.channel_id)) return;
+          const cm = c.channels as unknown as { _add: (data: unknown, guild: null, opts?: { cache?: boolean }) => unknown };
+          try {
+            cm._add({ id: d.channel_id, type: 1 /* DM */, recipients: [d.author] }, null, { cache: true });
+          } catch (e) { console.warn('[client-manager] dm pre-cache failed', e); }
+        });
+        ws.on('MESSAGE_REACTION_ADD', (data: unknown) => {
+          const d = data as { channel_id?: string; message_id?: string; guild_id?: string | null; emoji?: { name?: string } };
+          if (d.guild_id) return;
+          console.log('[ws raw] MESSAGE_REACTION_ADD (DM)', { channelId: d.channel_id, messageId: d.message_id, emoji: d.emoji?.name });
+        });
+        ws.on('MESSAGE_REACTION_REMOVE', (data: unknown) => {
+          const d = data as { channel_id?: string; message_id?: string; guild_id?: string | null; emoji?: { name?: string } };
+          console.log('[ws raw] MESSAGE_REACTION_REMOVE', { channelId: d.channel_id, messageId: d.message_id, guildId: d.guild_id, emoji: d.emoji?.name });
+        });
+      }
       setGateway({ status: 'ready', sessionStartedAt: Date.now() });
     });
     // ClientReady only fires on the initial connect. After an auto-reconnect
@@ -113,6 +147,7 @@ export function createClientManager(vault: TokenVault): ClientManager {
       }
     });
     c.on(Events.MessageCreate, (m) => {
+      console.log('[client-manager] messageCreate', { channelId: m.channelId, guildId: m.guildId, channelType: m.channel?.type, authorId: m.author?.id });
       broadcast(MESSAGE_CREATE_CHANNEL, { channelId: m.channelId, message: summarizeMessage(m) });
     });
     c.on(Events.MessageUpdate, (_old, mNew) => {
@@ -139,8 +174,17 @@ export function createClientManager(vault: TokenVault): ClientManager {
       }
       broadcast(MESSAGE_UPDATE_CHANNEL, { channelId: msg.channelId, message: summarizeMessage(msg) });
     };
-    c.on(Events.MessageReactionAdd, (r) => { void broadcastReactionUpdate(r as unknown as { message: Message }); });
-    c.on(Events.MessageReactionRemove, (r) => { void broadcastReactionUpdate(r as unknown as { message: Message }); });
+    c.on(Events.MessageReactionAdd, (r) => {
+      const m = (r as unknown as { message: Message }).message;
+      console.log('[client-manager] reactionAdd', { channelId: m?.channelId, guildId: m?.guildId, partial: m?.partial });
+      void broadcastReactionUpdate(r as unknown as { message: Message });
+    });
+    c.on(Events.MessageReactionRemove, (r) => {
+      const m = (r as unknown as { message: Message }).message;
+      const e = (r as unknown as { emoji: { name: string | null; id: string | null } }).emoji;
+      console.log('[client-manager] reactionRemove', { channelId: m?.channelId, guildId: m?.guildId, partial: m?.partial, emoji: e?.name, reactionsAfter: m?.reactions?.cache?.size });
+      void broadcastReactionUpdate(r as unknown as { message: Message });
+    });
     c.on(Events.MessageReactionRemoveAll, (m) => {
       const msg = m as Message;
       if (msg.partial) {
@@ -232,7 +276,7 @@ export function createClientManager(vault: TokenVault): ClientManager {
 
       client = new Client({
         intents: REQUIRED_INTENTS,
-        partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.Reaction],
+        partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.Reaction, Partials.User],
       });
       wireEvents(client);
       setGateway({ status: 'connecting' });
@@ -491,6 +535,9 @@ function resolveMentionPatterns(text: string, guild: Message['guild'], out: Reso
 function projectReactions(m: Message): ReactionSummary[] {
   const out: ReactionSummary[] = [];
   for (const r of m.reactions.cache.values()) {
+    // After a reaction-remove, discord.js can leave a stale cache entry with
+    // count = 0. Skip those so unreactions visually clear in the renderer.
+    if ((r.count ?? 0) <= 0) continue;
     const e = r.emoji;
     out.push({
       emojiId: e.id ?? null,

@@ -69,6 +69,7 @@ const api: BotcordApi = {
       invoke(IPC_CHANNELS['dms.sendWithAttachments'], channelId, content, attachments),
     markRead: (channelId) => invoke(IPC_CHANNELS['dms.markRead'], channelId),
     close: (channelId) => invoke(IPC_CHANNELS['dms.close'], channelId),
+    getMutualGuilds: (userId) => invoke(IPC_CHANNELS['dms.getMutualGuilds'], userId),
   },
   drafts: {
     list: () => invoke(IPC_CHANNELS['drafts.list']),

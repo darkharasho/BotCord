@@ -110,7 +110,7 @@ function HomeRailItem({
         </div>
         {hasMention && (
           <span
-            className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-4 min-w-4 px-1 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in flex items-center justify-center text-white text-[10px] font-bold leading-none tabular-nums"
+            className="absolute -bottom-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in flex items-center justify-center text-white text-[10px] font-bold leading-none tabular-nums"
             aria-label={mentionCount > 1 ? `${mentionCount} mentions` : 'mention'}
           >
             {mentionCount > 99 ? '99+' : mentionCount}
@@ -182,7 +182,7 @@ function GuildRailItem({
         </div>
         {mention && (
           <span
-            className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-4 min-w-4 px-1 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in flex items-center justify-center text-white text-[10px] font-bold leading-none tabular-nums"
+            className="absolute -bottom-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in flex items-center justify-center text-white text-[10px] font-bold leading-none tabular-nums"
             aria-label={mentionCount > 1 ? `${mentionCount} mentions` : 'mention'}
           >
             {mentionCount > 99 ? '99+' : mentionCount > 0 ? mentionCount : ''}

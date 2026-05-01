@@ -81,6 +81,7 @@ export interface BotcordApi {
     sendWithAttachments(channelId: string, content: string, attachments: SendAttachment[]): Promise<Result<MessageSummary>>;
     markRead(channelId: string): Promise<Result<void>>;
     close(channelId: string): Promise<Result<void>>;
+    getMutualGuilds(userId: string): Promise<Result<GuildSummary[]>>;
   };
   drafts: {
     list(): Promise<Result<DraftRow[]>>;
@@ -205,6 +206,7 @@ export const IPC_CHANNELS = {
   'dms.sendWithAttachments': 'dms.sendWithAttachments',
   'dms.markRead': 'dms.markRead',
   'dms.close': 'dms.close',
+  'dms.getMutualGuilds': 'dms.getMutualGuilds',
   'drafts.list': 'drafts.list',
   'drafts.upsert': 'drafts.upsert',
   'drafts.delete': 'drafts.delete',

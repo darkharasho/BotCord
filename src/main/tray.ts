@@ -59,13 +59,13 @@ function loadBadgedIcon(): Electron.NativeImage {
   const bytes = new Uint8ClampedArray(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const out = new Uint8ClampedArray(bytes); // copy
 
-  // Sized as ~1/3 of icon height; sits flush in the top-right with a
-  // 1px transparent margin so it never quite touches the edge.
-  const r = Math.max(3, Math.floor(height / 3));
-  const cx = width - r - 1;
-  const cy = r + 1;
-  // Anti-aliased red disc with a thin transparent halo for separation
-  // from the icon underneath.
+  // Sized as ~1/4 of icon height; pushed further into the top-right corner
+  // by tightening the inset.
+  const r = Math.max(3, Math.floor(height / 4));
+  const cx = width - r;
+  const cy = r;
+  // Softer red — Discord-style coral rather than pure red.
+  const RED_R = 237, RED_G = 66, RED_B = 69;
   const haloR = r + 1.5;
   for (let y = Math.max(0, cy - r - 2); y < Math.min(height, cy + r + 2); y++) {
     for (let x = Math.max(0, cx - r - 2); x < Math.min(width, cx + r + 2); x++) {
@@ -74,14 +74,13 @@ function loadBadgedIcon(): Electron.NativeImage {
       const d = Math.sqrt(dx * dx + dy * dy);
       const i = (y * width + x) * 4;
       if (d <= r) {
-        // Inside disc: full red. Anti-alias the last pixel.
+        // Inside disc, anti-aliased edge. Premultiplied BGRA.
         const aa = Math.min(1, r - d);
-        // Premultiplied BGRA: B=0, G=0, R=255*alpha, A=255*alpha
         const a = Math.round(255 * aa);
-        out[i] = 0;                              // B
-        out[i + 1] = 0;                          // G
-        out[i + 2] = a;                          // R (premultiplied)
-        out[i + 3] = a;                          // A
+        out[i]     = Math.round(RED_B * aa); // B
+        out[i + 1] = Math.round(RED_G * aa); // G
+        out[i + 2] = Math.round(RED_R * aa); // R
+        out[i + 3] = a;                       // A
       } else if (d <= haloR) {
         // Halo: punch a hole in whatever's underneath so the dot reads.
         out[i] = 0;

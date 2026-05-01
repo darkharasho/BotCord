@@ -316,6 +316,9 @@ export function Composer({
     setFiles([]);
     mentionMap.current.clear();
     onCancelReply?.();
+    // The textarea is disabled while `busy`, which blurs it. Defer the
+    // focus until React has re-enabled it on the next frame.
+    requestAnimationFrame(() => taRef.current?.focus());
   };
 
   const send = () => sendCore(resolveMentionShortcuts(resolveEmojiShortcuts(text.trim())), files);

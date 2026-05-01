@@ -24,11 +24,13 @@ export function NewDMModal({
     let cancelled = false;
     (async () => {
       const guildsRes = await api.guilds.list();
+      console.log('[NewDMModal] guilds.list →', guildsRes);
       if (!guildsRes.ok || cancelled) return;
       const all: Match[] = [];
       const seen = new Set<string>();
       await Promise.all(guildsRes.data.map(async g => {
         const res = await api.guilds.searchMembers(g.id, q, { limit: 10 });
+        console.log('[NewDMModal] searchMembers', g.name, q, '→', res);
         if (!res.ok) return;
         for (const m of res.data) {
           if (seen.has(m.id)) continue;
@@ -36,6 +38,7 @@ export function NewDMModal({
           all.push({ ...m, guildName: g.name });
         }
       }));
+      console.log('[NewDMModal] total results', all.length);
       if (!cancelled) setResults(all.slice(0, 25));
     })();
     return () => { cancelled = true; };

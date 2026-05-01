@@ -12,4 +12,6 @@ export const REQUIRED_INTENTS = [
   GatewayIntentBits.GuildMessageTyping,
   GatewayIntentBits.DirectMessages,
   GatewayIntentBits.DirectMessageTyping,
+  GatewayIntentBits.DirectMessageReactions,
+  GatewayIntentBits.DirectMessagePolls,
 ];

@@ -170,6 +170,24 @@ export function UserProfileCard({
                 <div className="text-[13px] text-fg-muted">{member.username}</div>
               </div>
 
+              {!member.isBot && (
+                <button
+                  type="button"
+                  className="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium py-1.5 rounded transition-colors"
+                  onClick={async () => {
+                    const res = await api.dms.openWithUser(userId);
+                    if (!res.ok) {
+                      console.warn('[UserProfileCard] openWithUser failed', res.error);
+                      return;
+                    }
+                    window.dispatchEvent(new CustomEvent('botcord:open-dm', { detail: { channelId: res.data.channelId } }));
+                    onClose();
+                  }}
+                >
+                  Message
+                </button>
+              )}
+
               <div className="border-t border-white/[0.08]" />
 
               {/* Dates */}

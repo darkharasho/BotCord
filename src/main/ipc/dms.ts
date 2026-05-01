@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import { ChannelType, AttachmentBuilder, type DMChannel, type Message } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
-import type { DMChannelRow, MessageSummary, SendAttachment } from '../../shared/domain';
+import type { DMChannelRow, GuildSummary, MessageSummary, SendAttachment } from '../../shared/domain';
 import { summarizeMessage } from '../discord/client-manager';
 import type { DMChannelsRepo } from '../db/repos/dm-channels';
 import type { IpcDeps } from './index';
@@ -116,5 +116,28 @@ export function registerDMHandlers({ manager, dmRepo }: DMIpcDeps): void {
     if (typeof channelId !== 'string') return err('INTERNAL', 'channelId required');
     dmRepo.markInert(channelId);
     return ok(undefined);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['dms.getMutualGuilds'], async (_, userId: unknown): Promise<Result<GuildSummary[]>> => {
+    if (typeof userId !== 'string') return err('INTERNAL', 'userId required');
+    const client = manager.getClient();
+    if (!client || !client.isReady()) return err('GATEWAY_OFFLINE', 'Bot is not connected');
+    const matches: GuildSummary[] = [];
+    for (const guild of client.guilds.cache.values()) {
+      // Ensure the member roster is cached so the membership check is reliable.
+      if (typeof guild.memberCount === 'number' && guild.members.cache.size < guild.memberCount) {
+        try { await guild.members.fetch(); } catch { /* missing intent — fall through to cache check */ }
+      }
+      if (!guild.members.cache.has(userId)) continue;
+      matches.push({
+        id: guild.id,
+        name: guild.name,
+        iconUrl: guild.icon?.startsWith('a_')
+          ? guild.iconURL({ size: 64, extension: 'gif' })
+          : guild.iconURL({ size: 64 }),
+        memberCount: guild.memberCount,
+      });
+    }
+    return ok(matches);
   });
 }

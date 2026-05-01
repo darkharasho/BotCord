@@ -35,6 +35,21 @@ export function ShellRoute() {
   const [activeDMChannelId, setActiveDMChannelId] = useState<string | null>(null);
   const [dmRows, setDMRows] = useState<DMChannelRow[]>([]);
 
+  // Cross-component request to jump to a DM (e.g. from UserProfileCard's
+  // Message button). Listening here keeps the navigation logic centralized.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId?: string }>).detail;
+      if (!detail?.channelId) return;
+      setShellView('home');
+      setActiveDMChannelId(detail.channelId);
+      // Refresh DM list so a brand-new conversation row shows up.
+      api.dms.list().then(res => { if (res.ok) setDMRows(res.data); });
+    };
+    window.addEventListener('botcord:open-dm', handler);
+    return () => window.removeEventListener('botcord:open-dm', handler);
+  }, []);
+
   // Window focus tracking — used to suppress DM notifications when the DM is
   // already on screen with the window in front.
   const [windowFocused, setWindowFocused] = useState(
@@ -165,7 +180,7 @@ export function ShellRoute() {
             {activeDMChannelId && activeDMRow ? (
               <>
                 <DMHeader row={activeDMRow} />
-                <MessageList channelId={activeDMChannelId} />
+                <MessageList channelId={activeDMChannelId} header={<DMIntro row={activeDMRow} />} />
                 <Composer channelId={activeDMChannelId} guildId={null} mode="dm" />
               </>
             ) : activeDMChannelId ? (
@@ -227,6 +242,59 @@ export function ShellRoute() {
       )}
       {settingsOpen && <SettingsOverlay onClose={() => setSettingsOpen(false)} />}
       <Toaster />
+    </div>
+  );
+}
+
+function DMIntro({ row }: { row: DMChannelRow }) {
+  const displayName = row.userGlobalName ?? row.userUsername;
+  const [mutuals, setMutuals] = useState<GuildSummary[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setMutuals(null);
+    api.dms.getMutualGuilds(row.userId).then(res => {
+      if (cancelled) return;
+      setMutuals(res.ok ? res.data : []);
+    });
+    return () => { cancelled = true; };
+  }, [row.userId]);
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <Avatar
+        src={row.userAvatar}
+        alt=""
+        className="h-20 w-20 rounded-full mb-4"
+        fallback={
+          <div className="h-20 w-20 rounded-full mb-4 bg-bg-input flex items-center justify-center text-2xl font-semibold text-fg">
+            {displayName.slice(0, 2).toUpperCase()}
+          </div>
+        }
+      />
+      <h2 className="text-3xl font-bold text-fg leading-tight">{displayName}</h2>
+      <div className="text-base text-fg-muted mt-1">{row.userUsername}</div>
+      <p className="text-sm text-fg-muted mt-3">
+        This is the beginning of your direct message history with <span className="font-semibold text-fg">{displayName}</span>.
+      </p>
+      {mutuals && mutuals.length > 0 && (
+        <div className="flex items-center gap-1.5 mt-3">
+          <div className="flex -space-x-1.5">
+            {mutuals.slice(0, 6).map(g => (
+              <div
+                key={g.id}
+                title={g.name}
+                className="h-6 w-6 rounded-full ring-2 ring-bg overflow-hidden bg-bg-input flex items-center justify-center text-[10px] font-semibold text-fg"
+              >
+                {g.iconUrl
+                  ? <img src={g.iconUrl} alt="" className="h-full w-full object-cover" />
+                  : <span>{g.name.slice(0, 2).toUpperCase()}</span>}
+              </div>
+            ))}
+          </div>
+          <span className="text-xs text-fg-muted">
+            {mutuals.length} Mutual Server{mutuals.length === 1 ? '' : 's'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
