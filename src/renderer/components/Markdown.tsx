@@ -65,7 +65,7 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
       return (
         <blockquote
           key={key}
-          className="relative pl-3 my-1 before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-full before:bg-fg-dim/60"
+          className="relative pl-3 my-1 text-fg-muted before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-full before:bg-fg-dim/60"
         >
           {n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}
         </blockquote>
