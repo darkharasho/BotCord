@@ -1,8 +1,9 @@
 import type { MdNode } from '../lib/markdown';
 import { parseMarkdown } from '../lib/markdown';
 import type { ResolvedMention } from '../../shared/domain';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { renderTwemoji } from '../lib/twemoji';
+import { api } from '../lib/api';
 
 type Props = {
   source: string;
@@ -80,8 +81,10 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
       );
     }
     case 'link': {
-      // Intercept Discord channel/message links so we navigate inside the app.
+      // Intercept Discord channel/message links so we navigate inside the app
+      // and render them as chips matching how Discord renders these links.
       const dl = parseDiscordLink(n.url);
+      if (dl) return <DiscordLinkChip key={key} url={n.url} link={dl} />;
       return (
         <a
           key={key}
@@ -90,12 +93,6 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
           className="text-link hover:underline break-all"
           onClick={(e) => {
             e.preventDefault();
-            if (dl) {
-              window.dispatchEvent(new CustomEvent('botcord:open-channel', {
-                detail: { guildId: dl.guildId, channelId: dl.channelId, messageId: dl.messageId },
-              }));
-              return;
-            }
             window.botcord.system.openExternal(n.url);
           }}
         >
@@ -184,6 +181,44 @@ function parseDiscordLink(url: string): { guildId: string; channelId: string; me
     if (m[3]) out.messageId = m[3];
     return out;
   } catch { return null; }
+}
+
+// Module-level cache so repeated chips for the same channel render synchronously
+// after the first lookup (no flash, no repeat IPCs).
+const channelNameCache = new Map<string, string>();
+
+function DiscordLinkChip({ url, link }: { url: string; link: { guildId: string; channelId: string; messageId?: string } }) {
+  const cached = channelNameCache.get(link.channelId) ?? null;
+  const [name, setName] = useState<string | null>(cached);
+
+  useEffect(() => {
+    if (name) return;
+    let cancelled = false;
+    api.guilds.listChannels(link.guildId).then(res => {
+      if (cancelled || !res.ok) return;
+      const ch = res.data.find(c => c.id === link.channelId);
+      if (ch) {
+        channelNameCache.set(link.channelId, ch.name);
+        setName(ch.name);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [link.channelId, link.guildId, name]);
+
+  return (
+    <span
+      title={url}
+      onClick={(e) => {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('botcord:open-channel', {
+          detail: { guildId: link.guildId, channelId: link.channelId, messageId: link.messageId },
+        }));
+      }}
+      className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
+    >
+      {link.messageId ? '↗ ' : ''}#{name ?? '…'}
+    </span>
+  );
 }
 
 function Spoiler({ children }: { children: ReactNode }) {
