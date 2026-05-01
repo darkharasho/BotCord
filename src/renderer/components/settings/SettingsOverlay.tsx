@@ -8,6 +8,7 @@ import { AccountSection } from './sections/AccountSection';
 import { ConnectionsSection } from './sections/ConnectionsSection';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { NotificationsSection } from './sections/NotificationsSection';
+import { VoiceVideoSection } from './sections/VoiceVideoSection';
 import { AutonomySection } from './sections/AutonomySection';
 import { ServersSection } from './sections/ServersSection';
 import { AboutSection } from './sections/AboutSection';
@@ -65,6 +66,7 @@ export function SettingsOverlay({ onClose }: { onClose: () => void }) {
             {active === 'connections' && <ConnectionsSection />}
             {active === 'appearance' && <AppearanceSection />}
             {active === 'notifications' && <NotificationsSection />}
+            {active === 'voice' && <VoiceVideoSection />}
             {active === 'autonomy' && <AutonomySection />}
             {active === 'servers' && <ServersSection />}
             {active === 'about' && <AboutSection />}

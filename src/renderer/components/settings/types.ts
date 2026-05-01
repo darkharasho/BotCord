@@ -3,6 +3,7 @@ import {
   IconPlug,
   IconPalette,
   IconBell,
+  IconHeadphones,
   IconSparkles,
   IconServer,
   IconInfoCircle,
@@ -14,6 +15,7 @@ export type SectionId =
   | 'connections'
   | 'appearance'
   | 'notifications'
+  | 'voice'
   | 'autonomy'
   | 'servers'
   | 'about';
@@ -36,6 +38,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'appearance', label: 'Appearance', icon: IconPalette },
       { id: 'notifications', label: 'Notifications', icon: IconBell },
+      { id: 'voice', label: 'Voice & Video', icon: IconHeadphones },
       { id: 'autonomy', label: 'Autonomy', icon: IconSparkles },
       { id: 'servers', label: 'Servers', icon: IconServer },
       { id: 'about', label: 'About', icon: IconInfoCircle },
