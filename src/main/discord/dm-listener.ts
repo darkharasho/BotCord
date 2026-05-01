@@ -82,7 +82,7 @@ export function attachDMListener(client: Client, repo: DMChannelsRepo): { runBac
             const ordered = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
             for (const m of ordered) {
               if (isDM(m)) upsertFromMessage(repo, m);
-              client.emit(Events.MessageCreate, m);
+              client.emit(Events.MessageCreate, m as never);
             }
             const newest = ordered[ordered.length - 1]!;
             after = newest.id;

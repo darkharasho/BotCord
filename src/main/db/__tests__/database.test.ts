@@ -16,7 +16,7 @@ describe('openDatabase', () => {
     expect(names).toContain('prefs');
     expect(names).toContain('schema_version');
     const v = db.prepare('SELECT MAX(version) as v FROM schema_version').get() as { v: number };
-    expect(v.v).toBe(2);
+    expect(v.v).toBe(3);
   });
 
   it('is idempotent — second open is a no-op', async () => {
@@ -38,7 +38,7 @@ describe('migration v2 — autonomy_guild_config', () => {
       const names = cols.map(c => c.name).sort();
       expect(names).toEqual(['channel_ids', 'context_size', 'cooldown_ms', 'enabled', 'guild_id', 'system_prompt', 'updated_at']);
       const versions = db.prepare('SELECT version FROM schema_version ORDER BY version').all() as Array<{ version: number }>;
-      expect(versions.map(v => v.version)).toEqual([1, 2]);
+      expect(versions.map(v => v.version)).toEqual([1, 2, 3]);
     } finally {
       db.close();
       rmSync(dir, { recursive: true, force: true });
