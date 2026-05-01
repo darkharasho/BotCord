@@ -9,6 +9,7 @@ const ANIMATED_PLAY_MS = 3000; // play once on mount for ~3s, then freeze on fir
 
 export function ServerRail({
   selected, onSelect, unreadGuildIds, mentionGuildIds, mentionGuildCounts, onMarkRead,
+  homeActive = false, homeUnread = false, homeMentionCount = 0, onHomeClick = () => {},
 }: {
   selected: string | null;
   onSelect: (g: GuildSummary) => void;
@@ -16,6 +17,10 @@ export function ServerRail({
   mentionGuildIds?: Set<string>;
   mentionGuildCounts?: Map<string, number>;
   onMarkRead?: (guildId: string) => void;
+  homeActive?: boolean;
+  homeUnread?: boolean;
+  homeMentionCount?: number;
+  onHomeClick?: () => void;
 }) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +46,13 @@ export function ServerRail({
         style={{ scrollbarWidth: 'none' } as React.CSSProperties}
       >
         {error && <div className="text-danger text-[10px] px-1 text-center leading-tight">{error}</div>}
+        <HomeRailItem
+          active={homeActive}
+          unread={homeUnread}
+          mentionCount={homeMentionCount}
+          onClick={onHomeClick}
+        />
+        <div className="w-8 h-px bg-border my-1" aria-hidden />
         {guilds.map(g => (
           <GuildRailItem
             key={g.id}
@@ -59,6 +71,52 @@ export function ServerRail({
         )}
       </div>
     </>
+  );
+}
+
+function HomeRailItem({
+  active, unread, mentionCount, onClick,
+}: { active: boolean; unread: boolean; mentionCount: number; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+
+  const sideIndicator =
+    active
+      ? 'h-10 opacity-100'
+      : hovered
+        ? 'h-5 opacity-100'
+        : unread
+          ? 'h-2 opacity-100'
+          : 'h-0 opacity-0';
+
+  const hasMention = mentionCount > 0;
+
+  return (
+    <Tooltip label="Home" side="right">
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="relative"
+      >
+        <span
+          className={`absolute -left-3 top-1/2 -translate-y-1/2 w-1 bg-fg rounded-r transition-all duration-200 ease-out ${sideIndicator}`}
+        />
+        <div
+          className={`w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center transition-colors duration-150
+            ${active ? 'bg-[#007f68]' : 'bg-bg-subtle hover:bg-[#007f68]'}`}
+        >
+          <img src="/botcord-white.svg" alt="Home" className="w-6 h-6" />
+        </div>
+        {hasMention && (
+          <span
+            className="absolute left-1/2 -translate-x-1/2 -bottom-1 h-4 min-w-4 px-1 rounded-full bg-danger ring-[3px] ring-bg-sunken animate-fade-in flex items-center justify-center text-white text-[10px] font-bold leading-none tabular-nums"
+            aria-label={mentionCount > 1 ? `${mentionCount} mentions` : 'mention'}
+          >
+            {mentionCount > 99 ? '99+' : mentionCount}
+          </span>
+        )}
+      </button>
+    </Tooltip>
   );
 }
 
