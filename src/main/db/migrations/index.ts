@@ -45,7 +45,25 @@ CREATE TABLE autonomy_guild_config (
 );
 `;
 
+const M003_DMS = `
+CREATE TABLE dm_channels (
+  channel_id           TEXT PRIMARY KEY,
+  user_id              TEXT NOT NULL,
+  user_username        TEXT NOT NULL,
+  user_global_name     TEXT,
+  user_avatar          TEXT,
+  last_message_id      TEXT,
+  last_message_preview TEXT,
+  inert                INTEGER NOT NULL DEFAULT 0,
+  created_at           INTEGER NOT NULL,
+  updated_at           INTEGER NOT NULL
+);
+CREATE INDEX idx_dm_channels_user ON dm_channels(user_id);
+CREATE INDEX idx_dm_channels_updated ON dm_channels(updated_at DESC);
+`;
+
 export const MIGRATIONS: ReadonlyArray<Migration> = [
   { version: 1, sql: M001_INIT },
   { version: 2, sql: M002_AUTONOMY },
+  { version: 3, sql: M003_DMS },
 ];
