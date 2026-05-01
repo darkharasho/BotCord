@@ -39,7 +39,7 @@ export async function startVoiceSink(): Promise<void> {
       await applySinkId(ctx, desired);
     } catch (e) {
       console.warn('[voice-sink] saved output device unavailable, falling back to default', e);
-      api.prefs.set('audioOutputDeviceId', '');
+      void api.prefs.set('audioOutputDeviceId', '').catch(() => { /* best-effort */ });
     }
   }
 
