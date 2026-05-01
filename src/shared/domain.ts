@@ -300,6 +300,29 @@ export type DraftRow = {
 
 export type DraftInput = Omit<DraftRow, 'id' | 'createdAt' | 'updatedAt'> & { id?: string };
 
+export type DMChannelRow = {
+  channelId: string;
+  userId: string;
+  userUsername: string;
+  userGlobalName: string | null;
+  userAvatar: string | null;
+  lastMessageId: string | null;
+  lastMessagePreview: string | null;
+  inert: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type DMChannelUpsert = {
+  channelId: string;
+  userId: string;
+  userUsername: string;
+  userGlobalName: string | null;
+  userAvatar: string | null;
+  lastMessageId: string | null;
+  lastMessagePreview: string | null;
+};
+
 export type Prefs = {
   lastSelectedGuildId: string | null;
   lastSelectedChannelId: string | null;
