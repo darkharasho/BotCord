@@ -31,6 +31,7 @@ function loadAppIcon(): Electron.NativeImage | undefined {
     join(app.getAppPath(), 'public', 'botcord-icon.png'),
     join(__dirname, '../../public/botcord-icon.png'),
     join(__dirname, '../renderer/botcord-icon.png'),
+    join(process.resourcesPath, 'resources', 'botcord-icon.png'),
     join(process.resourcesPath, 'resources', 'icon-512.png'),
     join(app.getAppPath(), 'resources', 'icon-512.png'),
     join(__dirname, '../../resources/icon-512.png'),

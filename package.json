@@ -34,6 +34,14 @@
       {
         "from": "resources",
         "to": "resources"
+      },
+      {
+        "from": "public/botcord-icon.png",
+        "to": "resources/botcord-icon.png"
+      },
+      {
+        "from": "public/botcord-white.png",
+        "to": "resources/botcord-white.png"
       }
     ],
     "linux": {
