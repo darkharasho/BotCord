@@ -4,7 +4,7 @@ import type { ResolvedMention } from '../../shared/domain';
 import { useEffect, useState, type ReactNode } from 'react';
 import { renderTwemoji } from '../lib/twemoji';
 import { api } from '../lib/api';
-import { IconChevronRight, IconMessage } from '@tabler/icons-react';
+import { IconChevronRight, IconMessageFilled } from '@tabler/icons-react';
 
 type Props = {
   source: string;
@@ -221,7 +221,7 @@ function DiscordLinkChip({ url, link }: { url: string; link: { guildId: string; 
       {link.messageId && (
         <>
           <IconChevronRight size={14} stroke={2.5} className="opacity-80" />
-          <IconMessage size={14} stroke={2} className="opacity-90" />
+          <IconMessageFilled size={14} className="opacity-90" />
         </>
       )}
     </span>
