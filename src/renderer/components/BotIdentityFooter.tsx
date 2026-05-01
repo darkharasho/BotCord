@@ -62,7 +62,7 @@ export function BotIdentityFooter({ onOpenSettings }: { onOpenSettings: () => vo
           disabled={!autonomy}
           className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${
             autonomyOn
-              ? 'text-accent hover:text-accent-hover hover:bg-hover'
+              ? 'text-[#007f68] hover:text-[#00a085] hover:bg-hover'
               : 'text-fg-muted hover:text-fg hover:bg-hover'
           }`}
         >
