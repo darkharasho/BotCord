@@ -13,6 +13,7 @@ const VALID_KEYS: ReadonlyArray<keyof Prefs> = [
   'autonomyVisionEnabled', 'autonomyModel',
   'autonomyQueueMaxDepth', 'autonomyQueueTtlSeconds',
   'closeToTray', 'closeToTrayHintShown',
+  'audioOutputDeviceId', 'audioInputDeviceId',
 ];
 
 export function registerPrefsHandlers({ db }: IpcDeps): void {

@@ -318,6 +318,8 @@ export type Prefs = {
   autonomyQueueTtlSeconds: number;
   closeToTray: boolean;
   closeToTrayHintShown: boolean;
+  audioOutputDeviceId: string;
+  audioInputDeviceId: string;
 };
 
 export type SendAttachment = {
