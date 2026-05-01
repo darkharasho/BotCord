@@ -103,7 +103,7 @@ function HomeRailItem({
         />
         <div
           className={`w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center transition-colors duration-150
-            ${active ? 'bg-[#007f68]' : 'bg-bg-subtle hover:bg-[#007f68]'}`}
+            ${active ? 'bg-[#007f68]' : 'bg-bg-subtle hover:bg-hover'}`}
         >
           <img src="/botcord-white.svg" alt="Home" className="w-6 h-6" />
         </div>
