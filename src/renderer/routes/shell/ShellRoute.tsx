@@ -66,6 +66,7 @@ export function ShellRoute() {
           }}
           unreadGuildIds={unreads.guildIds}
           mentionGuildIds={unreads.mentionGuildIds}
+          onMarkRead={unreads.markGuildRead}
         />
       </aside>
       <aside className="w-[310px] shrink-0 min-h-0 bg-bg-sunken flex flex-col rounded-tl-xl border-t border-l border-white/[0.04] overflow-hidden">

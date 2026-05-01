@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconRobot } from '@tabler/icons-react';
+import { IconRobot, IconCheck } from '@tabler/icons-react';
 import { api } from '../lib/api';
 import type { GuildSummary } from '../../shared/domain';
 import { Tooltip } from './Tooltip';
@@ -9,12 +9,13 @@ import { AutonomySettingsTab } from './AutonomySettingsTab';
 const ANIMATED_PLAY_MS = 3000; // play once on mount for ~3s, then freeze on first frame
 
 export function ServerRail({
-  selected, onSelect, unreadGuildIds, mentionGuildIds,
+  selected, onSelect, unreadGuildIds, mentionGuildIds, onMarkRead,
 }: {
   selected: string | null;
   onSelect: (g: GuildSummary) => void;
   unreadGuildIds?: Set<string>;
   mentionGuildIds?: Set<string>;
+  onMarkRead?: (guildId: string) => void;
 }) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,8 @@ export function ServerRail({
             mention={!!mentionGuildIds?.has(g.id)}
             onSelect={onSelect}
             onOpenAutonomy={() => setAutonomyModalForGuild({ id: g.id, name: g.name })}
+            {...(onMarkRead ? { onMarkRead: () => onMarkRead(g.id) } : {})}
+            hasUnread={!!unreadGuildIds?.has(g.id) || !!mentionGuildIds?.has(g.id)}
           />
         ))}
         {guilds.length === 0 && !error && (
@@ -70,8 +73,8 @@ export function ServerRail({
 }
 
 function GuildRailItem({
-  guild, selected, unread, mention, onSelect, onOpenAutonomy,
-}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; onSelect: (g: GuildSummary) => void; onOpenAutonomy: () => void }) {
+  guild, selected, unread, mention, onSelect, onOpenAutonomy, onMarkRead, hasUnread,
+}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; onSelect: (g: GuildSummary) => void; onOpenAutonomy: () => void; onMarkRead?: () => void; hasUnread: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [playOnMount, setPlayOnMount] = useState(true);
 
@@ -101,14 +104,22 @@ function GuildRailItem({
       <button
         onClick={() => onSelect(guild)}
         onContextMenu={(e) => {
-          openContextMenu(e, [
-            {
+          const items: Parameters<typeof openContextMenu>[1] = [];
+          if (onMarkRead && hasUnread) {
+            items.push({
               type: 'item',
-              label: 'Autonomy settings',
-              icon: <IconRobot size={14} />,
-              onClick: onOpenAutonomy,
-            },
-          ]);
+              label: 'Mark as read',
+              icon: <IconCheck size={14} />,
+              onClick: onMarkRead,
+            });
+          }
+          items.push({
+            type: 'item',
+            label: 'Autonomy settings',
+            icon: <IconRobot size={14} />,
+            onClick: onOpenAutonomy,
+          });
+          openContextMenu(e, items);
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}

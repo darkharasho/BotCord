@@ -71,6 +71,18 @@ export function createClientManager(vault: TokenVault): ClientManager {
       reconnectAttempt = 0;
       setGateway({ status: 'ready', sessionStartedAt: Date.now() });
     });
+    // ClientReady only fires on the initial connect. After an auto-reconnect
+    // discord.js emits ShardResume (resumed session) or ShardReady (fresh
+    // identify) — without these handlers the gateway state stays stuck at
+    // 'reconnecting' or 'disconnected' even though the socket is healthy.
+    c.on(Events.ShardResume, () => {
+      reconnectAttempt = 0;
+      setGateway({ status: 'ready', sessionStartedAt: Date.now() });
+    });
+    c.on(Events.ShardReady, () => {
+      reconnectAttempt = 0;
+      setGateway({ status: 'ready', sessionStartedAt: Date.now() });
+    });
     c.on(Events.ShardDisconnect, (_, shardId) => {
       setGateway({ status: 'disconnected', reason: `shard ${shardId} disconnected` });
     });

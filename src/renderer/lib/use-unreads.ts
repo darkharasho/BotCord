@@ -14,6 +14,7 @@ export type Unreads = {
   // mentions, matching Discord's behavior).
   mutedChannelIds: Set<string>;
   toggleMuted: (channelId: string) => void;
+  markGuildRead: (guildId: string) => void;
 };
 
 /**
@@ -36,6 +37,11 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   // bot or used @everyone/@here. Compared against lastSeen the same way
   // `latest` is, so a mention "clears" once the channel is opened.
   const latestMention = useRef<Map<string, number>>(new Map());
+  // Per-channel id of the message that produced `latestMention[cid]`. We
+  // need this to clear a stuck mention when the source message is deleted
+  // in Discord — without it the red dot would persist forever for any
+  // mention message the moderator removes.
+  const latestMentionMsg = useRef<Map<string, string>>(new Map());
   const channelGuild = useRef<Map<string, string>>(new Map());
   const activeRef = useRef(activeChannelId);
   const loaded = useRef(false);
@@ -119,6 +125,36 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     return () => { cancelled = true; unsub(); };
   }, []);
 
+  // Clear a tracked mention when its source message is deleted in Discord —
+  // otherwise moderating away the offending @-ping leaves the red dot stuck
+  // forever, with nothing the user can open to clear it.
+  useEffect(() => {
+    return api.events.onMessageDelete(({ channelId, messageId }) => {
+      if (latestMentionMsg.current.get(channelId) === messageId) {
+        latestMention.current.delete(channelId);
+        latestMentionMsg.current.delete(channelId);
+        force(n => n + 1);
+      }
+    });
+  }, []);
+
+  const markGuildRead = (guildId: string) => {
+    const now = Date.now();
+    let changed = false;
+    for (const [cid, gid] of channelGuild.current) {
+      if (gid !== guildId) continue;
+      const ts = Math.max(latest.current.get(cid) ?? 0, latestMention.current.get(cid) ?? 0, now);
+      lastSeen.current.set(cid, ts);
+      latestMention.current.delete(cid);
+      latestMentionMsg.current.delete(cid);
+      changed = true;
+    }
+    if (changed) {
+      if (loaded.current) persistLastSeen();
+      force(n => n + 1);
+    }
+  };
+
   useEffect(() => {
     return api.events.onMessageCreate(({ channelId, message }) => {
       latest.current.set(channelId, message.createdAt);
@@ -129,6 +165,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
         : false;
       if (message.mentionsEveryone || mentionsBot) {
         latestMention.current.set(channelId, message.createdAt);
+        latestMentionMsg.current.set(channelId, message.id);
       }
       if (channelId === activeRef.current) {
         lastSeen.current.set(channelId, message.createdAt);
@@ -169,6 +206,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     mentionGuildIds,
     mutedChannelIds: muted.current,
     toggleMuted,
+    markGuildRead,
   };
 }
 
