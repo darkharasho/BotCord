@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { IconRobot, IconCheck } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import { IconCheck } from '@tabler/icons-react';
 import { api } from '../lib/api';
 import type { GuildSummary } from '../../shared/domain';
 import { Tooltip } from './Tooltip';
 import { openContextMenu } from './ContextMenu';
-import { AutonomySettingsTab } from './AutonomySettingsTab';
 
 const ANIMATED_PLAY_MS = 3000; // play once on mount for ~3s, then freeze on first frame
 
@@ -19,7 +18,6 @@ export function ServerRail({
 }) {
   const [guilds, setGuilds] = useState<GuildSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [autonomyModalForGuild, setAutonomyModalForGuild] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -50,7 +48,6 @@ export function ServerRail({
             unread={!!unreadGuildIds?.has(g.id)}
             mention={!!mentionGuildIds?.has(g.id)}
             onSelect={onSelect}
-            onOpenAutonomy={() => setAutonomyModalForGuild({ id: g.id, name: g.name })}
             {...(onMarkRead ? { onMarkRead: () => onMarkRead(g.id) } : {})}
             hasUnread={!!unreadGuildIds?.has(g.id) || !!mentionGuildIds?.has(g.id)}
           />
@@ -59,22 +56,13 @@ export function ServerRail({
           <div className="text-fg-dim text-[10px] px-1 text-center">No guilds</div>
         )}
       </div>
-      {autonomyModalForGuild && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setAutonomyModalForGuild(null)}>
-          <div className="bg-bg-subtle border border-border rounded-lg p-6 w-[32rem] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-fg mb-4">Autonomy — {autonomyModalForGuild.name}</h2>
-            <AutonomySettingsTab guildId={autonomyModalForGuild.id} />
-            <button className="mt-4 w-full px-3 py-2 rounded border border-border text-fg hover:bg-bg-sunken" onClick={() => setAutonomyModalForGuild(null)}>Close</button>
-          </div>
-        </div>
-      )}
     </>
   );
 }
 
 function GuildRailItem({
-  guild, selected, unread, mention, onSelect, onOpenAutonomy, onMarkRead, hasUnread,
-}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; onSelect: (g: GuildSummary) => void; onOpenAutonomy: () => void; onMarkRead?: () => void; hasUnread: boolean }) {
+  guild, selected, unread, mention, onSelect, onMarkRead, hasUnread,
+}: { guild: GuildSummary; selected: boolean; unread: boolean; mention: boolean; onSelect: (g: GuildSummary) => void; onMarkRead?: () => void; hasUnread: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [playOnMount, setPlayOnMount] = useState(true);
 
@@ -113,12 +101,7 @@ function GuildRailItem({
               onClick: onMarkRead,
             });
           }
-          items.push({
-            type: 'item',
-            label: 'Autonomy settings',
-            icon: <IconRobot size={14} />,
-            onClick: onOpenAutonomy,
-          });
+          if (items.length === 0) return;
           openContextMenu(e, items);
         }}
         onMouseEnter={() => setHovered(true)}
