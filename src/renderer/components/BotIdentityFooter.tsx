@@ -55,7 +55,7 @@ export function BotIdentityFooter({ onOpenSettings }: { onOpenSettings: () => vo
         <div className="text-[14px] font-semibold text-fg truncate">{identity?.username ?? '—'}</div>
         <div className="text-[11px] text-fg-dim truncate">{statusLabel}</div>
       </div>
-      <Tooltip label={autonomyOn ? 'Autonomy on — click to disable' : 'Autonomy off — click to enable'} side="top">
+      <Tooltip label={autonomyOn ? 'Autonomy on' : 'Autonomy off'} side="top">
         <button
           onClick={() => { void setAutonomy({ enabled: !autonomyOn }); }}
           aria-pressed={autonomyOn}
