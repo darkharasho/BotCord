@@ -96,18 +96,18 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
       );
     case 'mention_user': {
       const m = mentions.find(x => x.type === 'user' && x.id === n.id);
-      return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">@{m?.name ?? n.id}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
     case 'mention_channel': {
       const m = mentions.find(x => x.type === 'channel' && x.id === n.id);
-      return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">#{m?.name ?? n.id}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">#{m?.name ?? n.id}</span>;
     }
     case 'mention_role': {
       const m = mentions.find(x => x.type === 'role' && x.id === n.id);
-      return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">@{m?.name ?? n.id}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
     case 'mention_broadcast':
-      return <span key={key} className="bg-accent/30 text-[#8593ce] font-medium rounded px-1 hover:bg-accent/50 cursor-pointer">@{n.name}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{n.name}</span>;
     case 'custom_emoji':
       return <CustomEmoji key={key} id={n.id} name={n.name} animated={n.animated} jumbo={jumbo} />;
   }
