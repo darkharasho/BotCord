@@ -6,15 +6,19 @@ import { useSaver } from '../SavingState';
 
 export function NotificationsSection() {
   const [closeToTray, setCloseToTray] = useState<boolean | null>(null);
+  const [notifyOnDM, setNotifyOnDM] = useState<boolean | null>(null);
   const { trigger } = useSaver();
 
   useEffect(() => {
     api.prefs.get('closeToTray').then(res => {
       setCloseToTray(res.ok && typeof res.data === 'boolean' ? res.data : true);
     });
+    api.prefs.get('notifyOnDM').then(res => {
+      setNotifyOnDM(res.ok && typeof res.data === 'boolean' ? res.data : true);
+    });
   }, []);
 
-  if (closeToTray === null) return null;
+  if (closeToTray === null || notifyOnDM === null) return null;
 
   const toggleTray = () => {
     const next = !closeToTray;
@@ -22,9 +26,23 @@ export function NotificationsSection() {
     trigger(api.prefs.set('closeToTray', next));
   };
 
+  const toggleNotifyDM = () => {
+    const next = !notifyOnDM;
+    setNotifyOnDM(next);
+    trigger(api.prefs.set('notifyOnDM', next));
+  };
+
   return (
     <div className="max-w-2xl space-y-8">
       <SectionHeader title="Notifications" subtitle="Control how BotCord surfaces activity." />
+
+      <ToggleRow
+        title="Notify on direct messages"
+        description="Show an OS notification when a new DM arrives. Suppressed when the DM is already open and the window is focused."
+        checked={notifyOnDM}
+        onChange={toggleNotifyDM}
+        ariaLabel="Notify on direct messages"
+      />
 
       <ToggleRow
         title="Minimize to system tray on close"
