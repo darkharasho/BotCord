@@ -79,7 +79,9 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
         </span>
       );
     }
-    case 'link':
+    case 'link': {
+      // Intercept Discord channel/message links so we navigate inside the app.
+      const dl = parseDiscordLink(n.url);
       return (
         <a
           key={key}
@@ -88,19 +90,38 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
           className="text-link hover:underline break-all"
           onClick={(e) => {
             e.preventDefault();
+            if (dl) {
+              window.dispatchEvent(new CustomEvent('botcord:open-channel', {
+                detail: { guildId: dl.guildId, channelId: dl.channelId, messageId: dl.messageId },
+              }));
+              return;
+            }
             window.botcord.system.openExternal(n.url);
           }}
         >
           {n.children.map((c, i) => renderNode(c, i, mentions, jumbo))}
         </a>
       );
+    }
     case 'mention_user': {
       const m = mentions.find(x => x.type === 'user' && x.id === n.id);
       return <span key={key} className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
     case 'mention_channel': {
       const m = mentions.find(x => x.type === 'channel' && x.id === n.id);
-      return <span key={key} className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">#{m?.name ?? n.id}</span>;
+      const cid = n.id;
+      return (
+        <span
+          key={key}
+          className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent('botcord:open-channel', {
+              detail: { channelId: cid },
+            }));
+          }}
+        >#{m?.name ?? n.id}</span>
+      );
     }
     case 'mention_role': {
       const m = mentions.find(x => x.type === 'role' && x.id === n.id);
@@ -149,6 +170,20 @@ function CustomEmoji({ id, name, animated, jumbo }: { id: string; name: string; 
       )}
     </>
   );
+}
+
+// Matches https://discord.com/channels/<guildId>/<channelId>[/<messageId>]
+// and equivalent on canary/ptb. Returns null if the URL isn't a discord link.
+function parseDiscordLink(url: string): { guildId: string; channelId: string; messageId?: string } | null {
+  try {
+    const u = new URL(url);
+    if (!/^(?:.+\.)?discord\.com$/i.test(u.hostname) && !/^discordapp\.com$/i.test(u.hostname)) return null;
+    const m = u.pathname.match(/^\/channels\/(\d+)\/(\d+)(?:\/(\d+))?\/?$/);
+    if (!m) return null;
+    const out: { guildId: string; channelId: string; messageId?: string } = { guildId: m[1]!, channelId: m[2]! };
+    if (m[3]) out.messageId = m[3];
+    return out;
+  } catch { return null; }
 }
 
 function Spoiler({ children }: { children: ReactNode }) {

@@ -50,6 +50,41 @@ export function ShellRoute() {
     return () => window.removeEventListener('botcord:open-dm', handler);
   }, []);
 
+  // Cross-component channel/message jump (channel mentions, Discord links).
+  // ChannelView listens for the same event to apply the messageId jump
+  // once it becomes the active channel.
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const detail = (e as CustomEvent<{ guildId?: string; channelId: string; messageId?: string }>).detail;
+      if (!detail?.channelId) return;
+      const guildsRes = await api.guilds.list();
+      if (!guildsRes.ok) return;
+      let guildId = detail.guildId;
+      let target: GuildSummary | null = null;
+      if (guildId) {
+        target = guildsRes.data.find(g => g.id === guildId) ?? null;
+      } else {
+        // Look up which guild owns this channel by scanning each guild's channels.
+        for (const g of guildsRes.data) {
+          const chRes = await api.guilds.listChannels(g.id);
+          if (!chRes.ok) continue;
+          if (chRes.data.some(c => c.id === detail.channelId)) {
+            target = g;
+            guildId = g.id;
+            break;
+          }
+        }
+      }
+      if (!target) return;
+      setShellView('guild');
+      setGuild(target);
+      setForumPostRef(null);
+      setView({ kind: 'channel', channelId: detail.channelId });
+    };
+    window.addEventListener('botcord:open-channel', handler);
+    return () => window.removeEventListener('botcord:open-channel', handler);
+  }, []);
+
   // Window focus tracking — used to suppress DM notifications when the DM is
   // already on screen with the window in front.
   const [windowFocused, setWindowFocused] = useState(

@@ -39,6 +39,17 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
   // Reset transient header state when switching channels.
   useEffect(() => { setSearch(''); setSearchOpen(false); setPinnedOpen(false); setJumpTarget(null); setReplyTo(null); }, [channelId]);
 
+  // Cross-component request to jump to a specific message in this channel.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ channelId: string; messageId?: string }>).detail;
+      if (!detail || detail.channelId !== channelId || !detail.messageId) return;
+      setJumpTarget(detail.messageId);
+    };
+    window.addEventListener('botcord:open-channel', handler);
+    return () => window.removeEventListener('botcord:open-channel', handler);
+  }, [channelId]);
+
   // Let the composer-bus drive the reply target — used by "Generate reply
   // with Claude" so the drafted message sends as a Discord reply.
   useEffect(() => {
