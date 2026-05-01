@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ServerRail } from '../../components/ServerRail';
 import { ChannelList } from '../../components/ChannelList';
 import { BotIdentityFooter } from '../../components/BotIdentityFooter';
-import { SettingsPanel } from '../../components/SettingsPanel';
+import { SettingsOverlay } from '../../components/settings/SettingsOverlay';
 import { Toaster } from '../../components/Toaster';
 import { ChannelView } from './ChannelView';
 import { ForumView } from './ForumView';
@@ -110,7 +110,7 @@ export function ShellRoute() {
           {...(backToForum ? { backToForum } : {})}
         />
       )}
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsOverlay onClose={() => setSettingsOpen(false)} />}
       <Toaster />
     </div>
   );
