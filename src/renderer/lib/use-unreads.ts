@@ -17,6 +17,9 @@ export type Unreads = {
   mutedChannelIds: Set<string>;
   toggleMuted: (channelId: string) => void;
   markGuildRead: (guildId: string) => void;
+  dmUnreadChannelIds: Set<string>;
+  dmMentionCount: number;
+  markDMsRead: () => void;
 };
 
 /**
@@ -42,6 +45,7 @@ export function useUnreads(activeChannelId: string | null): Unreads {
   // (otherwise moderating away an @-ping would leave the badge stuck).
   const mentionMsgs = useRef<Map<string, Map<string, number>>>(new Map());
   const channelGuild = useRef<Map<string, string>>(new Map());
+  const dmChannels = useRef<Set<string>>(new Set());
   const activeRef = useRef(activeChannelId);
   const loaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,6 +92,16 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     api.prefs.set('mutedChannelIds', Array.from(muted.current));
     force(n => n + 1);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    api.dms.list().then(res => {
+      if (!res.ok || cancelled) return;
+      for (const r of res.data) dmChannels.current.add(r.channelId);
+      force(n => n + 1);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!activeChannelId) return;
@@ -156,15 +170,36 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     }
   };
 
+  const markDMsRead = () => {
+    const now = Date.now();
+    let changed = false;
+    for (const cid of dmChannels.current) {
+      const mentions = mentionMsgs.current.get(cid);
+      let maxMention = 0;
+      if (mentions) for (const ts of mentions.values()) if (ts > maxMention) maxMention = ts;
+      const ts = Math.max(latest.current.get(cid) ?? 0, maxMention, now);
+      lastSeen.current.set(cid, ts);
+      mentionMsgs.current.delete(cid);
+      changed = true;
+    }
+    if (changed) {
+      if (loaded.current) persistLastSeen();
+      force(n => n + 1);
+    }
+  };
+
   useEffect(() => {
     return api.events.onMessageCreate(({ channelId, message }) => {
       latest.current.set(channelId, message.createdAt);
       if (message.guildId) channelGuild.current.set(channelId, message.guildId);
+      if (!message.guildId) dmChannels.current.add(channelId);
       const botId = botIdRef.current;
       const mentionsBot = botId
         ? message.mentions.some(m => m.type === 'user' && m.id === botId)
         : false;
-      if (message.mentionsEveryone || mentionsBot) {
+      const isDM = !message.guildId && dmChannels.current.has(channelId);
+      const isFromBot = message.authorId === botIdRef.current;
+      if (message.mentionsEveryone || mentionsBot || (isDM && !isFromBot)) {
         let channel = mentionMsgs.current.get(channelId);
         if (!channel) { channel = new Map(); mentionMsgs.current.set(channelId, channel); }
         channel.set(message.id, message.createdAt);
@@ -208,6 +243,10 @@ export function useUnreads(activeChannelId: string | null): Unreads {
       }
     }
   }
+  const dmUnreadChannelIds = new Set<string>();
+  let dmMentionCount = 0;
+  for (const cid of channelIds) if (dmChannels.current.has(cid)) dmUnreadChannelIds.add(cid);
+  for (const cid of dmUnreadChannelIds) dmMentionCount += mentionChannelCounts.get(cid) ?? 0;
   return {
     channelIds,
     guildIds,
@@ -218,6 +257,9 @@ export function useUnreads(activeChannelId: string | null): Unreads {
     mutedChannelIds: muted.current,
     toggleMuted,
     markGuildRead,
+    dmUnreadChannelIds,
+    dmMentionCount,
+    markDMsRead,
   };
 }
 
