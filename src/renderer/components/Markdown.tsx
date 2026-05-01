@@ -103,7 +103,7 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
     }
     case 'mention_user': {
       const m = mentions.find(x => x.type === 'user' && x.id === n.id);
-      return <span key={key} className="bg-[#5865f2]/30 text-[#c9cdfb] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#a9bbff] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
     case 'mention_channel': {
       const m = mentions.find(x => x.type === 'channel' && x.id === n.id);
@@ -111,7 +111,7 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
       return (
         <span
           key={key}
-          className="bg-[#5865f2]/30 text-[#c9cdfb] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
+          className="bg-[#5865f2]/30 text-[#a9bbff] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
           onClick={(e) => {
             e.preventDefault();
             window.dispatchEvent(new CustomEvent('botcord:open-channel', {
@@ -123,10 +123,10 @@ function renderNode(n: MdNode, key: number, mentions: ResolvedMention[], jumbo: 
     }
     case 'mention_role': {
       const m = mentions.find(x => x.type === 'role' && x.id === n.id);
-      return <span key={key} className="bg-[#5865f2]/30 text-[#c9cdfb] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#a9bbff] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{m?.name ?? n.id}</span>;
     }
     case 'mention_broadcast':
-      return <span key={key} className="bg-[#5865f2]/30 text-[#c9cdfb] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{n.name}</span>;
+      return <span key={key} className="bg-[#5865f2]/30 text-[#a9bbff] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer">@{n.name}</span>;
     case 'custom_emoji':
       return <CustomEmoji key={key} id={n.id} name={n.name} animated={n.animated} jumbo={jumbo} />;
   }
@@ -215,7 +215,7 @@ function DiscordLinkChip({ url, link }: { url: string; link: { guildId: string; 
           detail: { guildId: link.guildId, channelId: link.channelId, messageId: link.messageId },
         }));
       }}
-      className="inline-flex items-center gap-0.5 align-baseline bg-[#5865f2]/30 text-[#c9cdfb] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
+      className="inline-flex items-center gap-0.5 align-baseline bg-[#5865f2]/30 text-[#a9bbff] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
     >
       <span>#{name ?? '…'}</span>
       {link.messageId && (
