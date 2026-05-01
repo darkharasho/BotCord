@@ -213,8 +213,9 @@ export function Composer({
         key: c.id,
         label: (
           <>
-            <span className="text-fg-dim w-5 text-center inline-block">#</span>
+            <span className="w-5 h-5 rounded-full bg-bg-input inline-flex items-center justify-center text-fg-dim text-xs font-semibold">#</span>
             <span className="font-medium">{c.name}</span>
+            <span className="text-fg-dim text-xs">channel</span>
           </>
         ),
       }));
