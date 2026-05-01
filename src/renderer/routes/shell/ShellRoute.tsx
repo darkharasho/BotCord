@@ -166,15 +166,14 @@ export function ShellRoute() {
               <>
                 <DMHeader row={activeDMRow} />
                 <MessageList channelId={activeDMChannelId} />
-                {/* TODO(task-17): pass mode="dm" once Composer accepts it. */}
-                <Composer channelId={activeDMChannelId} guildId={null} />
+                <Composer channelId={activeDMChannelId} guildId={null} mode="dm" />
               </>
             ) : activeDMChannelId ? (
               // Have an id but the row hasn't loaded yet — render messages
               // and composer; header will appear once the row arrives.
               <>
                 <MessageList channelId={activeDMChannelId} />
-                <Composer channelId={activeDMChannelId} guildId={null} />
+                <Composer channelId={activeDMChannelId} guildId={null} mode="dm" />
               </>
             ) : (
               <WelcomePane hasGuild={false} />

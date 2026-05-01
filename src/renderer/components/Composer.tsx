@@ -43,13 +43,18 @@ function detectTrigger(text: string, cursor: number): { kind: 'mention' | 'emoji
 }
 
 export function Composer({
-  channelId, guildId, replyTo, onCancelReply,
+  channelId, guildId, replyTo, onCancelReply, mode = 'guild',
 }: {
   channelId: string | null;
   guildId: string | null;
   replyTo?: { messageId: string; authorDisplayName: string } | null;
   onCancelReply?: () => void;
+  mode?: 'guild' | 'dm';
 }) {
+  const isDM = mode === 'dm';
+  const sendImpl = isDM
+    ? { send: api.dms.send, sendWithAttachments: api.dms.sendWithAttachments }
+    : { send: api.messages.send, sendWithAttachments: api.messages.sendWithAttachments };
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -292,13 +297,19 @@ export function Composer({
         mimeType: f.type || 'application/octet-stream',
         bytes: new Uint8Array(await f.arrayBuffer()),
       })));
-      res = await api.messages.sendWithAttachments(channelId, content, projected, sendOpts);
+      res = isDM
+        ? await sendImpl.sendWithAttachments(channelId, content, projected)
+        : await sendImpl.sendWithAttachments(channelId, content, projected, sendOpts);
     } else {
-      res = await api.messages.send(channelId, content, sendOpts);
+      res = await sendImpl.send(channelId, content, sendOpts);
     }
     setBusy(false);
     if (!res.ok) {
-      pushToast('danger', `Send failed: ${res.error.message}`);
+      if (isDM && res.error.code === 'MISSING_PERMISSIONS') {
+        pushToast('danger', 'Cannot DM this user — DMs disabled or no shared servers.');
+      } else {
+        pushToast('danger', `Send failed: ${res.error.message}`);
+      }
       return;
     }
     setText('');
@@ -440,14 +451,16 @@ export function Composer({
                     <IconUpload size={18} stroke={1.75} className="text-fg-muted" />
                     Upload a file
                   </button>
-                  <button
-                    onClick={() => { setPlusMenuOpen(false); setPollOpen(true); }}
-                    disabled={!channelId}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-hover disabled:opacity-40"
-                  >
-                    <IconChartBar size={18} stroke={1.75} className="text-fg-muted" />
-                    Create a poll
-                  </button>
+                  {!isDM && (
+                    <button
+                      onClick={() => { setPlusMenuOpen(false); setPollOpen(true); }}
+                      disabled={!channelId}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-hover disabled:opacity-40"
+                    >
+                      <IconChartBar size={18} stroke={1.75} className="text-fg-muted" />
+                      Create a poll
+                    </button>
+                  )}
                 </div>
               </>
             )}
