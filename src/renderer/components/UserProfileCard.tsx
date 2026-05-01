@@ -101,7 +101,7 @@ export function UserProfileCard({
         {/* Banner area */}
         <div
           className="h-[60px] relative"
-          style={{ backgroundColor: member?.bannerColor ?? '#5865f2' }}
+          style={{ backgroundColor: member?.bannerColor ?? '#007f68' }}
         />
 
         {/* Avatar overlapping banner */}
