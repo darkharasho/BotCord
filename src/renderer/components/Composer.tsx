@@ -443,7 +443,7 @@ export function Composer({
   const offline = gateway.status !== 'ready';
 
   // Highlight runs for the overlay div.
-  const highlightFragments = buildHighlightFragments(text, mentionMap.current);
+  const highlightFragments = buildHighlightFragments(text, mentionMap.current, channelMap.current);
 
   const onTextScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     const overlay = overlayRef.current;
@@ -540,8 +540,8 @@ export function Composer({
               className="absolute inset-0 py-3 text-[15px] leading-[22px] whitespace-pre-wrap break-words pointer-events-none overflow-hidden"
             >
               {highlightFragments.map((f, i) =>
-                f.kind === 'mention'
-                  ? <span key={i} className="bg-accent/30 text-[#8593ce]">{f.text}</span>
+                f.kind === 'mention' || f.kind === 'channel'
+                  ? <span key={i} className="bg-[#5865f2]/30 text-[#8593ce]">{f.text}</span>
                   : f.kind === 'link'
                     ? <span key={i} className="text-link group-hover/input:underline">{f.text}</span>
                     : <span key={i} className="text-fg">{f.text}</span>
@@ -620,7 +620,7 @@ type EmojiCandidate =
   | { key: string; kind: 'custom'; name: string; id: string; animated: boolean; url: string }
   | { key: string; kind: 'standard'; name: string; char: string };
 
-type HighlightFragment = { kind: 'text' | 'mention' | 'link'; text: string };
+type HighlightFragment = { kind: 'text' | 'mention' | 'channel' | 'link'; text: string };
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"`]+/g;
 
@@ -628,7 +628,7 @@ const URL_RE = /\bhttps?:\/\/[^\s<>"`]+/g;
 // mentions map) and bare http(s) URLs are extracted as their own kinds so
 // the overlay can color them. We walk in two passes: first split by
 // mentions, then within each non-mention chunk, split by URLs.
-function buildHighlightFragments(text: string, mentions: Map<string, string>): HighlightFragment[] {
+function buildHighlightFragments(text: string, mentions: Map<string, string>, channels: Map<string, string>): HighlightFragment[] {
   const splitLinks = (chunk: string): HighlightFragment[] => {
     const out: HighlightFragment[] = [];
     let last = 0;
@@ -643,18 +643,29 @@ function buildHighlightFragments(text: string, mentions: Map<string, string>): H
     return out;
   };
 
-  if (mentions.size === 0) return splitLinks(text);
+  // Build a single combined regex that matches @-mentions OR #-channels by
+  // longest known name first; capture the prefix so we know which kind hit.
+  const mentionNames = Array.from(mentions.keys()).sort((a, b) => b.length - a.length);
+  const channelNames = Array.from(channels.keys()).sort((a, b) => b.length - a.length);
+  if (mentionNames.length === 0 && channelNames.length === 0) return splitLinks(text);
 
-  // Match @ followed by any of the known names (longest first so 'John Smith' wins over 'John').
-  const names = Array.from(mentions.keys()).sort((a, b) => b.length - a.length);
-  const escaped = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const re = new RegExp(`@(?:${escaped.join('|')})(?![\\p{L}\\p{N}_])`, 'gu');
+  const parts: string[] = [];
+  if (mentionNames.length > 0) {
+    const e = mentionNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    parts.push(`(@)(?:${e.join('|')})`);
+  }
+  if (channelNames.length > 0) {
+    const e = channelNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    parts.push(`(#)(?:${e.join('|')})`);
+  }
+  const re = new RegExp(`(?:${parts.join('|')})(?![\\p{L}\\p{N}_])`, 'gu');
   const out: HighlightFragment[] = [];
   let lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     if (m.index > lastIndex) out.push(...splitLinks(text.slice(lastIndex, m.index)));
-    out.push({ kind: 'mention', text: m[0] });
+    const kind: HighlightFragment['kind'] = m[0].startsWith('@') ? 'mention' : 'channel';
+    out.push({ kind, text: m[0] });
     lastIndex = m.index + m[0].length;
   }
   if (lastIndex < text.length) out.push(...splitLinks(text.slice(lastIndex)));
