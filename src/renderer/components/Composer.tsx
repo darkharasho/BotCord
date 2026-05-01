@@ -17,25 +17,30 @@ const MAX_FILES = 10;
 const MAX_BYTES = 25 * 1024 * 1024;
 const AUTOCOMPLETE_LIMIT = 8;
 
+type ChannelOption = { id: string; name: string };
+
 type AutocompleteState =
   | { kind: 'mention'; query: string; start: number; end: number; selectedIdx: number; members: MemberSummary[] }
+  | { kind: 'channel'; query: string; start: number; end: number; selectedIdx: number; channels: ChannelOption[] }
   | { kind: 'emoji'; query: string; start: number; end: number; selectedIdx: number }
   | null;
 
-// Find an active @ or : trigger immediately to the left of the cursor.
-function detectTrigger(text: string, cursor: number): { kind: 'mention' | 'emoji'; query: string; start: number; end: number } | null {
-  // Walk backwards from cursor for up to 32 chars looking for @ or : preceded by start-of-text or whitespace.
+type Trigger = { kind: 'mention' | 'channel' | 'emoji'; query: string; start: number; end: number };
+
+// Find an active @, # or : trigger immediately to the left of the cursor.
+function detectTrigger(text: string, cursor: number): Trigger | null {
+  // Walk backwards from cursor for up to 32 chars looking for @, # or : preceded by start-of-text or whitespace.
   const max = Math.max(0, cursor - 32);
   for (let i = cursor - 1; i >= max; i--) {
     const ch = text[i];
     if (!ch) break;
-    if (ch === '@' || ch === ':') {
+    if (ch === '@' || ch === ':' || ch === '#') {
       const before = i === 0 ? ' ' : text[i - 1] ?? ' ';
       if (!/\s/.test(before)) return null;
       const query = text.slice(i + 1, cursor);
-      // The query allows letters, digits, underscores, periods. If it contains anything else (whitespace, etc) — abort.
       if (!/^[\w.\-]*$/.test(query)) return null;
-      return { kind: ch === '@' ? 'mention' : 'emoji', query, start: i, end: cursor };
+      const kind: Trigger['kind'] = ch === '@' ? 'mention' : ch === '#' ? 'channel' : 'emoji';
+      return { kind, query, start: i, end: cursor };
     }
     if (/\s/.test(ch)) return null;
   }
@@ -77,6 +82,25 @@ export function Composer({
   // Always load guild emojis when available so `:` autocomplete works without opening the picker.
   const guildEmojis = useGuildEmojis(guildId);
 
+  // Channel list for `#` autocomplete. Loaded on guild change.
+  const [guildChannels, setGuildChannels] = useState<ChannelOption[]>([]);
+  useEffect(() => {
+    if (!guildId || isDM) { setGuildChannels([]); return; }
+    let cancelled = false;
+    api.guilds.listChannels(guildId).then(res => {
+      if (cancelled || !res.ok) return;
+      // Only mention-able channels: text, announcement, forum, threads.
+      setGuildChannels(
+        res.data
+          .filter(c => c.type === 'text' || c.type === 'announcement' || c.type === 'forum' || c.type === 'thread')
+          .map(c => ({ id: c.id, name: c.name }))
+      );
+    });
+    return () => { cancelled = true; };
+  }, [guildId, isDM]);
+  // displayName → channel id, populated when a # autocomplete is accepted.
+  const channelMap = useRef<Map<string, string>>(new Map());
+
   useEffect(() => {
     api.bot.getStatus().then(s => { if (s.kind === 'configured') setGateway(s.gateway); });
     return api.events.onGatewayState(setGateway);
@@ -113,13 +137,14 @@ export function Composer({
     const trig = detectTrigger(value, cursor);
     if (!trig) { setAutocomplete(null); return; }
 
-    // Suppress when the @… we're standing in is already a resolved mention.
+    // Suppress when the @ or # we're standing in is already a resolved mention.
     // Read the full word starting at the trigger, not just up to the cursor.
-    if (trig.kind === 'mention') {
+    if (trig.kind === 'mention' || trig.kind === 'channel') {
       let wordEnd = trig.end;
       while (wordEnd < value.length && !/\s/.test(value[wordEnd]!)) wordEnd++;
       const fullWord = value.slice(trig.start + 1, wordEnd);
-      if (mentionMap.current.has(fullWord)) { setAutocomplete(null); return; }
+      const map = trig.kind === 'mention' ? mentionMap.current : channelMap.current;
+      if (map.has(fullWord)) { setAutocomplete(null); return; }
     }
 
     if (trig.kind === 'mention') {
@@ -133,6 +158,16 @@ export function Composer({
         if (members.length === 0) { setAutocomplete(null); return; }
         setAutocomplete({ kind: 'mention', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0, members });
       });
+      return;
+    }
+    if (trig.kind === 'channel') {
+      if (isDM || !guildId || guildChannels.length === 0) { setAutocomplete(null); return; }
+      const q = trig.query.toLowerCase();
+      const matches = guildChannels
+        .filter(c => c.name.toLowerCase().includes(q))
+        .slice(0, AUTOCOMPLETE_LIMIT);
+      if (matches.length === 0) { setAutocomplete(null); return; }
+      setAutocomplete({ kind: 'channel', query: trig.query, start: trig.start, end: trig.end, selectedIdx: 0, channels: matches });
       return;
     }
     if (trig.kind === 'emoji') {
@@ -173,6 +208,17 @@ export function Composer({
         ),
       }));
     }
+    if (autocomplete.kind === 'channel') {
+      return autocomplete.channels.map((c) => ({
+        key: c.id,
+        label: (
+          <>
+            <span className="text-fg-dim w-5 text-center inline-block">#</span>
+            <span className="font-medium">{c.name}</span>
+          </>
+        ),
+      }));
+    }
     return emojiResults.map((e) => ({
       key: e.key,
       label: (
@@ -204,6 +250,10 @@ export function Composer({
       const m = autocomplete.members[idx]!;
       token = `@${m.displayName}`;
       mentionMap.current.set(m.displayName, m.id);
+    } else if (autocomplete.kind === 'channel') {
+      const c = autocomplete.channels[idx]!;
+      token = `#${c.name}`;
+      channelMap.current.set(c.name, c.id);
     } else {
       const e = emojiResults[idx]!;
       token = e.kind === 'custom' ? `:${e.name}:` : e.char;
@@ -282,6 +332,19 @@ export function Composer({
     return out;
   };
 
+  const resolveChannelShortcuts = (raw: string): string => {
+    if (channelMap.current.size === 0) return raw;
+    const names = Array.from(channelMap.current.keys()).sort((a, b) => b.length - a.length);
+    let out = raw;
+    for (const name of names) {
+      const id = channelMap.current.get(name);
+      if (!id) continue;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp(`#${escaped}(?![\\p{L}\\p{N}_])`, 'gu'), `<#${id}>`);
+    }
+    return out;
+  };
+
   // Core send. Passes through reply state and clears it on success.
   // Accepts an explicit content/files override so the GIF picker (and any
   // other shortcut) can post immediately instead of writing into the box.
@@ -315,13 +378,14 @@ export function Composer({
     setText('');
     setFiles([]);
     mentionMap.current.clear();
+    channelMap.current.clear();
     onCancelReply?.();
     // The textarea is disabled while `busy`, which blurs it. Defer the
     // focus until React has re-enabled it on the next frame.
     requestAnimationFrame(() => taRef.current?.focus());
   };
 
-  const send = () => sendCore(resolveMentionShortcuts(resolveEmojiShortcuts(text.trim())), files);
+  const send = () => sendCore(resolveChannelShortcuts(resolveMentionShortcuts(resolveEmojiShortcuts(text.trim()))), files);
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (autocomplete && acLength > 0) {
