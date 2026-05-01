@@ -4,6 +4,7 @@ import type { ResolvedMention } from '../../shared/domain';
 import { useEffect, useState, type ReactNode } from 'react';
 import { renderTwemoji } from '../lib/twemoji';
 import { api } from '../lib/api';
+import { IconChevronRight, IconMessage } from '@tabler/icons-react';
 
 type Props = {
   source: string;
@@ -214,9 +215,15 @@ function DiscordLinkChip({ url, link }: { url: string; link: { guildId: string; 
           detail: { guildId: link.guildId, channelId: link.channelId, messageId: link.messageId },
         }));
       }}
-      className="bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
+      className="inline-flex items-center gap-0.5 align-baseline bg-[#5865f2]/30 text-[#8593ce] font-medium rounded px-1 hover:bg-[#5865f2]/50 cursor-pointer"
     >
-      {link.messageId ? '↗ ' : ''}#{name ?? '…'}
+      <span>#{name ?? '…'}</span>
+      {link.messageId && (
+        <>
+          <IconChevronRight size={14} stroke={2.5} className="opacity-80" />
+          <IconMessage size={14} stroke={2} className="opacity-90" />
+        </>
+      )}
     </span>
   );
 }
