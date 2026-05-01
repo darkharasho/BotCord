@@ -50,7 +50,6 @@ function upsertFromMessage(repo: DMChannelsRepo, m: Message): void {
 export function attachDMListener(client: Client, repo: DMChannelsRepo): { runBackfill: () => Promise<void> } {
   client.on(Events.MessageCreate, (m: Message) => {
     if (!isDM(m)) return;
-    console.log('[dm-listener] DM messageCreate', { channelId: m.channelId, authorId: m.author?.id, hasChannel: !!m.channel, channelType: m.channel?.type });
     upsertFromMessage(repo, m);
   });
 

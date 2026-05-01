@@ -7,7 +7,7 @@ export default {
       colors: {
         bg: { DEFAULT: '#1a1a1e', subtle: '#242429', sunken: '#121214', input: '#222327' },
         fg: { DEFAULT: '#f2f3f5', muted: '#b5bac1', dim: '#80848e' },
-        accent: { DEFAULT: '#5865f2', hover: '#4752c4' },
+        accent: { DEFAULT: '#007f68', hover: '#00a085' },
         link: '#7da9d6',
         danger: '#f23f43',
         warn: '#f0b232',

@@ -104,7 +104,7 @@ function HomeRailItem({
         />
         <div
           className={`w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center transition-colors duration-150
-            ${active ? 'bg-[#007f68]' : 'bg-bg-subtle hover:bg-hover'}`}
+            ${active ? 'bg-accent' : 'bg-bg-subtle hover:bg-hover'}`}
         >
           <Logo className="w-6 h-6 text-white" />
         </div>
