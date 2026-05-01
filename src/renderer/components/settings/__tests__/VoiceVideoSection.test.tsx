@@ -120,4 +120,55 @@ describe('VoiceVideoSection', () => {
     handler!();
     await waitFor(() => expect(enumerateDevices).toHaveBeenCalled());
   });
+
+  it('reverts the output dropdown when setVoiceSinkOutput rejects', async () => {
+    enumerateDevices.mockResolvedValue(labeledDevices());
+    setVoiceSinkOutput.mockRejectedValueOnce(new Error('NotFoundError'));
+
+    render(<VoiceVideoSection />);
+    const outputSelect = await screen.findByLabelText('Output Device') as HTMLSelectElement;
+    fireEvent.change(outputSelect, { target: { value: 'headset' } });
+
+    await waitFor(() => {
+      expect(prefsSet).toHaveBeenCalledWith('audioOutputDeviceId', 'headset');
+    });
+    // After the rejection, both the dropdown value and the pref should revert
+    // to the previous value (default = '').
+    await waitFor(() => {
+      expect(outputSelect.value).toBe('');
+      expect(prefsSet).toHaveBeenLastCalledWith('audioOutputDeviceId', '');
+    });
+  });
+
+  it('stops the mic stream when the mic test toggle is turned off', async () => {
+    enumerateDevices.mockResolvedValue(labeledDevices());
+    const stop = vi.fn();
+    getUserMedia.mockResolvedValue({ getTracks: () => [{ stop }] });
+
+    // Stub AudioContext so MicTester's instantiation doesn't try to use the
+    // jsdom Web Audio (which doesn't exist).
+    class FakeAudioContext {
+      createMediaStreamSource = vi.fn().mockReturnValue({ connect: vi.fn() });
+      createAnalyser = vi.fn().mockReturnValue({
+        fftSize: 1024,
+        getFloatTimeDomainData: vi.fn(),
+      });
+      close = vi.fn().mockResolvedValue(undefined);
+    }
+    vi.stubGlobal('AudioContext', FakeAudioContext);
+    vi.stubGlobal('requestAnimationFrame', vi.fn().mockReturnValue(1));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    render(<VoiceVideoSection />);
+    const startButton = await screen.findByRole('button', { name: /Test microphone/i });
+    fireEvent.click(startButton);
+
+    // Wait for stream to be acquired.
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
+
+    const stopButton = await screen.findByRole('button', { name: /Stop mic test/i });
+    fireEvent.click(stopButton);
+
+    await waitFor(() => expect(stop).toHaveBeenCalled());
+  });
 });

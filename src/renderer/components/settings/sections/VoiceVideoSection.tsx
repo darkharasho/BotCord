@@ -44,13 +44,13 @@ export function VoiceVideoSection() {
   }, []);
 
   const onChangeOutput = (next: string) => {
-    setOutputId(next);
+    let previous = '';
+    setOutputId(prev => { previous = prev; return next; });
     trigger(api.prefs.set('audioOutputDeviceId', next));
     setVoiceSinkOutput(next).catch(() => {
       pushToast('danger', "Couldn't switch output — device may be unplugged.");
-      // Revert visually; pref already saved, so re-saving the previous value
-      // keeps state consistent.
-      setOutputId(prev => prev);
+      setOutputId(previous);
+      trigger(api.prefs.set('audioOutputDeviceId', previous));
     });
   };
 
@@ -187,15 +187,7 @@ function MicTester({
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!active) {
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      ctxRef.current?.close();
-      streamRef.current = null;
-      ctxRef.current = null;
-      onLevel(0);
-      return;
-    }
+    if (!active) { onLevel(0); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -212,6 +204,7 @@ function MicTester({
         src.connect(analyser);
         const buf = new Float32Array(analyser.fftSize);
         const tick = () => {
+          if (cancelled) return;
           analyser.getFloatTimeDomainData(buf);
           let sum = 0;
           for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
@@ -224,7 +217,15 @@ function MicTester({
         onToggle(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      ctxRef.current?.close().catch(() => { /* best-effort */ });
+      ctxRef.current = null;
+      onLevel(0);
+    };
   }, [active, deviceId, onLevel, onToggle]);
 
   return (
