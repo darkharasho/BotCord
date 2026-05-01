@@ -13,6 +13,8 @@ import { registerUpdater } from './updater';
 import { createAutonomyModule } from './autonomy';
 import { createPrefsRepo } from './db/repos/prefs';
 import { createAutonomyRepo } from './db/repos/autonomy';
+import { createDMChannelsRepo } from './db/repos/dm-channels';
+import { attachDMSupport } from './discord/dm-support';
 import { broadcast, AUTONOMY_DRAFT_DELTA_CHANNEL, AUTONOMY_DRAFT_DONE_CHANNEL } from './events/gateway-events';
 import { CDKHost } from '@claude-cdk/core';
 import type { AutonomyHost } from './autonomy/types';
@@ -36,6 +38,7 @@ if (!gotLock) {
     const db = openDatabase(join(userData, 'botcord.sqlite'));
     const prefs = createPrefsRepo(db);
     const autonomyDbRepo = createAutonomyRepo(db);
+    const dmRepo = createDMChannelsRepo(db);
 
     const cdkScratch = join(userData, 'cdk-scratch');
     mkdirSync(cdkScratch, { recursive: true });
@@ -80,7 +83,9 @@ if (!gotLock) {
       isVisionEnabled: () => prefs.get('autonomyVisionEnabled') ?? false,
     });
 
-    registerAllIpc({ vault, manager, db, autonomy, host, scratchDir: cdkScratch });
+    registerAllIpc({ vault, manager, db, dmRepo, autonomy, host, scratchDir: cdkScratch });
+
+    attachDMSupport(manager, dmRepo);
 
     let mainWindow: BrowserWindow | null = null;
     let tray: Tray | null = null;
