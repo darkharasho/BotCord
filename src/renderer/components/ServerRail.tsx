@@ -53,7 +53,7 @@ export function ServerRail({
           mentionCount={homeMentionCount}
           onClick={onHomeClick}
         />
-        <div className="w-8 h-px bg-border my-1" aria-hidden />
+        <div className="w-8 h-0.5 bg-white/10 rounded-full my-2" aria-hidden />
         {guilds.map(g => (
           <GuildRailItem
             key={g.id}
