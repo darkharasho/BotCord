@@ -1,4 +1,14 @@
-// src/renderer/components/settings/types.ts
+import {
+  IconUser,
+  IconPlug,
+  IconPalette,
+  IconBell,
+  IconSparkles,
+  IconServer,
+  IconInfoCircle,
+  type Icon,
+} from '@tabler/icons-react';
+
 export type SectionId =
   | 'account'
   | 'connections'
@@ -10,25 +20,25 @@ export type SectionId =
 
 export type NavGroup = {
   label: string;
-  items: { id: SectionId; label: string }[];
+  items: { id: SectionId; label: string; icon: Icon }[];
 };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'User Settings',
     items: [
-      { id: 'account', label: 'Account' },
-      { id: 'connections', label: 'Connections' },
+      { id: 'account', label: 'Account', icon: IconUser },
+      { id: 'connections', label: 'Connections', icon: IconPlug },
     ],
   },
   {
     label: 'App Settings',
     items: [
-      { id: 'appearance', label: 'Appearance' },
-      { id: 'notifications', label: 'Notifications' },
-      { id: 'autonomy', label: 'Autonomy' },
-      { id: 'servers', label: 'Servers' },
-      { id: 'about', label: 'About' },
+      { id: 'appearance', label: 'Appearance', icon: IconPalette },
+      { id: 'notifications', label: 'Notifications', icon: IconBell },
+      { id: 'autonomy', label: 'Autonomy', icon: IconSparkles },
+      { id: 'servers', label: 'Servers', icon: IconServer },
+      { id: 'about', label: 'About', icon: IconInfoCircle },
     ],
   },
 ];

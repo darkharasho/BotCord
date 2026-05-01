@@ -1,3 +1,4 @@
+import { IconLogout } from '@tabler/icons-react';
 import { NAV_GROUPS, type SectionId } from './types';
 
 export function SettingsSidebar({
@@ -16,20 +17,24 @@ export function SettingsSidebar({
               {group.label}
             </div>
             <ul>
-              {group.items.map(item => (
-                <li key={item.id}>
-                  <button
-                    onClick={() => onSelect(item.id)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${
-                      active === item.id
-                        ? 'bg-accent text-white'
-                        : 'text-fg hover:bg-hover'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              ))}
+              {group.items.map(item => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => onSelect(item.id)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm transition-colors ${
+                        active === item.id
+                          ? 'bg-accent text-white'
+                          : 'text-fg hover:bg-hover'
+                      }`}
+                    >
+                      <Icon size={16} stroke={2} className="shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
@@ -37,8 +42,9 @@ export function SettingsSidebar({
       <div className="border-t border-border p-3">
         <button
           onClick={onResetToken}
-          className="w-full px-3 py-2 rounded border border-danger/50 text-danger text-sm hover:bg-danger/10"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded border border-danger/50 text-danger text-sm hover:bg-danger/10"
         >
+          <IconLogout size={16} stroke={2} className="shrink-0" />
           Reset Bot Token
         </button>
       </div>
