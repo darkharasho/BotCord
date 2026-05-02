@@ -18,6 +18,11 @@ export type VoiceInputSettings = {
   pttBinding: PttBinding | null;
   pttScope: PttScope;
   pttScopeDowngraded: boolean;
+  // User-controlled opt-in for global hotkey registration. On some Linux
+  // setups, registering ANY globalShortcut interferes with the OS-level
+  // input method and breaks typing. Turning this off keeps the binding but
+  // skips global registration — PTT only fires while BotCord is focused.
+  pttGlobalEnabled: boolean;
   vadThreshold: number;       // 0..1 RMS
   inputDeviceId: string | null;
   inputGain: number;          // 0..2
@@ -37,6 +42,7 @@ export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
   pttBinding: null,
   pttScope: 'global',
   pttScopeDowngraded: false,
+  pttGlobalEnabled: true,
   vadThreshold: 0.04,
   inputDeviceId: null,
   inputGain: 1,

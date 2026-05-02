@@ -158,12 +158,17 @@ if (!gotLock) {
       if (tray) setTrayUnreadBadge(tray, Boolean(hasUnread));
     });
 
-    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown) => {
+    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown) => {
       if (currentPttAccelerator) {
         globalShortcut.unregister(currentPttAccelerator);
         currentPttAccelerator = null;
       }
       if (typeof accelerator !== 'string' || !accelerator) {
+        return { scope: 'app' as const, downgraded: false };
+      }
+      // User opted out of global registration — keep the binding but don't
+      // register with the OS. Avoids global-hotkey-induced typing issues.
+      if (useGlobal === false) {
         return { scope: 'app' as const, downgraded: false };
       }
       const ok = tryRegisterGlobalPtt(accelerator);
@@ -174,15 +179,20 @@ if (!gotLock) {
       return { scope: 'app' as const, downgraded: true };
     });
 
-    // Re-register PTT accelerator from prefs on boot. Update the persisted
-    // downgrade flag to reflect the result on this OS / this session.
+    // Re-register PTT accelerator from prefs on boot — only if the user has
+    // opted into global registration. Update the persisted scope/downgrade
+    // flags to reflect the actual result on this OS / this session.
     const stored = prefs.get('voiceInput');
     if (stored?.pttBinding?.accelerator) {
-      const ok = tryRegisterGlobalPtt(stored.pttBinding.accelerator);
+      // Treat missing pttGlobalEnabled (older prefs) as true to preserve
+      // existing behavior for users who already configured PTT before this
+      // flag existed.
+      const wantsGlobal = stored.pttGlobalEnabled !== false;
+      const ok = wantsGlobal && tryRegisterGlobalPtt(stored.pttBinding.accelerator);
       const next = {
         ...stored,
         pttScope: ok ? 'global' as const : 'app' as const,
-        pttScopeDowngraded: !ok,
+        pttScopeDowngraded: wantsGlobal && !ok,
       };
       prefs.set('voiceInput', next);
       if (ok) currentPttAccelerator = stored.pttBinding.accelerator;
