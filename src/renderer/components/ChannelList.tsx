@@ -22,6 +22,7 @@ import { openContextMenu } from './ContextMenu';
 import type { Icon } from '@tabler/icons-react';
 import { useVoiceState } from '../lib/use-voice-state';
 import { pushToast } from './Toaster';
+import { VoiceConnectionFooter } from './voice/VoiceConnectionFooter';
 
 export function ChannelList({
   guildId, selected, onSelect, unreadIds, mentionIds, mutedIds, onToggleMute, view, onSelectMembers, memberCount,
@@ -266,7 +267,7 @@ export function ChannelList({
 
   const membersSelected = view === 'members';
   return (
-    <div className="h-full relative">
+    <div className="h-full relative flex flex-col">
       {unreadOffscreen.above && (
         <button
           onClick={() => scrollToOffscreenUnread('up')}
@@ -293,7 +294,7 @@ export function ChannelList({
           {unreadOffscreen.mentionBelow ? 'Mentions' : 'New unreads'}
         </button>
       )}
-      <div ref={scrollRef} onScroll={recomputeUnreadOffscreen} className="h-full overflow-y-auto px-2 pt-2 pb-4">
+      <div ref={scrollRef} onScroll={recomputeUnreadOffscreen} className="flex-1 min-h-0 overflow-y-auto px-2 pt-2 pb-4">
       <button
         onClick={onSelectMembers}
         className={`w-full flex items-center gap-1.5 px-2 py-[5px] rounded text-left text-[15px] leading-5 transition-colors duration-150 mb-1
@@ -324,6 +325,7 @@ export function ChannelList({
         );
       })}
       </div>
+      <VoiceConnectionFooter voiceState={voiceState} channels={channels} />
     </div>
   );
 }
