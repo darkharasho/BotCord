@@ -56,6 +56,14 @@ export function useMic(opts: {
     managerRef.current?.updateSettings(opts.settings);
   }, [opts.settings]);
 
+  // Sync gateway selfMute with the user's intent (footer mute toggle /
+  // settings.muted). Runs on connection-ready and whenever the user toggles
+  // mute mid-call. Decoupled from per-transmission speaking state.
+  useEffect(() => {
+    if (!opts.enabled) return;
+    void window.botcord.voice.setMute(opts.settings.muted);
+  }, [opts.enabled, opts.settings.muted]);
+
   // PTT key event subscription.
   useEffect(() => {
     if (opts.settings.mode !== 'ptt') return;

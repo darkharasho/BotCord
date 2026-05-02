@@ -38,7 +38,7 @@ export class MicTransmitter {
   private encoder: prism.opus.Encoder | null = null;
   private active = false;
 
-  constructor(private voiceManager: Pick<VoiceManager, 'getConnection' | 'setSelfMute'>) {}
+  constructor(private voiceManager: Pick<VoiceManager, 'getConnection'>) {}
 
   start(): void {
     if (this.active) return;
@@ -68,7 +68,6 @@ export class MicTransmitter {
     this.player.play(resource);
 
     connection.setSpeaking(1);
-    this.voiceManager.setSelfMute(false);
     this.active = true;
   }
 
@@ -95,7 +94,6 @@ export class MicTransmitter {
     if (connection && connection.state.status !== VoiceConnectionStatus.Destroyed) {
       connection.setSpeaking(0);
     }
-    this.voiceManager.setSelfMute(true);
   }
 
   isActive(): boolean { return this.active; }

@@ -64,6 +64,11 @@ export function registerVoiceHandlers({ manager }: { manager: ClientManager }): 
 
   ipcMain.on(IPC_CHANNELS['voice.mic.stop'], () => transmitter.stop());
 
+  ipcMain.handle(IPC_CHANNELS['voice.setMute'], (_e, muted: unknown) => {
+    if (typeof muted !== 'boolean') return;
+    voice.setSelfMute(muted);
+  });
+
   return voice;
 }
 
