@@ -27,3 +27,26 @@ export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
   inputGain: 1,
   muted: false,
 };
+
+export type VadGate = {
+  step(rms: number): boolean;
+  reset(): void;
+};
+
+export function createVadGate(opts: { threshold: number; tailFrames: number }): VadGate {
+  let tailRemaining = 0;
+  return {
+    step(rms: number): boolean {
+      if (rms > opts.threshold || opts.threshold === 0) {
+        tailRemaining = opts.tailFrames;
+        return true;
+      }
+      if (tailRemaining > 0) {
+        tailRemaining--;
+        return true;
+      }
+      return false;
+    },
+    reset() { tailRemaining = 0; },
+  };
+}
