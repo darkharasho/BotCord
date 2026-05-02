@@ -80,7 +80,10 @@ export class MicCaptureManager {
     this.node?.port.postMessage({ gain: next.inputGain });
   }
 
-  setPttHeld(held: boolean): void { this.pttHeld = held; }
+  setPttHeld(held: boolean): void {
+    if (this.pttHeld !== held) console.log('[mic] setPttHeld', held);
+    this.pttHeld = held;
+  }
 
   onLevel(cb: Listener): () => void {
     this.levelListeners.add(cb);
@@ -102,6 +105,7 @@ export class MicCaptureManager {
     else shouldOpen = this.gate.step(data.rms);
 
     if (shouldOpen && !this.gateOpen) {
+      console.log('[mic] gate OPEN — mode:', s.mode, 'pttHeld:', this.pttHeld, 'rms:', data.rms.toFixed(3));
       this.gateOpen = true;
       window.botcord.voice.micStart();
       this.emitGate(true);
@@ -110,6 +114,7 @@ export class MicCaptureManager {
       window.botcord.voice.micFrame(data.pcm);
     }
     if (!shouldOpen && this.gateOpen) {
+      console.log('[mic] gate CLOSE — mode:', s.mode, 'pttHeld:', this.pttHeld);
       this.gateOpen = false;
       window.botcord.voice.micStop();
       this.emitGate(false);

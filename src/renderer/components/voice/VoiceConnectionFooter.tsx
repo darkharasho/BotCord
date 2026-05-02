@@ -31,7 +31,9 @@ export function VoiceConnectionFooter(props: {
   // would stay un-ringed even when transmitting.
   const bot = useBotIdentity();
   useEffect(() => {
-    setLocalSpeaking(bot?.id, connected && mic.gateOpen && !settings.muted);
+    const speaking = connected && mic.gateOpen && !settings.muted;
+    console.log('[ring] setLocalSpeaking', { botId: bot?.id, connected, gateOpen: mic.gateOpen, muted: settings.muted, speaking });
+    setLocalSpeaking(bot?.id, speaking);
     return () => setLocalSpeaking(bot?.id, false);
   }, [bot?.id, connected, mic.gateOpen, settings.muted]);
 

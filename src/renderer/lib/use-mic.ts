@@ -69,6 +69,7 @@ export function useMic(opts: {
   // doesn't fire a beep on every utterance.
   const prevGate = useRef(false);
   useEffect(() => {
+    console.log('[ptt] chime effect — mode:', opts.settings.mode, 'state.gateOpen:', state.gateOpen, 'prevGate:', prevGate.current);
     if (opts.settings.mode === 'ptt') {
       if (state.gateOpen && !prevGate.current && opts.settings.sounds.pttOn) playVoiceSound('pttOn');
       if (!state.gateOpen && prevGate.current && opts.settings.sounds.pttOff) playVoiceSound('pttOff');
@@ -104,6 +105,7 @@ export function useMic(opts: {
     let offGlobal: (() => void) | undefined;
     {
       offGlobal = window.botcord.voice.onPttHeld((held) => {
+        console.log('[ptt] onPttHeld received:', held);
         globalHeldRef.current = held;
         sync();
       });
