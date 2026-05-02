@@ -355,7 +355,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
               grant Accessibility permission. On Wayland, global hotkeys are unsupported.
             </p>
           )}
-          <PttHeldIndicator />
+          <PttHeldIndicator accelerator={settings.pttBinding?.accelerator ?? null} />
         </div>
       )}
 
@@ -416,6 +416,7 @@ function modeBtn(active: boolean): string {
 
 function PttBindingInput(props: { value: string | null; onChange: (v: string | null) => void }) {
   const [recording, setRecording] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!recording) return;
@@ -443,20 +444,31 @@ function PttBindingInput(props: { value: string | null; onChange: (v: string | n
       props.onChange([...mods, key].join('+'));
       setRecording(false);
     };
-    // Clicking outside also cancels — another way out if the user changes
-    // their mind.
     const cancelOnBlur = () => setRecording(false);
+    // Click anywhere outside the recorder button → cancel. This prevents
+    // the recorder from getting stuck after an aborted attempt.
+    const cancelOnPointerDown = (e: PointerEvent) => {
+      if (buttonRef.current && e.target instanceof Node && buttonRef.current.contains(e.target)) return;
+      setRecording(false);
+    };
+    // Belt-and-braces timeout: if recording stays on for 30s without any
+    // resolution, force-cancel. Catches any edge case I haven't anticipated.
+    const safety = window.setTimeout(() => setRecording(false), 30_000);
     window.addEventListener('keydown', handler);
     window.addEventListener('blur', cancelOnBlur);
+    document.addEventListener('pointerdown', cancelOnPointerDown, true);
     return () => {
       window.removeEventListener('keydown', handler);
       window.removeEventListener('blur', cancelOnBlur);
+      document.removeEventListener('pointerdown', cancelOnPointerDown, true);
+      window.clearTimeout(safety);
     };
   }, [recording, props]);
 
   return (
     <div className="flex items-center gap-2">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setRecording((r) => !r)}
         className="px-3 py-1.5 rounded-md bg-bg-input text-xs font-medium text-fg border border-border hover:border-accent/50 min-w-[8rem] text-left transition-colors"
@@ -474,13 +486,55 @@ function PttBindingInput(props: { value: string | null; onChange: (v: string | n
   );
 }
 
-function PttHeldIndicator() {
-  const [held, setHeld] = useState(false);
-  useEffect(() => window.botcord.voice.onPttHeld((v) => setHeld(v)), []);
+function PttHeldIndicator({ accelerator }: { accelerator: string | null }) {
+  const [globalHeld, setGlobalHeld] = useState(false);
+  const [localHeld, setLocalHeld] = useState(false);
+  // Global IPC pulse — works when BotCord isn't focused, but only flashes
+  // for ~250ms per press (Electron globalShortcut has no key-up event).
+  useEffect(() => window.botcord.voice.onPttHeld(setGlobalHeld), []);
+  // Local keydown/keyup — gives precise hold detection while BotCord is
+  // focused, which is the common case for testing the binding here.
+  useEffect(() => {
+    if (!accelerator) return;
+    const down = (e: KeyboardEvent) => { if (acceleratorMatchesEvent(accelerator, e)) setLocalHeld(true); };
+    const up = (e: KeyboardEvent) => { if (acceleratorMatchesEvent(accelerator, e)) setLocalHeld(false); };
+    const blur = () => setLocalHeld(false);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', blur);
+    };
+  }, [accelerator]);
+  const held = globalHeld || localHeld;
   return (
     <div className="flex items-center gap-1.5 text-[11px] text-fg-muted">
       <span className={`inline-block w-2 h-2 rounded-full ${held ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
       <span>{held ? 'PTT detected' : 'PTT idle — press your key to verify it\'s being received'}</span>
     </div>
   );
+}
+
+// Mirrors useMic's matcher: handles bare letter/digit codes ("A" matches both
+// e.code "KeyA" and e.key "A"), modifier strictness, and reconstructs Key/Digit
+// prefixes for accelerators stored without them.
+function acceleratorMatchesEvent(accel: string, e: KeyboardEvent): boolean {
+  const parts = accel.split('+').map((p) => p.trim());
+  const key = parts.pop();
+  if (!key) return false;
+  const wantCtrl = parts.includes('Control') || parts.includes('CommandOrControl');
+  const wantShift = parts.includes('Shift');
+  const wantAlt = parts.includes('Alt') || parts.includes('Option');
+  const wantMeta = parts.includes('Meta') || parts.includes('Command') || parts.includes('Super');
+  if (e.ctrlKey !== wantCtrl) return false;
+  if (e.shiftKey !== wantShift) return false;
+  if (e.altKey !== wantAlt) return false;
+  if (e.metaKey !== wantMeta) return false;
+  if (e.code === key) return true;
+  if (e.key === key) return true;
+  if (/^[A-Z]$/.test(key) && e.code === `Key${key}`) return true;
+  if (/^[0-9]$/.test(key) && e.code === `Digit${key}`) return true;
+  return false;
 }

@@ -76,27 +76,42 @@ export function useMic(opts: {
     prevGate.current = state.gateOpen;
   }, [state.gateOpen, opts.settings.mode, opts.settings.sounds.pttOn, opts.settings.sounds.pttOff]);
 
-  // PTT key event subscription.
+  // PTT key event subscription. We track the global IPC pulse and the local
+  // keydown/keyup separately and OR-combine: local gives precise hold while
+  // BotCord is focused (common case), global pulses 250ms per press for the
+  // unfocused fallback. Local cleanup happens on blur so a key held when the
+  // window loses focus doesn't get stuck open.
+  const localHeldRef = useRef(false);
+  const globalHeldRef = useRef(false);
   useEffect(() => {
     if (opts.settings.mode !== 'ptt') return;
-    if (opts.settings.pttScope === 'global') {
-      const off = window.botcord.voice.onPttHeld((held) => managerRef.current?.setPttHeld(held));
-      return off;
-    }
-    // App-only fallback: bind keydown/keyup at window level.
+    const sync = () => managerRef.current?.setPttHeld(localHeldRef.current || globalHeldRef.current);
+
     const accel = opts.settings.pttBinding?.accelerator ?? '';
-    if (!accel) return;
-    const matches = (e: KeyboardEvent) => acceleratorMatches(accel, e);
-    const down = (e: KeyboardEvent) => { if (matches(e)) managerRef.current?.setPttHeld(true); };
-    const up = (e: KeyboardEvent) => { if (matches(e)) managerRef.current?.setPttHeld(false); };
-    const blur = () => managerRef.current?.setPttHeld(false);
+    const matches = (e: KeyboardEvent) => !!accel && acceleratorMatches(accel, e);
+    const down = (e: KeyboardEvent) => { if (matches(e)) { localHeldRef.current = true; sync(); } };
+    const up = (e: KeyboardEvent) => { if (matches(e)) { localHeldRef.current = false; sync(); } };
+    const blur = () => { localHeldRef.current = false; sync(); };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
+
+    let offGlobal: (() => void) | undefined;
+    if (opts.settings.pttScope === 'global') {
+      offGlobal = window.botcord.voice.onPttHeld((held) => {
+        globalHeldRef.current = held;
+        sync();
+      });
+    }
+
     return () => {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
       window.removeEventListener('blur', blur);
+      offGlobal?.();
+      localHeldRef.current = false;
+      globalHeldRef.current = false;
+      managerRef.current?.setPttHeld(false);
     };
   }, [opts.settings.mode, opts.settings.pttScope, opts.settings.pttBinding?.accelerator]);
 
