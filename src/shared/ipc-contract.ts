@@ -115,6 +115,13 @@ export interface BotcordApi {
     micFrame(pcm: ArrayBuffer): void;
     micStop(): void;
     setPttBinding(accelerator: string | null, useGlobal: boolean): Promise<{ scope: 'global' | 'app'; downgraded: boolean }>;
+    getPttDiagnostics(): Promise<{
+      uioStarted: boolean;
+      uioStartFailed: boolean;
+      isWayland: boolean;
+      uioEventCount: number;
+      uioLastEvent: { keycode: number; at: number } | null;
+    }>;
     setMute(muted: boolean): Promise<void>;
     onPttHeld(cb: (held: boolean) => void): () => void;
   };
@@ -225,6 +232,7 @@ export const IPC_CHANNELS = {
   'voice.mic.frame': 'voice.mic.frame',
   'voice.mic.stop': 'voice.mic.stop',
   'voice.setPttBinding': 'voice.setPttBinding',
+  'voice.getPttDiagnostics': 'voice.getPttDiagnostics',
   'voice.setMute': 'voice.setMute',
   'event.voiceState': 'event.voiceState',
   'event.voiceFrame': 'event.voiceFrame',

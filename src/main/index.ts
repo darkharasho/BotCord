@@ -41,6 +41,8 @@ type PttBinding = {
 let pttBinding: PttBinding | null = null;
 let uioStarted = false;
 let uioStartFailed = false;
+let uioEventCount = 0;
+let uioLastEvent: { keycode: number; at: number } | null = null;
 
 function broadcastPttHeld(held: boolean): void {
   for (const w of BrowserWindow.getAllWindows()) {
@@ -79,7 +81,11 @@ function ensureUioStarted(): boolean {
   if (uioStarted) return true;
   if (uioStartFailed) return false;
   try {
-    uIOhook.on('keydown', (e) => { if (matchesPttBinding(e)) broadcastPttHeld(true); });
+    uIOhook.on('keydown', (e) => {
+      uioEventCount++;
+      uioLastEvent = { keycode: e.keycode, at: Date.now() };
+      if (matchesPttBinding(e)) broadcastPttHeld(true);
+    });
     uIOhook.on('keyup', (e) => { if (matchesPttBinding(e)) broadcastPttHeld(false); });
     uIOhook.start();
     uioStarted = true;
@@ -211,6 +217,18 @@ if (!gotLock) {
 
     ipcMain.handle(IPC_CHANNELS['tray.setUnreadBadge'], async (_e, hasUnread: unknown) => {
       if (tray) setTrayUnreadBadge(tray, Boolean(hasUnread));
+    });
+
+    ipcMain.handle(IPC_CHANNELS['voice.getPttDiagnostics'], () => {
+      const isWayland = process.platform === 'linux'
+        && (process.env['XDG_SESSION_TYPE'] === 'wayland' || !!process.env['WAYLAND_DISPLAY']);
+      return {
+        uioStarted,
+        uioStartFailed,
+        isWayland,
+        uioEventCount,
+        uioLastEvent,
+      };
     });
 
     ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown) => {

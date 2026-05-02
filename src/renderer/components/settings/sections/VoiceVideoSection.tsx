@@ -383,6 +383,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
             </p>
           )}
           <PttHeldIndicator accelerator={settings.pttBinding?.accelerator ?? null} />
+          {settings.pttGlobalEnabled && <PttDiagnostics />}
         </div>
       )}
 
@@ -508,6 +509,49 @@ function PttBindingInput(props: { value: string | null; onChange: (v: string | n
           onClick={() => props.onChange(null)}
           className="text-xs text-fg-muted hover:text-fg"
         >Clear</button>
+      )}
+    </div>
+  );
+}
+
+function PttDiagnostics() {
+  const [diag, setDiag] = useState<{
+    uioStarted: boolean;
+    uioStartFailed: boolean;
+    isWayland: boolean;
+    uioEventCount: number;
+    uioLastEvent: { keycode: number; at: number } | null;
+  } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const tick = () => {
+      window.botcord.voice.getPttDiagnostics().then((d) => { if (live) setDiag(d); });
+    };
+    tick();
+    const handle = window.setInterval(tick, 1000);
+    return () => { live = false; window.clearInterval(handle); };
+  }, []);
+  if (!diag) return null;
+  const status = diag.uioStartFailed
+    ? 'failed'
+    : diag.uioStarted
+      ? `running (${diag.uioEventCount} events seen${diag.uioLastEvent ? `, last keycode ${diag.uioLastEvent.keycode}` : ''})`
+      : 'not started';
+  return (
+    <div className="space-y-1 text-[11px] text-fg-muted">
+      <div>Global hook: {status}</div>
+      {diag.isWayland && (
+        <div className="text-amber-400">
+          Wayland session detected — global hook only sees XWayland apps. Native Wayland
+          apps (e.g. Firefox in Wayland mode) won't trigger PTT. Switch to an X11 session
+          for full coverage.
+        </div>
+      )}
+      {diag.uioStartFailed && (
+        <div className="text-amber-400">
+          The native input hook couldn't start. On macOS, grant Accessibility permission
+          to BotCord in System Settings → Privacy &amp; Security.
+        </div>
       )}
     </div>
   );
