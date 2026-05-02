@@ -355,6 +355,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
               grant Accessibility permission. On Wayland, global hotkeys are unsupported.
             </p>
           )}
+          <PttHeldIndicator />
         </div>
       )}
 
@@ -418,32 +419,49 @@ function PttBindingInput(props: { value: string | null; onChange: (v: string | n
 
   useEffect(() => {
     if (!recording) return;
+    const isModifier = (k: string) => k === 'Control' || k === 'Shift' || k === 'Alt' || k === 'Meta';
     const handler = (e: KeyboardEvent) => {
+      // ESC always cancels recording without capturing — escape hatch in case
+      // the user clicked "Set keybind" by accident.
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setRecording(false);
+        return;
+      }
+      // Don't preventDefault on bare modifier presses. If we did, the recorder
+      // would block typing while waiting for a non-modifier key.
+      if (isModifier(e.key)) return;
       e.preventDefault();
       const mods: string[] = [];
       if (e.ctrlKey) mods.push('Control');
       if (e.shiftKey) mods.push('Shift');
       if (e.altKey) mods.push('Alt');
       if (e.metaKey) mods.push('Meta');
-      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
       const key = e.code.startsWith('Key') ? e.code.slice(3)
         : e.code.startsWith('Digit') ? e.code.slice(5)
         : e.code;
       props.onChange([...mods, key].join('+'));
       setRecording(false);
     };
+    // Clicking outside also cancels — another way out if the user changes
+    // their mind.
+    const cancelOnBlur = () => setRecording(false);
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener('blur', cancelOnBlur);
+    return () => {
+      window.removeEventListener('keydown', handler);
+      window.removeEventListener('blur', cancelOnBlur);
+    };
   }, [recording, props]);
 
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
-        onClick={() => setRecording(true)}
+        onClick={() => setRecording((r) => !r)}
         className="px-3 py-1.5 rounded-md bg-bg-input text-xs font-medium text-fg border border-border hover:border-accent/50 min-w-[8rem] text-left transition-colors"
       >
-        {recording ? 'Press a key…' : props.value ?? 'Set keybind'}
+        {recording ? 'Press a key… (Esc to cancel)' : props.value ?? 'Set keybind'}
       </button>
       {props.value && !recording && (
         <button
@@ -452,6 +470,17 @@ function PttBindingInput(props: { value: string | null; onChange: (v: string | n
           className="text-xs text-fg-muted hover:text-fg"
         >Clear</button>
       )}
+    </div>
+  );
+}
+
+function PttHeldIndicator() {
+  const [held, setHeld] = useState(false);
+  useEffect(() => window.botcord.voice.onPttHeld((v) => setHeld(v)), []);
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+      <span className={`inline-block w-2 h-2 rounded-full ${held ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+      <span>{held ? 'PTT detected' : 'PTT idle — press your key to verify it\'s being received'}</span>
     </div>
   );
 }
