@@ -20,6 +20,7 @@ import { broadcast, AUTONOMY_DRAFT_DELTA_CHANNEL, AUTONOMY_DRAFT_DONE_CHANNEL } 
 import { CDKHost } from '@claude-cdk/core';
 import type { AutonomyHost } from './autonomy/types';
 import { attachAutonomousListener } from './autonomy/listener';
+import { portalShortcuts } from './voice/portal-shortcuts';
 
 // PTT global hotkey is implemented with uiohook-napi (a passive OS-level
 // keyboard listener) rather than Electron's globalShortcut. Reasons:
@@ -50,10 +51,17 @@ let uioLastEvent: { keycode: number; at: number } | null = null;
 // path with a 250ms rolling pulse since it has no key-up event.
 let uiohookHeld = false;
 let electronHeld = false;
+let portalHeld = false;
 let lastBroadcastHeld = false;
 let currentElectronAccel: string | null = null;
 let electronPulseTimer: NodeJS.Timeout | null = null;
 let electronShortcutEvents = 0;
+
+// Portal Activated/Deactivated → mirror into portalHeld. The portal is the
+// only one of the three sources that gives us real key-up, so no pulse
+// fakery is needed here.
+portalShortcuts.on('activated', () => { portalHeld = true; recomputeAndBroadcast(); });
+portalShortcuts.on('deactivated', () => { portalHeld = false; recomputeAndBroadcast(); });
 
 function broadcastPttHeld(held: boolean): void {
   // Direct broadcast (used by suspend handler etc.) — bypasses the dual-source
@@ -65,7 +73,7 @@ function broadcastPttHeld(held: boolean): void {
 }
 
 function recomputeAndBroadcast(): void {
-  const next = uiohookHeld || electronHeld;
+  const next = uiohookHeld || electronHeld || portalHeld;
   if (next === lastBroadcastHeld) return;
   lastBroadcastHeld = next;
   for (const w of BrowserWindow.getAllWindows()) {
@@ -148,7 +156,7 @@ function tryRegisterElectronShortcut(accelerator: string): boolean {
   }
 }
 
-function tryRegisterGlobalPtt(accelerator: string, useElectronShortcut: boolean): boolean {
+function tryRegisterGlobalPtt(accelerator: string, useElectronShortcut: boolean, usePortal: boolean): boolean {
   const parsed = parseAccelerator(accelerator);
   if (!parsed) return false;
   // Set the binding regardless of which transport works — both consult it.
@@ -166,18 +174,30 @@ function tryRegisterGlobalPtt(accelerator: string, useElectronShortcut: boolean)
     electronOk = tryRegisterElectronShortcut(accelerator);
     if (electronOk) currentElectronAccel = accelerator;
   }
-  return uioOk || electronOk;
+  // Portal bind is async — fire-and-forget. The user may take seconds to
+  // confirm the compositor's permission dialog; we don't want to block the
+  // IPC handler on that. The diagnostic surfaces real status to the UI.
+  if (usePortal) {
+    portalShortcuts.bind(accelerator).catch((err) => {
+      console.warn('[voice] portal bind failed:', err);
+    });
+  }
+  // Treat the portal as "registration attempted" (not gating the return) so
+  // we don't downgrade scope just because the user hasn't confirmed yet.
+  return uioOk || electronOk || usePortal;
 }
 
 function clearGlobalPtt(): void {
   pttBinding = null;
   uiohookHeld = false;
   electronHeld = false;
+  portalHeld = false;
   if (electronPulseTimer) { clearTimeout(electronPulseTimer); electronPulseTimer = null; }
   if (currentElectronAccel) {
     globalShortcut.unregister(currentElectronAccel);
     currentElectronAccel = null;
   }
+  portalShortcuts.unbind().catch(() => { /* best-effort */ });
   recomputeAndBroadcast();
 }
 
@@ -289,6 +309,7 @@ if (!gotLock) {
     ipcMain.handle(IPC_CHANNELS['voice.getPttDiagnostics'], () => {
       const isWayland = process.platform === 'linux'
         && (process.env['XDG_SESSION_TYPE'] === 'wayland' || !!process.env['WAYLAND_DISPLAY']);
+      const portalStatus = portalShortcuts.getStatus();
       return {
         uioStarted,
         uioStartFailed,
@@ -297,10 +318,13 @@ if (!gotLock) {
         uioLastEvent,
         electronShortcutRegistered: currentElectronAccel !== null,
         electronShortcutEvents,
+        portalSessionActive: portalStatus.sessionActive,
+        portalLastError: portalStatus.lastError,
+        portalActivations: portalStatus.activations,
       };
     });
 
-    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown, useElectronShortcut: unknown) => {
+    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown, useElectronShortcut: unknown, usePortal: unknown) => {
       clearGlobalPtt();
       if (typeof accelerator !== 'string' || !accelerator) {
         return { scope: 'app' as const, downgraded: false };
@@ -308,7 +332,7 @@ if (!gotLock) {
       if (useGlobal === false) {
         return { scope: 'app' as const, downgraded: false };
       }
-      const ok = tryRegisterGlobalPtt(accelerator, useElectronShortcut === true);
+      const ok = tryRegisterGlobalPtt(accelerator, useElectronShortcut === true, usePortal === true);
       if (ok) {
         return { scope: 'global' as const, downgraded: false };
       }
@@ -324,7 +348,7 @@ if (!gotLock) {
       // existing behavior for users who already configured PTT before this
       // flag existed.
       const wantsGlobal = stored.pttGlobalEnabled !== false;
-      const ok = wantsGlobal && tryRegisterGlobalPtt(stored.pttBinding.accelerator, stored.pttElectronShortcutEnabled === true);
+      const ok = wantsGlobal && tryRegisterGlobalPtt(stored.pttBinding.accelerator, stored.pttElectronShortcutEnabled === true, stored.pttPortalEnabled !== false);
       const next = {
         ...stored,
         pttScope: ok ? 'global' as const : 'app' as const,
@@ -345,6 +369,7 @@ if (!gotLock) {
   app.on('will-quit', () => {
     if (uioStarted) { try { uIOhook.stop(); } catch { /* already stopped */ } }
     try { globalShortcut.unregisterAll(); } catch { /* nothing registered */ }
+    portalShortcuts.unbind().catch(() => { /* quitting anyway */ });
   });
   // browser-window-blur shouldn't force-release PTT anymore — the passive
   // hook keeps tracking the real keyboard state regardless of window focus.

@@ -114,7 +114,7 @@ export interface BotcordApi {
     micStart(): void;
     micFrame(pcm: ArrayBuffer): void;
     micStop(): void;
-    setPttBinding(accelerator: string | null, useGlobal: boolean, useElectronShortcut: boolean): Promise<{ scope: 'global' | 'app'; downgraded: boolean }>;
+    setPttBinding(accelerator: string | null, useGlobal: boolean, useElectronShortcut: boolean, usePortal: boolean): Promise<{ scope: 'global' | 'app'; downgraded: boolean }>;
     getPttDiagnostics(): Promise<{
       uioStarted: boolean;
       uioStartFailed: boolean;
@@ -123,6 +123,9 @@ export interface BotcordApi {
       uioLastEvent: { keycode: number; at: number } | null;
       electronShortcutRegistered: boolean;
       electronShortcutEvents: number;
+      portalSessionActive: boolean;
+      portalLastError: string | null;
+      portalActivations: number;
     }>;
     setMute(muted: boolean): Promise<void>;
     onPttHeld(cb: (held: boolean) => void): () => void;

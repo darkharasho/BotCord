@@ -340,7 +340,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
           <PttBindingInput
             value={settings.pttBinding?.accelerator ?? null}
             onChange={async (accel) => {
-              const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, settings.pttElectronShortcutEnabled);
+              const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, settings.pttElectronShortcutEnabled, settings.pttPortalEnabled);
               persist({
                 ...settings,
                 pttBinding: accel ? { accelerator: accel } : null,
@@ -356,7 +356,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
               onChange={async (e) => {
                 const useGlobal = e.target.checked;
                 const accel = settings.pttBinding?.accelerator ?? null;
-                const result = await window.botcord.voice.setPttBinding(accel, useGlobal, settings.pttElectronShortcutEnabled);
+                const result = await window.botcord.voice.setPttBinding(accel, useGlobal, settings.pttElectronShortcutEnabled, settings.pttPortalEnabled);
                 persist({
                   ...settings,
                   pttGlobalEnabled: useGlobal,
@@ -376,7 +376,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
                 onChange={async (e) => {
                   const useElectron = e.target.checked;
                   const accel = settings.pttBinding?.accelerator ?? null;
-                  const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, useElectron);
+                  const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, useElectron, settings.pttPortalEnabled);
                   persist({
                     ...settings,
                     pttElectronShortcutEnabled: useElectron,
@@ -392,6 +392,33 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
                   Try this if uIOhook isn't seeing your key on Wayland. May grab keys at the
                   X server level on some compositors and interfere with typing — turn off if
                   it does.
+                </span>
+              </span>
+            </label>
+          )}
+          {settings.pttGlobalEnabled && (
+            <label className="flex items-start gap-2 text-xs text-fg cursor-pointer select-none pl-5">
+              <input
+                type="checkbox"
+                checked={settings.pttPortalEnabled}
+                onChange={async (e) => {
+                  const usePortal = e.target.checked;
+                  const accel = settings.pttBinding?.accelerator ?? null;
+                  const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, settings.pttElectronShortcutEnabled, usePortal);
+                  persist({
+                    ...settings,
+                    pttPortalEnabled: usePortal,
+                    pttScope: result.scope,
+                    pttScopeDowngraded: result.downgraded,
+                  });
+                }}
+                className="accent-accent mt-0.5"
+              />
+              <span>
+                Use XDG GlobalShortcuts portal (recommended for Wayland)
+                <span className="block text-[10px] text-fg-muted">
+                  The proper Wayland-native path. The compositor will show a one-time permission
+                  dialog for the binding. No key grabbing — typing is unaffected.
                 </span>
               </span>
             </label>
@@ -547,6 +574,9 @@ function PttDiagnostics() {
     uioLastEvent: { keycode: number; at: number } | null;
     electronShortcutRegistered: boolean;
     electronShortcutEvents: number;
+    portalSessionActive: boolean;
+    portalLastError: string | null;
+    portalActivations: number;
   } | null>(null);
   useEffect(() => {
     let live = true;
@@ -566,10 +596,17 @@ function PttDiagnostics() {
   const electronStatus = diag.electronShortcutRegistered
     ? `registered (${diag.electronShortcutEvents} fires)`
     : 'not registered';
+  const portalStatus = diag.portalSessionActive
+    ? `session active (${diag.portalActivations} activations)`
+    : 'inactive';
   return (
     <div className="space-y-1 text-[11px] text-fg-muted">
       <div>uIOhook: {uioStatus}</div>
       <div>Electron globalShortcut: {electronStatus}</div>
+      <div>Portal: {portalStatus}</div>
+      {diag.portalLastError && (
+        <div className="text-amber-400">Portal error: {diag.portalLastError}</div>
+      )}
       {diag.isWayland && (
         <div className="text-amber-400">
           Wayland session detected. uIOhook can't see global keys on Wayland; the

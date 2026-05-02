@@ -28,6 +28,11 @@ export type VoiceInputSettings = {
   // sometimes XGrabKey). Off by default because on some setups it grabs keys
   // at the X server level and interferes with typing.
   pttElectronShortcutEnabled: boolean;
+  // Linux: bind via the XDG GlobalShortcuts portal (Wayland-native, passive,
+  // real key-up events). On non-Linux this is a no-op. Default ON because it's
+  // the proper Wayland path; the compositor shows a one-time permission prompt
+  // on first bind.
+  pttPortalEnabled: boolean;
   vadThreshold: number;       // 0..1 RMS
   inputDeviceId: string | null;
   inputGain: number;          // 0..2
@@ -49,6 +54,7 @@ export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
   pttScopeDowngraded: false,
   pttGlobalEnabled: true,
   pttElectronShortcutEnabled: false,
+  pttPortalEnabled: true,
   vadThreshold: 0.04,
   inputDeviceId: null,
   inputGain: 1,
