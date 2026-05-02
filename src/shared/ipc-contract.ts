@@ -111,6 +111,9 @@ export interface BotcordApi {
     onState(cb: (s: VoiceConnectionState) => void): () => void;
     onFrame(cb: (pcm: ArrayBuffer) => void): () => void;
     onSpeakers(cb: (levels: Record<string, number>) => void): () => void;
+    micStart(): void;
+    micFrame(pcm: ArrayBuffer): void;
+    micStop(): void;
   };
   events: {
     onBotStatus(cb: (s: BotStatus) => void): () => void;
@@ -215,6 +218,9 @@ export const IPC_CHANNELS = {
   'voice.join': 'voice.join',
   'voice.leave': 'voice.leave',
   'voice.getState': 'voice.getState',
+  'voice.mic.start': 'voice.mic.start',
+  'voice.mic.frame': 'voice.mic.frame',
+  'voice.mic.stop': 'voice.mic.stop',
   'event.voiceState': 'event.voiceState',
   'event.voiceFrame': 'event.voiceFrame',
   'event.voiceSpeakers': 'event.voiceSpeakers',

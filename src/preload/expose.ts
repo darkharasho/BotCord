@@ -110,6 +110,9 @@ const api: BotcordApi = {
       return () => ipcRenderer.removeListener(IPC_CHANNELS['event.voiceFrame'], handler);
     },
     onSpeakers: (cb) => subscribe(IPC_CHANNELS['event.voiceSpeakers'], cb as (p: unknown) => void),
+    micStart: () => ipcRenderer.send(IPC_CHANNELS['voice.mic.start']),
+    micFrame: (pcm: ArrayBuffer) => ipcRenderer.send(IPC_CHANNELS['voice.mic.frame'], pcm),
+    micStop: () => ipcRenderer.send(IPC_CHANNELS['voice.mic.stop']),
   },
   events: {
     onBotStatus: (cb) => subscribe(IPC_CHANNELS['event.botStatus'], cb as (p: unknown) => void),
