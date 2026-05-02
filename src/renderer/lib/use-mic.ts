@@ -86,5 +86,12 @@ function acceleratorMatches(accel: string, e: KeyboardEvent): boolean {
   if (e.shiftKey !== wantShift) return false;
   if (e.altKey !== wantAlt) return false;
   if (e.metaKey !== wantMeta) return false;
-  return e.code === key || e.key === key;
+  // Task 12 stores bindings with letters as bare 'A' (KeyA → A) and digits
+  // as bare '1' (Digit1 → 1). Reconstruct both code forms here so app-scope
+  // matching works without forcing the recorder to keep the prefix.
+  if (e.code === key) return true;
+  if (e.key === key) return true;
+  if (/^[A-Z]$/.test(key) && e.code === `Key${key}`) return true;
+  if (/^[0-9]$/.test(key) && e.code === `Digit${key}`) return true;
+  return false;
 }
