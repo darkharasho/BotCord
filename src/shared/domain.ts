@@ -1,3 +1,5 @@
+import type { VoiceInputSettings } from './voice-input';
+
 export type GuildSummary = {
   id: string;
   name: string;
@@ -346,6 +348,7 @@ export type Prefs = {
   audioOutputDeviceId: string;
   audioInputDeviceId: string;
   notifyOnDM?: boolean;
+  voiceInput?: VoiceInputSettings;
 };
 
 export type SendAttachment = {
