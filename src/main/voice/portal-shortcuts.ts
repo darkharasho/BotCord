@@ -25,6 +25,29 @@ const SESSION_IFACE = 'org.freedesktop.portal.Session';
 
 const SHORTCUT_ID = 'botcord-ptt';
 
+// Static introspection XML for portal.Request and portal.Session objects.
+// The portal's transient Request objects don't reliably reply to Introspect
+// with the Request interface, so dbus-next can't find it via getProxyObject.
+// Passing the XML directly bypasses the Introspect call.
+const REQUEST_INTROSPECT = `<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.portal.Request">
+    <method name="Close"/>
+    <signal name="Response">
+      <arg type="u" name="response"/>
+      <arg type="a{sv}" name="results"/>
+    </signal>
+  </interface>
+</node>`;
+
+const SESSION_INTROSPECT = `<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.portal.Session">
+    <method name="Close"/>
+    <signal name="Closed"/>
+  </interface>
+</node>`;
+
 // Subset of the dbus-next surface we need. Loaded dynamically so this module
 // is safe to import on platforms where dbus-next can't initialize.
 type DbusNext = typeof import('dbus-next');
@@ -263,7 +286,9 @@ class PortalShortcuts extends EventEmitter {
 
     // Cache the session interface so we can close it later.
     try {
-      const sessionProxy = await this.bus.getProxyObject(PORTAL_SERVICE, sessionHandle);
+      const sessionProxy = await (this.bus as unknown as {
+        getProxyObject: (s: string, p: string, xml?: string) => Promise<ProxyObject>;
+      }).getProxyObject(PORTAL_SERVICE, sessionHandle, SESSION_INTROSPECT);
       this.sessionIface = sessionProxy.getInterface(SESSION_IFACE);
     } catch {
       // Non-fatal — we can still emit signals; closing on unbind will just
@@ -439,7 +464,12 @@ class PortalShortcuts extends EventEmitter {
     requestPath: string,
   ): Promise<{ response: number; results: Record<string, unknown> }> {
     if (!this.bus) throw new Error('bus not initialized');
-    const proxy = await this.bus.getProxyObject(PORTAL_SERVICE, requestPath);
+    // Pass static XML — the portal's Request objects don't reliably introspect
+    // with the Request interface included, so we tell dbus-next directly what
+    // the interface looks like.
+    const proxy = await (this.bus as unknown as {
+      getProxyObject: (s: string, p: string, xml?: string) => Promise<ProxyObject>;
+    }).getProxyObject(PORTAL_SERVICE, requestPath, REQUEST_INTROSPECT);
     const iface = proxy.getInterface(REQUEST_IFACE);
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -482,7 +512,9 @@ class PortalShortcuts extends EventEmitter {
   private async closeSessionQuiet(sessionPath: string): Promise<void> {
     if (!this.bus) return;
     try {
-      const proxy = await this.bus.getProxyObject(PORTAL_SERVICE, sessionPath);
+      const proxy = await (this.bus as unknown as {
+        getProxyObject: (s: string, p: string, xml?: string) => Promise<ProxyObject>;
+      }).getProxyObject(PORTAL_SERVICE, sessionPath, SESSION_INTROSPECT);
       const iface = proxy.getInterface(SESSION_IFACE) as unknown as { Close: () => Promise<void> };
       await iface.Close();
     } catch {
