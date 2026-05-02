@@ -121,6 +121,8 @@ export interface BotcordApi {
       isWayland: boolean;
       uioEventCount: number;
       uioLastEvent: { keycode: number; at: number } | null;
+      electronShortcutRegistered: boolean;
+      electronShortcutEvents: number;
     }>;
     setMute(muted: boolean): Promise<void>;
     onPttHeld(cb: (held: boolean) => void): () => void;

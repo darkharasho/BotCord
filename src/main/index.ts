@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, powerMonitor, type Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, powerMonitor, type Tray } from 'electron';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
@@ -44,9 +44,32 @@ let uioStartFailed = false;
 let uioEventCount = 0;
 let uioLastEvent: { keycode: number; at: number } | null = null;
 
+// We track each source independently and OR-combine. On X11, uiohook provides
+// precise hold detection. On Wayland, uiohook can't see events — Electron's
+// globalShortcut (via the XDG portal in Chromium 120+) becomes the working
+// path with a 250ms rolling pulse since it has no key-up event.
+let uiohookHeld = false;
+let electronHeld = false;
+let lastBroadcastHeld = false;
+let currentElectronAccel: string | null = null;
+let electronPulseTimer: NodeJS.Timeout | null = null;
+let electronShortcutEvents = 0;
+
 function broadcastPttHeld(held: boolean): void {
+  // Direct broadcast (used by suspend handler etc.) — bypasses the dual-source
+  // tracking; only used to force-release.
+  lastBroadcastHeld = held;
   for (const w of BrowserWindow.getAllWindows()) {
     w.webContents.send(IPC_CHANNELS['event.pttHeld'], held);
+  }
+}
+
+function recomputeAndBroadcast(): void {
+  const next = uiohookHeld || electronHeld;
+  if (next === lastBroadcastHeld) return;
+  lastBroadcastHeld = next;
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send(IPC_CHANNELS['event.pttHeld'], next);
   }
 }
 
@@ -84,9 +107,11 @@ function ensureUioStarted(): boolean {
     uIOhook.on('keydown', (e) => {
       uioEventCount++;
       uioLastEvent = { keycode: e.keycode, at: Date.now() };
-      if (matchesPttBinding(e)) broadcastPttHeld(true);
+      if (matchesPttBinding(e)) { uiohookHeld = true; recomputeAndBroadcast(); }
     });
-    uIOhook.on('keyup', (e) => { if (matchesPttBinding(e)) broadcastPttHeld(false); });
+    uIOhook.on('keyup', (e) => {
+      if (matchesPttBinding(e)) { uiohookHeld = false; recomputeAndBroadcast(); }
+    });
     uIOhook.start();
     uioStarted = true;
     return true;
@@ -98,20 +123,58 @@ function ensureUioStarted(): boolean {
   }
 }
 
-// Try to set up the binding for global hold detection. Returns true on
-// success (uIOhook running and the accelerator parsed), false on any
-// failure — caller falls back to app-scope.
+// Try to set up the binding for global hold detection. Two parallel paths:
+//   1. uiohook — passive listener, gives real keydown+keyup. Works on X11,
+//      typically broken on Wayland (XkbGetKeyboard fails).
+//   2. Electron's globalShortcut — uses Chromium's platform layer; on
+//      Wayland this routes through the XDG portal (no input grab). Has no
+//      key-up event so we fake hold with a 250ms rolling pulse.
+// Either succeeding is enough for the binding to be considered "global".
+function tryRegisterElectronShortcut(accelerator: string): boolean {
+  try {
+    return globalShortcut.register(accelerator, () => {
+      electronShortcutEvents++;
+      electronHeld = true;
+      recomputeAndBroadcast();
+      if (electronPulseTimer) clearTimeout(electronPulseTimer);
+      electronPulseTimer = setTimeout(() => {
+        electronHeld = false;
+        recomputeAndBroadcast();
+        electronPulseTimer = null;
+      }, 250);
+    });
+  } catch {
+    return false;
+  }
+}
+
 function tryRegisterGlobalPtt(accelerator: string): boolean {
   const parsed = parseAccelerator(accelerator);
   if (!parsed) return false;
-  if (!ensureUioStarted()) return false;
+  // Set the binding regardless of which transport works — both consult it.
   pttBinding = parsed;
-  return true;
+  const uioOk = ensureUioStarted();
+  // Always ALSO try Electron's globalShortcut. On Wayland it's the only path
+  // that works; on X11 it's redundant with uiohook but harmless.
+  if (currentElectronAccel) {
+    globalShortcut.unregister(currentElectronAccel);
+    currentElectronAccel = null;
+  }
+  const electronOk = tryRegisterElectronShortcut(accelerator);
+  if (electronOk) currentElectronAccel = accelerator;
+  return uioOk || electronOk;
 }
 
 function clearGlobalPtt(): void {
   pttBinding = null;
-  broadcastPttHeld(false);
+  uiohookHeld = false;
+  electronHeld = false;
+  if (electronPulseTimer) { clearTimeout(electronPulseTimer); electronPulseTimer = null; }
+  if (currentElectronAccel) {
+    globalShortcut.unregister(currentElectronAccel);
+    currentElectronAccel = null;
+  }
+  recomputeAndBroadcast();
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -228,6 +291,8 @@ if (!gotLock) {
         isWayland,
         uioEventCount,
         uioLastEvent,
+        electronShortcutRegistered: currentElectronAccel !== null,
+        electronShortcutEvents,
       };
     });
 
@@ -277,6 +342,7 @@ if (!gotLock) {
 
   app.on('will-quit', () => {
     if (uioStarted) { try { uIOhook.stop(); } catch { /* already stopped */ } }
+    try { globalShortcut.unregisterAll(); } catch { /* nothing registered */ }
   });
   // browser-window-blur shouldn't force-release PTT anymore — the passive
   // hook keeps tracking the real keyboard state regardless of window focus.

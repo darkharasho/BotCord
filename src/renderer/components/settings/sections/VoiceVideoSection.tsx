@@ -521,6 +521,8 @@ function PttDiagnostics() {
     isWayland: boolean;
     uioEventCount: number;
     uioLastEvent: { keycode: number; at: number } | null;
+    electronShortcutRegistered: boolean;
+    electronShortcutEvents: number;
   } | null>(null);
   useEffect(() => {
     let live = true;
@@ -532,22 +534,27 @@ function PttDiagnostics() {
     return () => { live = false; window.clearInterval(handle); };
   }, []);
   if (!diag) return null;
-  const status = diag.uioStartFailed
+  const uioStatus = diag.uioStartFailed
     ? 'failed'
     : diag.uioStarted
-      ? `running (${diag.uioEventCount} events seen${diag.uioLastEvent ? `, last keycode ${diag.uioLastEvent.keycode}` : ''})`
+      ? `running (${diag.uioEventCount} events${diag.uioLastEvent ? `, last keycode ${diag.uioLastEvent.keycode}` : ''})`
       : 'not started';
+  const electronStatus = diag.electronShortcutRegistered
+    ? `registered (${diag.electronShortcutEvents} fires)`
+    : 'not registered';
   return (
     <div className="space-y-1 text-[11px] text-fg-muted">
-      <div>Global hook: {status}</div>
+      <div>uIOhook: {uioStatus}</div>
+      <div>Electron globalShortcut: {electronStatus}</div>
       {diag.isWayland && (
         <div className="text-amber-400">
-          Wayland session detected — global hook only sees XWayland apps. Native Wayland
-          apps (e.g. Firefox in Wayland mode) won't trigger PTT. Switch to an X11 session
-          for full coverage.
+          Wayland session detected. uIOhook can't see global keys on Wayland; the
+          Electron globalShortcut path uses the XDG portal instead — you may see a
+          system permission prompt the first time. Hold detection on this path is
+          best-effort (250ms pulse per press).
         </div>
       )}
-      {diag.uioStartFailed && (
+      {diag.uioStartFailed && !diag.isWayland && (
         <div className="text-amber-400">
           The native input hook couldn't start. On macOS, grant Accessibility permission
           to BotCord in System Settings → Privacy &amp; Security.
