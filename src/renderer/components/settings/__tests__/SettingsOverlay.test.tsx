@@ -10,6 +10,15 @@ vi.mock('../../../lib/api', () => ({
     guilds: { list: vi.fn().mockResolvedValue({ ok: true, data: [] }), listChannels: vi.fn().mockResolvedValue({ ok: true, data: [] }) },
     autonomy: { detect: vi.fn().mockResolvedValue({ found: true }), getGlobalConfig: vi.fn().mockResolvedValue({ ok: true, data: null }), getGuildConfig: vi.fn(), setGuildConfig: vi.fn(), setGlobalConfig: vi.fn() },
     system: { appVersion: vi.fn().mockResolvedValue('0.3.7'), openExternal: vi.fn() },
+    update: {
+      check: vi.fn(),
+      install: vi.fn(),
+      onStatus: () => () => {},
+      onAvailable: () => () => {},
+      onProgress: () => () => {},
+      onDownloaded: () => () => {},
+      onError: () => () => {},
+    },
     events: {
       onBotStatus: () => () => {},
       onGatewayState: () => () => {},
