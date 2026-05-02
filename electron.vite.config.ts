@@ -15,6 +15,8 @@ export default defineConfig({
           'prism-media',
           'libsodium-wrappers',
           'uiohook-napi',
+          'dbus-next',
+          'x11',
         ],
       },
     },
