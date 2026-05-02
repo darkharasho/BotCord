@@ -3,6 +3,7 @@ import { MicCaptureManager } from './mic-capture';
 import {
   type VoiceInputSettings,
 } from '../../shared/voice-input';
+import { playVoiceSound } from './voice-sounds';
 
 export type MicState = {
   level: number;       // 0..1 RMS (~20 Hz updates from worklet)
@@ -63,6 +64,17 @@ export function useMic(opts: {
     if (!opts.enabled) return;
     void window.botcord.voice.setMute(opts.settings.muted);
   }, [opts.enabled, opts.settings.muted]);
+
+  // PTT on/off chimes. Edge-detect on gateOpen, scoped to PTT mode so VAD
+  // doesn't fire a beep on every utterance.
+  const prevGate = useRef(false);
+  useEffect(() => {
+    if (opts.settings.mode === 'ptt') {
+      if (state.gateOpen && !prevGate.current && opts.settings.sounds.pttOn) playVoiceSound('pttOn');
+      if (!state.gateOpen && prevGate.current && opts.settings.sounds.pttOff) playVoiceSound('pttOff');
+    }
+    prevGate.current = state.gateOpen;
+  }, [state.gateOpen, opts.settings.mode, opts.settings.sounds.pttOn, opts.settings.sounds.pttOff]);
 
   // PTT key event subscription.
   useEffect(() => {

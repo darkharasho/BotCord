@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import { DEFAULT_VOICE_INPUT_SETTINGS, type VoiceInputSettings } from '../../shared/voice-input';
+import { DEFAULT_VOICE_INPUT_SETTINGS, DEFAULT_VOICE_INPUT_SOUNDS, type VoiceInputSettings } from '../../shared/voice-input';
 import { useSaver } from '../components/settings/SavingState';
 
 // In-process broadcast so multiple components (settings panel, voice footer)
@@ -15,9 +15,14 @@ function loadOnce(): Promise<VoiceInputSettings> {
   if (cached) return Promise.resolve(cached);
   if (loadPromise) return loadPromise;
   loadPromise = api.prefs.get('voiceInput').then(r => {
-    const next = (r.ok && r.data && typeof r.data === 'object')
-      ? (r.data as VoiceInputSettings)
-      : DEFAULT_VOICE_INPUT_SETTINGS;
+    // Merge stored data over defaults so older saved blobs missing newer
+    // fields (e.g. `sounds`) hydrate cleanly without crashing consumers.
+    const stored = (r.ok && r.data && typeof r.data === 'object') ? (r.data as Partial<VoiceInputSettings>) : {};
+    const next: VoiceInputSettings = {
+      ...DEFAULT_VOICE_INPUT_SETTINGS,
+      ...stored,
+      sounds: { ...DEFAULT_VOICE_INPUT_SOUNDS, ...(stored.sounds ?? {}) },
+    };
     cached = next;
     return next;
   });

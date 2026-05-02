@@ -6,6 +6,13 @@ export type PttBinding = {
   accelerator: string;
 };
 
+export type VoiceInputSounds = {
+  join: boolean;
+  leave: boolean;
+  pttOn: boolean;
+  pttOff: boolean;
+};
+
 export type VoiceInputSettings = {
   mode: VoiceInputMode;
   pttBinding: PttBinding | null;
@@ -15,6 +22,14 @@ export type VoiceInputSettings = {
   inputDeviceId: string | null;
   inputGain: number;          // 0..2
   muted: boolean;
+  sounds: VoiceInputSounds;
+};
+
+export const DEFAULT_VOICE_INPUT_SOUNDS: VoiceInputSounds = {
+  join: true,
+  leave: true,
+  pttOn: true,
+  pttOff: true,
 };
 
 export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
@@ -26,6 +41,7 @@ export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
   inputDeviceId: null,
   inputGain: 1,
   muted: false,
+  sounds: DEFAULT_VOICE_INPUT_SOUNDS,
 };
 
 export type VadGate = {

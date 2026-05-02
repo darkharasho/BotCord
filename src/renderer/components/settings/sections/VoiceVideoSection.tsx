@@ -367,7 +367,45 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
           className="w-full max-w-sm"
         />
       </div>
+
+      <div className="space-y-2">
+        <div className="text-xs text-fg-muted">Notification sounds</div>
+        <SoundToggle
+          label="Joined a voice channel"
+          checked={settings.sounds.join}
+          onChange={(v) => persist({ ...settings, sounds: { ...settings.sounds, join: v } })}
+        />
+        <SoundToggle
+          label="Left a voice channel"
+          checked={settings.sounds.leave}
+          onChange={(v) => persist({ ...settings, sounds: { ...settings.sounds, leave: v } })}
+        />
+        <SoundToggle
+          label="PTT on"
+          checked={settings.sounds.pttOn}
+          onChange={(v) => persist({ ...settings, sounds: { ...settings.sounds, pttOn: v } })}
+        />
+        <SoundToggle
+          label="PTT off"
+          checked={settings.sounds.pttOff}
+          onChange={(v) => persist({ ...settings, sounds: { ...settings.sounds, pttOff: v } })}
+        />
+      </div>
     </div>
+  );
+}
+
+function SoundToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-xs text-fg cursor-pointer select-none">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="accent-accent"
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 
