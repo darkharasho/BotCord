@@ -136,12 +136,14 @@ export function translateAccelerator(accelerator: string): string | null {
 function translateKey(raw: string): string | null {
   if (!raw) return null;
 
-  // Function keys F1..F35 — wrap with angle brackets per spec for special
-  // keysyms.
+  // Function keys F1..F35. Various portal backends disagree on the format —
+  // KDE/xdg-desktop-portal-kde wants bare "F18", xdg-desktop-portal-gtk
+  // accepts both. Bare form is the lowest-common-denominator that works on
+  // the most backends.
   const fnMatch = /^F(\d{1,2})$/i.exec(raw);
   if (fnMatch) {
     const n = parseInt(fnMatch[1], 10);
-    if (n >= 1 && n <= 35) return `<F${n}>`;
+    if (n >= 1 && n <= 35) return `F${n}`;
     return null;
   }
 
