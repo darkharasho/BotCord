@@ -58,13 +58,13 @@ export class VoiceManager extends EventEmitter {
 
   setSelfMute(selfMute: boolean): void {
     if (!this.connection) return;
+    const { channelId } = this.connection.joinConfig;
+    if (!channelId) return;
+    if (this.connection.state.status === VoiceConnectionStatus.Destroyed) return;
     // discord.js exposes mute toggling via rejoin with a new joinConfig.
-    // selfDeaf MUST stay false so the receive pipeline keeps getting voice.
-    this.connection.rejoin({
-      channelId: this.connection.joinConfig.channelId!,
-      selfDeaf: false,
-      selfMute,
-    });
+    // selfDeaf MUST stay false or the gateway will not forward voice receive
+    // packets to us (the receive pipeline depends on this).
+    this.connection.rejoin({ channelId, selfDeaf: false, selfMute });
   }
 
   async joinChannel(guildId: string, channelId: string): Promise<void> {
