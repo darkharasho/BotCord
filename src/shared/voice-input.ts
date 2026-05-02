@@ -23,6 +23,11 @@ export type VoiceInputSettings = {
   // input method and breaks typing. Turning this off keeps the binding but
   // skips global registration — PTT only fires while BotCord is focused.
   pttGlobalEnabled: boolean;
+  // Wayland fallback: also register the binding via Electron's globalShortcut
+  // (which routes through Chromium's platform layer — sometimes the XDG portal,
+  // sometimes XGrabKey). Off by default because on some setups it grabs keys
+  // at the X server level and interferes with typing.
+  pttElectronShortcutEnabled: boolean;
   vadThreshold: number;       // 0..1 RMS
   inputDeviceId: string | null;
   inputGain: number;          // 0..2
@@ -43,6 +48,7 @@ export const DEFAULT_VOICE_INPUT_SETTINGS: VoiceInputSettings = {
   pttScope: 'global',
   pttScopeDowngraded: false,
   pttGlobalEnabled: true,
+  pttElectronShortcutEnabled: false,
   vadThreshold: 0.04,
   inputDeviceId: null,
   inputGain: 1,

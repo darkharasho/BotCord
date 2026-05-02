@@ -340,7 +340,7 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
           <PttBindingInput
             value={settings.pttBinding?.accelerator ?? null}
             onChange={async (accel) => {
-              const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled);
+              const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, settings.pttElectronShortcutEnabled);
               persist({
                 ...settings,
                 pttBinding: accel ? { accelerator: accel } : null,
@@ -355,10 +355,8 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
               checked={settings.pttGlobalEnabled}
               onChange={async (e) => {
                 const useGlobal = e.target.checked;
-                // Re-issue the binding with the new scope so the main process
-                // registers or unregisters globalShortcut accordingly.
                 const accel = settings.pttBinding?.accelerator ?? null;
-                const result = await window.botcord.voice.setPttBinding(accel, useGlobal);
+                const result = await window.botcord.voice.setPttBinding(accel, useGlobal, settings.pttElectronShortcutEnabled);
                 persist({
                   ...settings,
                   pttGlobalEnabled: useGlobal,
@@ -370,16 +368,42 @@ function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
             />
             <span>Register as global hotkey (works when BotCord isn't focused)</span>
           </label>
+          {settings.pttGlobalEnabled && (
+            <label className="flex items-start gap-2 text-xs text-fg cursor-pointer select-none pl-5">
+              <input
+                type="checkbox"
+                checked={settings.pttElectronShortcutEnabled}
+                onChange={async (e) => {
+                  const useElectron = e.target.checked;
+                  const accel = settings.pttBinding?.accelerator ?? null;
+                  const result = await window.botcord.voice.setPttBinding(accel, settings.pttGlobalEnabled, useElectron);
+                  persist({
+                    ...settings,
+                    pttElectronShortcutEnabled: useElectron,
+                    pttScope: result.scope,
+                    pttScopeDowngraded: result.downgraded,
+                  });
+                }}
+                className="accent-accent mt-0.5"
+              />
+              <span>
+                Also use Electron's globalShortcut (Wayland fallback)
+                <span className="block text-[10px] text-fg-muted">
+                  Try this if uIOhook isn't seeing your key on Wayland. May grab keys at the
+                  X server level on some compositors and interfere with typing — turn off if
+                  it does.
+                </span>
+              </span>
+            </label>
+          )}
           {!settings.pttGlobalEnabled && (
             <p className="text-[11px] text-fg-muted">
-              Global hotkey is off — PTT only fires while BotCord has focus. Turn this back on if
-              you want PTT from other windows; turn it off if registering it interferes with typing.
+              Global hotkey is off — PTT only fires while BotCord has focus.
             </p>
           )}
           {settings.pttGlobalEnabled && settings.pttScopeDowngraded && (
             <p className="text-[11px] text-amber-400">
-              Global hotkey unavailable — falling back to in-app only. On macOS,
-              grant Accessibility permission. On Wayland, global hotkeys are unsupported.
+              Global hotkey unavailable — falling back to in-app only.
             </p>
           )}
           <PttHeldIndicator accelerator={settings.pttBinding?.accelerator ?? null} />

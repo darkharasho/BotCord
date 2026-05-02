@@ -114,7 +114,7 @@ export interface BotcordApi {
     micStart(): void;
     micFrame(pcm: ArrayBuffer): void;
     micStop(): void;
-    setPttBinding(accelerator: string | null, useGlobal: boolean): Promise<{ scope: 'global' | 'app'; downgraded: boolean }>;
+    setPttBinding(accelerator: string | null, useGlobal: boolean, useElectronShortcut: boolean): Promise<{ scope: 'global' | 'app'; downgraded: boolean }>;
     getPttDiagnostics(): Promise<{
       uioStarted: boolean;
       uioStartFailed: boolean;

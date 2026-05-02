@@ -148,20 +148,24 @@ function tryRegisterElectronShortcut(accelerator: string): boolean {
   }
 }
 
-function tryRegisterGlobalPtt(accelerator: string): boolean {
+function tryRegisterGlobalPtt(accelerator: string, useElectronShortcut: boolean): boolean {
   const parsed = parseAccelerator(accelerator);
   if (!parsed) return false;
   // Set the binding regardless of which transport works — both consult it.
   pttBinding = parsed;
   const uioOk = ensureUioStarted();
-  // Always ALSO try Electron's globalShortcut. On Wayland it's the only path
-  // that works; on X11 it's redundant with uiohook but harmless.
+  // The Electron globalShortcut path is only registered if the user opted in.
+  // It can grab keys at the X server level on some Wayland setups, breaking
+  // system typing — opt-in keeps that behavior off by default.
   if (currentElectronAccel) {
     globalShortcut.unregister(currentElectronAccel);
     currentElectronAccel = null;
   }
-  const electronOk = tryRegisterElectronShortcut(accelerator);
-  if (electronOk) currentElectronAccel = accelerator;
+  let electronOk = false;
+  if (useElectronShortcut) {
+    electronOk = tryRegisterElectronShortcut(accelerator);
+    if (electronOk) currentElectronAccel = accelerator;
+  }
   return uioOk || electronOk;
 }
 
@@ -296,17 +300,15 @@ if (!gotLock) {
       };
     });
 
-    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown) => {
+    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown, useElectronShortcut: unknown) => {
       clearGlobalPtt();
       if (typeof accelerator !== 'string' || !accelerator) {
         return { scope: 'app' as const, downgraded: false };
       }
-      // User opted out of global registration — keep the binding but don't
-      // wire the passive hook. PTT only fires while BotCord is focused.
       if (useGlobal === false) {
         return { scope: 'app' as const, downgraded: false };
       }
-      const ok = tryRegisterGlobalPtt(accelerator);
+      const ok = tryRegisterGlobalPtt(accelerator, useElectronShortcut === true);
       if (ok) {
         return { scope: 'global' as const, downgraded: false };
       }
@@ -322,7 +324,7 @@ if (!gotLock) {
       // existing behavior for users who already configured PTT before this
       // flag existed.
       const wantsGlobal = stored.pttGlobalEnabled !== false;
-      const ok = wantsGlobal && tryRegisterGlobalPtt(stored.pttBinding.accelerator);
+      const ok = wantsGlobal && tryRegisterGlobalPtt(stored.pttBinding.accelerator, stored.pttElectronShortcutEnabled === true);
       const next = {
         ...stored,
         pttScope: ok ? 'global' as const : 'app' as const,
