@@ -47,7 +47,10 @@ export function registerVoiceHandlers({ manager }: { manager: ClientManager }): 
   ipcMain.handle(IPC_CHANNELS['voice.getState'], (): VoiceConnectionState => voice.getState());
 
   ipcMain.on(IPC_CHANNELS['voice.mic.start'], () => {
-    try { transmitter.start(); } catch { /* surfaced via voiceState if encoder failed */ }
+    // Encoder construction can throw if the native opus binding failed to
+    // load. We swallow it here — the renderer will notice no audio is going
+    // out and the user can reconnect. Don't crash the IPC loop.
+    try { transmitter.start(); } catch { /* swallow */ }
   });
 
   ipcMain.on(IPC_CHANNELS['voice.mic.frame'], (_evt, payload: ArrayBuffer | Uint8Array) => {
