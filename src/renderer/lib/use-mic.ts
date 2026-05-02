@@ -96,8 +96,13 @@ export function useMic(opts: {
     window.addEventListener('keyup', up);
     window.addEventListener('blur', blur);
 
+    // Always subscribe to onPttHeld — the global IPC pulse can fire from any
+    // of the three main-process sources (uiohook, Electron globalShortcut,
+    // XDG portal) regardless of what pttScope the IPC handler returned. The
+    // portal in particular registers fire-and-forget, so its activations
+    // arrive even when scope is reported as 'app'.
     let offGlobal: (() => void) | undefined;
-    if (opts.settings.pttScope === 'global') {
+    {
       offGlobal = window.botcord.voice.onPttHeld((held) => {
         globalHeldRef.current = held;
         sync();
@@ -113,7 +118,7 @@ export function useMic(opts: {
       globalHeldRef.current = false;
       managerRef.current?.setPttHeld(false);
     };
-  }, [opts.settings.mode, opts.settings.pttScope, opts.settings.pttBinding?.accelerator]);
+  }, [opts.settings.mode, opts.settings.pttBinding?.accelerator]);
 
   return state;
 }
