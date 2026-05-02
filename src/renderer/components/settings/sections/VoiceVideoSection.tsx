@@ -12,10 +12,7 @@ import { SelectField } from '../fields/SelectField';
 import { useSaver } from '../SavingState';
 import { SectionHeader } from './AccountSection';
 import { pushToast } from '../../Toaster';
-import {
-  DEFAULT_VOICE_INPUT_SETTINGS,
-  type VoiceInputSettings,
-} from '../../../../shared/voice-input';
+import { useVoiceInputPrefs } from '../../../lib/use-voice-input-prefs';
 
 const DEFAULT_VALUE = '';
 const DEFAULT_LABEL = 'Default (system)';
@@ -141,21 +138,6 @@ export function VoiceVideoSection() {
       </Subsection>
     </div>
   );
-}
-
-function useVoiceInputPrefs(): [VoiceInputSettings, (next: VoiceInputSettings) => void] {
-  const [settings, setSettings] = useState<VoiceInputSettings>(DEFAULT_VOICE_INPUT_SETTINGS);
-  const { trigger } = useSaver();
-  useEffect(() => {
-    api.prefs.get('voiceInput').then(r => {
-      if (r.ok && r.data && typeof r.data === 'object') setSettings(r.data as VoiceInputSettings);
-    });
-  }, []);
-  const persist = (next: VoiceInputSettings) => {
-    setSettings(next);
-    trigger(api.prefs.set('voiceInput', next));
-  };
-  return [settings, persist];
 }
 
 function Subsection({ title, icon, hint, children }: { title: string; icon: React.ReactNode; hint?: string; children: React.ReactNode }) {

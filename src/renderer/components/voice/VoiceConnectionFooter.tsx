@@ -1,22 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { IconPhoneOff } from '@tabler/icons-react';
 import type { ChannelSummary, VoiceConnectionState } from '../../../shared/domain';
-import { DEFAULT_VOICE_INPUT_SETTINGS, type VoiceInputSettings } from '../../../shared/voice-input';
 import { useMic } from '../../lib/use-mic';
+import { useVoiceInputPrefs } from '../../lib/use-voice-input-prefs';
 import { MicIndicator } from './MicIndicator';
-
-// Until Task 13 wires prefs, settings live in component-local state. Task 13
-// will replace this with a prefs-backed hook so settings persist and sync
-// with the settings panel.
-function useVoiceInputSettingsLocal(): [VoiceInputSettings, (next: VoiceInputSettings) => void] {
-  return useState<VoiceInputSettings>(DEFAULT_VOICE_INPUT_SETTINGS);
-}
 
 export function VoiceConnectionFooter(props: {
   voiceState: VoiceConnectionState;
   channels: ChannelSummary[];
 }) {
-  const [settings, setSettings] = useVoiceInputSettingsLocal();
+  const [settings, setSettings] = useVoiceInputPrefs();
   const connected = props.voiceState.kind === 'connected';
   const channel = useMemo(() => {
     const vs = props.voiceState;
