@@ -4,6 +4,7 @@ import { mkdirSync } from 'fs';
 import { createMainWindow } from './window';
 import { createAppTray, notifyMinimizedToTray, rebuildTrayMenu, setTrayUnreadBadge } from './tray';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
+import { isSafeGlobalAccelerator } from '../shared/voice-input';
 import { installCSP } from './security/csp';
 import { createTokenVault } from './vault/token-vault';
 import { createClientManager } from './discord/client-manager';
@@ -34,6 +35,10 @@ function broadcastPttHeld(held: boolean): void {
 // by pushing `true` and resetting a 250 ms timer; when the timer expires
 // without another fire, we emit `false`. A tap still produces >= one frame.
 function tryRegisterGlobalPtt(accelerator: string): boolean {
+  // Refuse bare letter / digit / Space / Enter / etc. globally — registering
+  // them would consume every press of that key in every app on the system.
+  // The renderer can still bind them in app-only scope.
+  if (!isSafeGlobalAccelerator(accelerator)) return false;
   try {
     return globalShortcut.register(accelerator, () => {
       broadcastPttHeld(true);
