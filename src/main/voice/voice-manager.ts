@@ -54,6 +54,19 @@ export class VoiceManager extends EventEmitter {
 
   getState(): VoiceConnectionState { return this.state; }
 
+  getConnection(): VoiceConnection | null { return this.connection; }
+
+  setSelfMute(selfMute: boolean): void {
+    if (!this.connection) return;
+    // discord.js exposes mute toggling via rejoin with a new joinConfig.
+    // selfDeaf MUST stay false so the receive pipeline keeps getting voice.
+    this.connection.rejoin({
+      channelId: this.connection.joinConfig.channelId!,
+      selfDeaf: false,
+      selfMute,
+    });
+  }
+
   async joinChannel(guildId: string, channelId: string): Promise<void> {
     const client = this.getClient();
     if (!client) throw new Error('Bot is not connected');
