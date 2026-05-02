@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, powerMonitor, type Tray } from 'electron';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { createMainWindow } from './window';
@@ -19,6 +19,34 @@ import { broadcast, AUTONOMY_DRAFT_DELTA_CHANNEL, AUTONOMY_DRAFT_DONE_CHANNEL } 
 import { CDKHost } from '@claude-cdk/core';
 import type { AutonomyHost } from './autonomy/types';
 import { attachAutonomousListener } from './autonomy/listener';
+
+let currentPttAccelerator: string | null = null;
+let pttPulseTimer: NodeJS.Timeout | null = null;
+
+function broadcastPttHeld(held: boolean): void {
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send(IPC_CHANNELS['event.pttHeld'], held);
+  }
+}
+
+// Electron's globalShortcut only fires on key-press (no up). We translate
+// repeated press fires (auto-repeat while held) into a single open window
+// by pushing `true` and resetting a 250 ms timer; when the timer expires
+// without another fire, we emit `false`. A tap still produces >= one frame.
+function tryRegisterGlobalPtt(accelerator: string): boolean {
+  try {
+    return globalShortcut.register(accelerator, () => {
+      broadcastPttHeld(true);
+      if (pttPulseTimer) clearTimeout(pttPulseTimer);
+      pttPulseTimer = setTimeout(() => {
+        broadcastPttHeld(false);
+        pttPulseTimer = null;
+      }, 250);
+    });
+  } catch {
+    return false;
+  }
+}
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -125,6 +153,36 @@ if (!gotLock) {
       if (tray) setTrayUnreadBadge(tray, Boolean(hasUnread));
     });
 
+    ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown) => {
+      if (currentPttAccelerator) {
+        globalShortcut.unregister(currentPttAccelerator);
+        currentPttAccelerator = null;
+      }
+      if (typeof accelerator !== 'string' || !accelerator) {
+        return { scope: 'app' as const, downgraded: false };
+      }
+      const ok = tryRegisterGlobalPtt(accelerator);
+      if (ok) {
+        currentPttAccelerator = accelerator;
+        return { scope: 'global' as const, downgraded: false };
+      }
+      return { scope: 'app' as const, downgraded: true };
+    });
+
+    // Re-register PTT accelerator from prefs on boot. Update the persisted
+    // downgrade flag to reflect the result on this OS / this session.
+    const stored = prefs.get('voiceInput');
+    if (stored?.pttBinding?.accelerator) {
+      const ok = tryRegisterGlobalPtt(stored.pttBinding.accelerator);
+      const next = {
+        ...stored,
+        pttScope: ok ? 'global' as const : 'app' as const,
+        pttScopeDowngraded: !ok,
+      };
+      prefs.set('voiceInput', next);
+      if (ok) currentPttAccelerator = stored.pttBinding.accelerator;
+    }
+
     app.on('before-quit', () => {
       (app as unknown as { isQuiting?: boolean }).isQuiting = true;
     });
@@ -133,6 +191,13 @@ if (!gotLock) {
       manager.connect().catch(() => { /* surfaced via gateway state events */ });
     }
   });
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    if (pttPulseTimer) { clearTimeout(pttPulseTimer); pttPulseTimer = null; }
+  });
+  app.on('browser-window-blur', () => broadcastPttHeld(false));
+  powerMonitor.on('suspend', () => broadcastPttHeld(false));
 
   app.on('window-all-closed', () => {
     // Don't quit when the only window was hidden to tray; the tray icon keeps
