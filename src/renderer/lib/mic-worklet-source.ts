@@ -39,7 +39,8 @@ class MicProcessor extends AudioWorkletProcessor {
         for (let i = 0; i < 960; i++) {
           const f = Math.max(-1, Math.min(1, this._frame[i]));
           sumSq += f * f;
-          pcm[i] = Math.round(f * 32767);
+          const scaled = Math.round(f * 32768);
+          pcm[i] = scaled > 32767 ? 32767 : scaled < -32768 ? -32768 : scaled;
         }
         const rms = Math.sqrt(sumSq / 960);
         this.port.postMessage({ rms, pcm: pcm.buffer }, [pcm.buffer]);

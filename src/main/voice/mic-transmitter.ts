@@ -43,6 +43,11 @@ export class MicTransmitter {
   start(): void {
     if (this.active) return;
     const connection = this.voiceManager.getConnection();
+    // If a stale `voice.mic.start` IPC arrives after voice.leave has
+    // destroyed the connection (the renderer's worklet may emit one more
+    // frame between the leave click and the state event landing), this
+    // returns early — getConnection() reports null. The IPC frame that
+    // immediately follows is also dropped because `active` stays false.
     if (!connection) return;
 
     this.pcmStream = makePushable();
@@ -69,8 +74,10 @@ export class MicTransmitter {
 
   frame(pcm: Int16Array): void {
     if (!this.active || !this.pcmStream) return;
-    // Zero-copy view of the renderer's PCM bytes. The renderer must not
-    // reuse the underlying ArrayBuffer until the IPC call returns.
+    // The worklet transferred this ArrayBuffer over postMessage so the
+    // renderer no longer owns it. The Buffer view here is zero-copy onto
+    // those bytes; the stereoizer downstream allocates a fresh buffer
+    // per chunk, so there is no further reuse hazard once we push.
     const buf = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength);
     this.pcmStream.pushFrame(buf);
   }

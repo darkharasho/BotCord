@@ -60,6 +60,8 @@ export class MicCaptureManager {
   }
 
   async stop(): Promise<void> {
+    // Flush level meter so consumers' bars don't stick at the last value.
+    for (const l of this.levelListeners) l(0);
     if (this.gateOpen) {
       window.botcord.voice.micStop();
       this.gateOpen = false;

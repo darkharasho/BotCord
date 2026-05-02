@@ -23,17 +23,26 @@ export function useMic(opts: {
     if (!opts.enabled) return;
     const manager = new MicCaptureManager();
     managerRef.current = manager;
+    let aborted = false;
 
-    manager.start(opts.settings).catch((err) => {
-      if (err && typeof err === 'object' && 'name' in err && (err as DOMException).name === 'NotAllowedError') {
-        setState((s) => ({ ...s, permissionDenied: true }));
-      }
-    });
+    manager.start(opts.settings).then(
+      () => {
+        // If cleanup ran before start() resolved (e.g. React StrictMode
+        // double-invocation), tear down the resources we just acquired.
+        if (aborted) manager.stop().catch(() => {});
+      },
+      (err) => {
+        if (err && typeof err === 'object' && 'name' in err && (err as DOMException).name === 'NotAllowedError') {
+          if (!aborted) setState((s) => ({ ...s, permissionDenied: true }));
+        }
+      },
+    );
 
     const offLevel = manager.onLevel((rms) => setState((s) => ({ ...s, level: rms })));
     const offGate = manager.onGateChange((open) => setState((s) => ({ ...s, gateOpen: open })));
 
     return () => {
+      aborted = true;
       offLevel();
       offGate();
       manager.stop().catch(() => {});
