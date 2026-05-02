@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { IconPhoneOff } from '@tabler/icons-react';
 import type { ChannelSummary, VoiceConnectionState } from '../../../shared/domain';
 import { useMic } from '../../lib/use-mic';
 import { useVoiceInputPrefs } from '../../lib/use-voice-input-prefs';
+import { useBotIdentity } from '../../lib/use-bot-identity';
+import { setLocalSpeaking } from '../../lib/use-voice-speakers';
 import { MicIndicator } from './MicIndicator';
 
 export function VoiceConnectionFooter(props: {
@@ -22,6 +24,15 @@ export function VoiceConnectionFooter(props: {
     settings,
     onPersist: setSettings,
   });
+
+  // Drive the bot's own speaking ring from the local gate state. The receive
+  // pipeline never hears the bot, so without this bridge the bot's avatar
+  // would stay un-ringed even when transmitting.
+  const bot = useBotIdentity();
+  useEffect(() => {
+    setLocalSpeaking(bot?.id, connected && mic.gateOpen && !settings.muted);
+    return () => setLocalSpeaking(bot?.id, false);
+  }, [bot?.id, connected, mic.gateOpen, settings.muted]);
 
   if (!connected && props.voiceState.kind !== 'connecting') return null;
 

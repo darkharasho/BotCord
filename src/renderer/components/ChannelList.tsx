@@ -21,6 +21,7 @@ import {
 import { openContextMenu } from './ContextMenu';
 import type { Icon } from '@tabler/icons-react';
 import { useVoiceState } from '../lib/use-voice-state';
+import { useVoiceSpeakers } from '../lib/use-voice-speakers';
 import { pushToast } from './Toaster';
 import { VoiceConnectionFooter } from './voice/VoiceConnectionFooter';
 
@@ -40,6 +41,7 @@ export function ChannelList({
 }) {
   const [channels, setChannels] = useState<ChannelSummary[]>([]);
   const voiceState = useVoiceState();
+  const speakingIds = useVoiceSpeakers();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const loaded = useRef(false);
   const collapsedRef = useRef(collapsed);
@@ -244,7 +246,7 @@ export function ChannelList({
         {voiceMembers.length > 0 && (
           <ul className="mt-0.5 space-y-px">
             {voiceMembers.map(m => (
-              <VoiceMemberRow key={m.id} member={m} indent={indent} />
+              <VoiceMemberRow key={m.id} member={m} indent={indent} speaking={speakingIds.has(m.id)} />
             ))}
           </ul>
         )}
@@ -334,20 +336,23 @@ export function ChannelList({
 // small avatar, display name, mute/deaf icons on the right when applicable.
 // `indent` matches the parent channel button's left padding so members align
 // just past the channel's icon column.
-function VoiceMemberRow({ member, indent }: { member: VoiceMemberSummary; indent: boolean }) {
+function VoiceMemberRow({ member, indent, speaking }: { member: VoiceMemberSummary; indent: boolean; speaking: boolean }) {
   const muted = member.selfMute || member.serverMute;
   const deafened = member.selfDeaf || member.serverDeaf;
   // Server-enforced mute/deaf renders in danger red; self-muted is muted-fg.
   const muteColor = member.serverMute ? 'text-danger' : 'text-fg-dim';
   const deafColor = member.serverDeaf ? 'text-danger' : 'text-fg-dim';
+  // 2px green ring matches Discord's speaking indicator. Box-shadow rather
+  // than `ring-*` so it sits flush against the avatar circle.
+  const avatarRing = speaking ? 'shadow-[0_0_0_2px_rgb(34_197_94)]' : '';
   return (
     <li
       className={`flex items-center gap-2 px-2 py-1 rounded text-fg-muted hover:bg-hover hover:text-fg transition-colors duration-150 animate-fade-in
         ${indent ? 'pl-12' : 'pl-7'}`}
     >
       {member.avatarUrl
-        ? <img src={member.avatarUrl} alt="" className="w-[18px] h-[18px] rounded-full shrink-0" />
-        : <div className="w-[18px] h-[18px] rounded-full bg-bg-input shrink-0" />}
+        ? <img src={member.avatarUrl} alt="" className={`w-[18px] h-[18px] rounded-full shrink-0 transition-shadow duration-75 ${avatarRing}`} />
+        : <div className={`w-[18px] h-[18px] rounded-full bg-bg-input shrink-0 transition-shadow duration-75 ${avatarRing}`} />}
       <span
         className="flex-1 truncate text-[14px] leading-4"
         style={member.roleColor ? { color: member.roleColor } : undefined}
