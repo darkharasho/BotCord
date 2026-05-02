@@ -12,6 +12,10 @@ import { SelectField } from '../fields/SelectField';
 import { useSaver } from '../SavingState';
 import { SectionHeader } from './AccountSection';
 import { pushToast } from '../../Toaster';
+import {
+  DEFAULT_VOICE_INPUT_SETTINGS,
+  type VoiceInputSettings,
+} from '../../../../shared/voice-input';
 
 const DEFAULT_VALUE = '';
 const DEFAULT_LABEL = 'Default (system)';
@@ -131,8 +135,27 @@ export function VoiceVideoSection() {
           onLevel={setMicLevel}
         />
       </Subsection>
+
+      <Subsection title="Voice input" icon={<IconMicrophone size={14} className="text-accent" />} hint="Configure how BotCord transmits your voice through the bot.">
+        <VoiceInputSubsection deviceId={inputId} />
+      </Subsection>
     </div>
   );
+}
+
+function useVoiceInputPrefs(): [VoiceInputSettings, (next: VoiceInputSettings) => void] {
+  const [settings, setSettings] = useState<VoiceInputSettings>(DEFAULT_VOICE_INPUT_SETTINGS);
+  const { trigger } = useSaver();
+  useEffect(() => {
+    api.prefs.get('voiceInput').then(r => {
+      if (r.ok && r.data && typeof r.data === 'object') setSettings(r.data as VoiceInputSettings);
+    });
+  }, []);
+  const persist = (next: VoiceInputSettings) => {
+    setSettings(next);
+    trigger(api.prefs.set('voiceInput', next));
+  };
+  return [settings, persist];
 }
 
 function Subsection({ title, icon, hint, children }: { title: string; icon: React.ReactNode; hint?: string; children: React.ReactNode }) {
@@ -243,6 +266,171 @@ function MicTester({
             style={{ width: `${Math.round(level * 100)}%` }}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+function VoiceInputSubsection({ deviceId }: { deviceId: string }) {
+  const [settings, persist] = useVoiceInputPrefs();
+
+  // Live RMS for the VU meter. Reuses MicTester's pattern but is always on
+  // when this subsection is mounted, so the user can calibrate without an
+  // active voice connection.
+  const [level, setLevel] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    let raf: number | null = null;
+    let stream: MediaStream | null = null;
+    let ac: AudioContext | null = null;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        });
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        ac = new AudioContext();
+        const src = ac.createMediaStreamSource(stream);
+        const analyser = ac.createAnalyser();
+        analyser.fftSize = 1024;
+        src.connect(analyser);
+        const buf = new Float32Array(analyser.fftSize);
+        const tick = () => {
+          if (cancelled) return;
+          analyser.getFloatTimeDomainData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
+          setLevel(Math.sqrt(sum / buf.length));
+          raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch { /* permission denied — meter stays at 0 */ }
+    })();
+    return () => {
+      cancelled = true;
+      if (raf != null) cancelAnimationFrame(raf);
+      stream?.getTracks().forEach(t => t.stop());
+      ac?.close().catch(() => {});
+    };
+  }, [deviceId]);
+
+  return (
+    <div className="space-y-4">
+      {/* Mode toggle */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => persist({ ...settings, mode: 'va' })}
+          className={modeBtn(settings.mode === 'va')}
+        >Voice Activity</button>
+        <button
+          type="button"
+          onClick={() => persist({ ...settings, mode: 'ptt' })}
+          className={modeBtn(settings.mode === 'ptt')}
+        >Push to Talk</button>
+      </div>
+
+      {settings.mode === 'va' && (
+        <div className="space-y-2">
+          <div className="text-xs text-fg-muted">Sensitivity</div>
+          <div className="relative h-3 max-w-sm rounded-full bg-bg-sunken overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 bg-emerald-500/70 transition-[width] duration-75"
+              style={{ width: `${Math.min(100, level * 100 * 4)}%` }}
+            />
+            <div
+              className="absolute inset-y-0 w-px bg-yellow-300"
+              style={{ left: `${Math.min(100, settings.vadThreshold * 100 * 4)}%` }}
+            />
+          </div>
+          <input
+            type="range" min={0} max={0.25} step={0.005}
+            value={settings.vadThreshold}
+            onChange={(e) => persist({ ...settings, vadThreshold: Number(e.target.value) })}
+            className="w-full max-w-sm"
+          />
+        </div>
+      )}
+
+      {settings.mode === 'ptt' && (
+        <div className="space-y-2">
+          <div className="text-xs text-fg-muted">Push-to-talk binding</div>
+          <PttBindingInput
+            value={settings.pttBinding?.accelerator ?? null}
+            onChange={async (accel) => {
+              const result = await window.botcord.voice.setPttBinding(accel);
+              persist({
+                ...settings,
+                pttBinding: accel ? { accelerator: accel } : null,
+                pttScope: result.scope,
+                pttScopeDowngraded: result.downgraded,
+              });
+            }}
+          />
+          {settings.pttScopeDowngraded && (
+            <p className="text-[11px] text-amber-400">
+              Global hotkey unavailable — falling back to in-app only. On macOS,
+              grant Accessibility permission. On Wayland, global hotkeys are unsupported.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <div className="text-xs text-fg-muted">Input volume</div>
+        <input
+          type="range" min={0} max={2} step={0.05}
+          value={settings.inputGain}
+          onChange={(e) => persist({ ...settings, inputGain: Number(e.target.value) })}
+          className="w-full max-w-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+function modeBtn(active: boolean): string {
+  return `px-3 py-1.5 rounded-md text-xs font-medium transition ${active ? 'bg-accent text-white' : 'bg-bg-input text-fg hover:border-accent/50 border border-border'}`;
+}
+
+function PttBindingInput(props: { value: string | null; onChange: (v: string | null) => void }) {
+  const [recording, setRecording] = useState(false);
+
+  useEffect(() => {
+    if (!recording) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      const mods: string[] = [];
+      if (e.ctrlKey) mods.push('Control');
+      if (e.shiftKey) mods.push('Shift');
+      if (e.altKey) mods.push('Alt');
+      if (e.metaKey) mods.push('Meta');
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+      const key = e.code.startsWith('Key') ? e.code.slice(3)
+        : e.code.startsWith('Digit') ? e.code.slice(5)
+        : e.code;
+      props.onChange([...mods, key].join('+'));
+      setRecording(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [recording, props]);
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setRecording(true)}
+        className="px-3 py-1.5 rounded-md bg-bg-input text-xs font-medium text-fg border border-border hover:border-accent/50 min-w-[8rem] text-left transition-colors"
+      >
+        {recording ? 'Press a key…' : props.value ?? 'Set keybind'}
+      </button>
+      {props.value && !recording && (
+        <button
+          type="button"
+          onClick={() => props.onChange(null)}
+          className="text-xs text-fg-muted hover:text-fg"
+        >Clear</button>
       )}
     </div>
   );
