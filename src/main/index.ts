@@ -264,7 +264,6 @@ if (!gotLock) {
         pttScopeDowngraded: wantsGlobal && !ok,
       };
       prefs.set('voiceInput', next);
-      if (ok) currentPttAccelerator = stored.pttBinding.accelerator;
     }
 
     app.on('before-quit', () => {
