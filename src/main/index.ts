@@ -1,10 +1,10 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, powerMonitor, type Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, powerMonitor, type Tray } from 'electron';
+import { uIOhook, UiohookKey } from 'uiohook-napi';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { createMainWindow } from './window';
 import { createAppTray, notifyMinimizedToTray, rebuildTrayMenu, setTrayUnreadBadge } from './tray';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
-import { isSafeGlobalAccelerator } from '../shared/voice-input';
 import { installCSP } from './security/csp';
 import { createTokenVault } from './vault/token-vault';
 import { createClientManager } from './discord/client-manager';
@@ -21,8 +21,26 @@ import { CDKHost } from '@claude-cdk/core';
 import type { AutonomyHost } from './autonomy/types';
 import { attachAutonomousListener } from './autonomy/listener';
 
-let currentPttAccelerator: string | null = null;
-let pttPulseTimer: NodeJS.Timeout | null = null;
+// PTT global hotkey is implemented with uiohook-napi (a passive OS-level
+// keyboard listener) rather than Electron's globalShortcut. Reasons:
+//   1. globalShortcut uses an X11 grab on Linux which interferes with the
+//      input method on some setups — registering ANY hotkey breaks typing.
+//   2. globalShortcut has no key-up event, so we'd have to fake hold
+//      detection with a timer. uiohook gives real keydown + keyup.
+// The hook runs in passive mode: it observes keystrokes but doesn't consume
+// them, so the focused app still receives every key normally.
+
+type PttBinding = {
+  keycode: number;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+  meta: boolean;
+};
+
+let pttBinding: PttBinding | null = null;
+let uioStarted = false;
+let uioStartFailed = false;
 
 function broadcastPttHeld(held: boolean): void {
   for (const w of BrowserWindow.getAllWindows()) {
@@ -30,27 +48,64 @@ function broadcastPttHeld(held: boolean): void {
   }
 }
 
-// Electron's globalShortcut only fires on key-press (no up). We translate
-// repeated press fires (auto-repeat while held) into a single open window
-// by pushing `true` and resetting a 250 ms timer; when the timer expires
-// without another fire, we emit `false`. A tap still produces >= one frame.
-function tryRegisterGlobalPtt(accelerator: string): boolean {
-  // Refuse bare letter / digit / Space / Enter / etc. globally — registering
-  // them would consume every press of that key in every app on the system.
-  // The renderer can still bind them in app-only scope.
-  if (!isSafeGlobalAccelerator(accelerator)) return false;
+function parseAccelerator(accel: string): PttBinding | null {
+  const parts = accel.split('+').map((p) => p.trim()).filter((p) => p.length > 0);
+  if (parts.length === 0) return null;
+  const keyName = parts[parts.length - 1]!;
+  const modifiers = parts.slice(0, -1);
+  const table = UiohookKey as unknown as Record<string, number>;
+  const keycode = table[keyName];
+  if (typeof keycode !== 'number') return null;
+  return {
+    keycode,
+    ctrl: modifiers.includes('Control') || modifiers.includes('CommandOrControl'),
+    shift: modifiers.includes('Shift'),
+    alt: modifiers.includes('Alt') || modifiers.includes('Option'),
+    meta: modifiers.includes('Meta') || modifiers.includes('Command') || modifiers.includes('Super'),
+  };
+}
+
+function matchesPttBinding(e: { keycode: number; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey: boolean }): boolean {
+  const b = pttBinding;
+  if (!b) return false;
+  return e.keycode === b.keycode
+    && e.ctrlKey === b.ctrl
+    && e.shiftKey === b.shift
+    && e.altKey === b.alt
+    && e.metaKey === b.meta;
+}
+
+function ensureUioStarted(): boolean {
+  if (uioStarted) return true;
+  if (uioStartFailed) return false;
   try {
-    return globalShortcut.register(accelerator, () => {
-      broadcastPttHeld(true);
-      if (pttPulseTimer) clearTimeout(pttPulseTimer);
-      pttPulseTimer = setTimeout(() => {
-        broadcastPttHeld(false);
-        pttPulseTimer = null;
-      }, 250);
-    });
-  } catch {
+    uIOhook.on('keydown', (e) => { if (matchesPttBinding(e)) broadcastPttHeld(true); });
+    uIOhook.on('keyup', (e) => { if (matchesPttBinding(e)) broadcastPttHeld(false); });
+    uIOhook.start();
+    uioStarted = true;
+    return true;
+  } catch (err) {
+    // macOS without Accessibility permission, or missing native binary.
+    uioStartFailed = true;
+    console.warn('[voice] uiohook failed to start:', err);
     return false;
   }
+}
+
+// Try to set up the binding for global hold detection. Returns true on
+// success (uIOhook running and the accelerator parsed), false on any
+// failure — caller falls back to app-scope.
+function tryRegisterGlobalPtt(accelerator: string): boolean {
+  const parsed = parseAccelerator(accelerator);
+  if (!parsed) return false;
+  if (!ensureUioStarted()) return false;
+  pttBinding = parsed;
+  return true;
+}
+
+function clearGlobalPtt(): void {
+  pttBinding = null;
+  broadcastPttHeld(false);
 }
 
 const gotLock = app.requestSingleInstanceLock();
@@ -159,21 +214,17 @@ if (!gotLock) {
     });
 
     ipcMain.handle(IPC_CHANNELS['voice.setPttBinding'], (_e, accelerator: unknown, useGlobal: unknown) => {
-      if (currentPttAccelerator) {
-        globalShortcut.unregister(currentPttAccelerator);
-        currentPttAccelerator = null;
-      }
+      clearGlobalPtt();
       if (typeof accelerator !== 'string' || !accelerator) {
         return { scope: 'app' as const, downgraded: false };
       }
       // User opted out of global registration — keep the binding but don't
-      // register with the OS. Avoids global-hotkey-induced typing issues.
+      // wire the passive hook. PTT only fires while BotCord is focused.
       if (useGlobal === false) {
         return { scope: 'app' as const, downgraded: false };
       }
       const ok = tryRegisterGlobalPtt(accelerator);
       if (ok) {
-        currentPttAccelerator = accelerator;
         return { scope: 'global' as const, downgraded: false };
       }
       return { scope: 'app' as const, downgraded: true };
@@ -208,10 +259,12 @@ if (!gotLock) {
   });
 
   app.on('will-quit', () => {
-    globalShortcut.unregisterAll();
-    if (pttPulseTimer) { clearTimeout(pttPulseTimer); pttPulseTimer = null; }
+    if (uioStarted) { try { uIOhook.stop(); } catch { /* already stopped */ } }
   });
-  app.on('browser-window-blur', () => broadcastPttHeld(false));
+  // browser-window-blur shouldn't force-release PTT anymore — the passive
+  // hook keeps tracking the real keyboard state regardless of window focus.
+  // We still release on suspend so a sleeping laptop doesn't leak a held
+  // gate state.
   powerMonitor.on('suspend', () => broadcastPttHeld(false));
 
   app.on('window-all-closed', () => {

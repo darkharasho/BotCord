@@ -14,6 +14,7 @@ export default defineConfig({
           '@snazzah/davey',
           'prism-media',
           'libsodium-wrappers',
+          'uiohook-napi',
         ],
       },
     },

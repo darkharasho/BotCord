@@ -93,6 +93,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "react-window": "^2.2.7",
+    "uiohook-napi": "^1.5.5",
     "unicode-emoji-json": "^0.9.0"
   },
   "devDependencies": {
