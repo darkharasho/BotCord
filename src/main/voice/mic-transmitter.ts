@@ -1,5 +1,5 @@
 import { Readable, Transform } from 'node:stream';
-import { createAudioPlayer, createAudioResource, StreamType, type AudioPlayer } from '@discordjs/voice';
+import { createAudioPlayer, createAudioResource, StreamType, VoiceConnectionStatus, type AudioPlayer } from '@discordjs/voice';
 import prism from 'prism-media';
 import type { VoiceManager } from './voice-manager';
 
@@ -46,6 +46,9 @@ export class MicTransmitter {
     if (!connection) return;
 
     this.pcmStream = makePushable();
+    // Build the encoder per cycle: a long-lived encoder would emit residual
+    // buffered frames after pcmStream.end() on the next start(), causing a
+    // tail of stale audio after PTT release / VAD close.
     this.encoder = new prism.opus.Encoder({
       rate: SAMPLE_RATE,
       channels: CHANNELS,
@@ -66,6 +69,8 @@ export class MicTransmitter {
 
   frame(pcm: Int16Array): void {
     if (!this.active || !this.pcmStream) return;
+    // Zero-copy view of the renderer's PCM bytes. The renderer must not
+    // reuse the underlying ArrayBuffer until the IPC call returns.
     const buf = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength);
     this.pcmStream.pushFrame(buf);
   }
@@ -80,7 +85,7 @@ export class MicTransmitter {
     this.pcmStream = null;
     this.encoder = null;
     this.active = false;
-    if (connection) {
+    if (connection && connection.state.status !== VoiceConnectionStatus.Destroyed) {
       connection.setSpeaking(0);
     }
     this.voiceManager.setSelfMute(true);

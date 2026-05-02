@@ -13,6 +13,7 @@ vi.mock('@discordjs/voice', () => ({
   createAudioPlayer: () => ({ play: vi.fn(), stop: vi.fn(), on: vi.fn() }),
   createAudioResource: vi.fn(() => ({})),
   StreamType: { Opus: 'opus' },
+  VoiceConnectionStatus: { Destroyed: 'destroyed', Ready: 'ready' },
 }));
 
 import { MicTransmitter } from '../mic-transmitter';
@@ -36,23 +37,35 @@ function makeFakes() {
 describe('MicTransmitter', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('start() un-mutes, sets speaking, and subscribes a player', () => {
+  it('start() un-mutes, sets speaking, and subscribes a player in order', () => {
     const f = makeFakes();
     const tx = new MicTransmitter(f.voiceManager);
     tx.start();
     expect(f.setSelfMute).toHaveBeenCalledWith(false);
     expect(f.setSpeaking).toHaveBeenCalledWith(1);
     expect(f.subscribe).toHaveBeenCalledTimes(1);
+    // setSpeaking(1) must precede setSelfMute(false) so the bot is never
+    // un-muted while Discord still thinks it's silent.
+    const subscribeOrder = f.subscribe.mock.invocationCallOrder[0]!;
+    const speakingOrder = f.setSpeaking.mock.invocationCallOrder[0]!;
+    const muteOrder = f.setSelfMute.mock.invocationCallOrder[0]!;
+    expect(subscribeOrder).toBeLessThan(speakingOrder);
+    expect(speakingOrder).toBeLessThan(muteOrder);
   });
 
-  it('stop() drains, mutes, and clears speaking', () => {
+  it('stop() drains, clears speaking, then mutes — in order', () => {
     const f = makeFakes();
     const tx = new MicTransmitter(f.voiceManager);
     tx.start();
     tx.frame(new Int16Array(960));
+    f.setSpeaking.mockClear();
+    f.setSelfMute.mockClear();
     tx.stop();
     expect(f.setSpeaking).toHaveBeenLastCalledWith(0);
     expect(f.setSelfMute).toHaveBeenLastCalledWith(true);
+    const speakingOrder = f.setSpeaking.mock.invocationCallOrder[0]!;
+    const muteOrder = f.setSelfMute.mock.invocationCallOrder[0]!;
+    expect(speakingOrder).toBeLessThan(muteOrder);
   });
 
   it('frame() before start() is dropped silently (no throw)', () => {
