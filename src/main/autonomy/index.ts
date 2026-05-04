@@ -13,6 +13,7 @@ export type AutonomyEvents = {
 
 export type DraftRequest = {
   requestId: string;
+  guildId: string | null;
   channelMeta: { guildName: string; channelName: string; channelTopic: string | null };
   history: ChannelHistoryEntry[];
   target: ChannelHistoryEntry & { id: string };
@@ -41,6 +42,20 @@ export type AutonomyModule = {
   cancelDraft(requestId: string): Promise<void>;
 };
 
+export type RecordUsageEntry = {
+  guildId: string | null;
+  kind: 'autonomous' | 'draft';
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
+  costUsd: number | undefined;
+  at: number;
+};
+export type RecordUsage = (entry: RecordUsageEntry) => void;
+
 type CreateOpts = {
   host: AutonomyHost;
   globalConfig: () => GlobalAutonomyConfig;
@@ -52,6 +67,7 @@ type CreateOpts = {
    * Pure mechanics; not user-tunable. Per-channel queue depth and TTL
    * come from globalConfig() so changes take effect immediately. */
   pollMs?: number;
+  recordUsage?: RecordUsage;
 };
 
 const DEFAULT_QUEUE_DEPTH = 5;
@@ -67,6 +83,16 @@ type QueueItem = {
 export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
   const now = opts.now ?? (() => Date.now());
   const pollMs = opts.pollMs ?? DEFAULT_QUEUE_POLL_MS;
+
+  const safeRecord = (kind: 'autonomous' | 'draft', guildId: string | null, usage: RecordUsageEntry['usage'] | undefined, costUsd: number | undefined): void => {
+    if (!opts.recordUsage) return;
+    try {
+      opts.recordUsage({ kind, guildId, usage, costUsd, at: now() });
+    } catch {
+      // Accounting failures must never break a generation.
+    }
+  };
+
   const currentMaxDepth = (): number => {
     const v = opts.globalConfig().queueMaxDepth;
     return typeof v === 'number' && v >= 1 ? Math.floor(v) : DEFAULT_QUEUE_DEPTH;
@@ -99,18 +125,28 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
     session: AutonomySession,
     prompt: string,
     onDelta?: (delta: string) => void,
-  ): Promise<{ text: string; stopReason: string | undefined }> => {
+  ): Promise<{
+    text: string;
+    stopReason: string | undefined;
+    usage: RecordUsageEntry['usage'] | undefined;
+    costUsd: number | undefined;
+  }> => {
     let text = '';
     let stopReason: string | undefined;
+    let usage: RecordUsageEntry['usage'] | undefined;
+    let costUsd: number | undefined;
     for await (const ev of session.send(prompt) as AsyncIterable<CDKEvent>) {
       if (ev.type === 'assistant.text_delta') {
         text += ev.delta;
         onDelta?.(ev.delta);
       } else if (ev.type === 'session.done') {
         stopReason = ev.stopReason;
+        const e = ev as unknown as { usage?: RecordUsageEntry['usage']; costUsd?: number };
+        if (e.usage) usage = e.usage;
+        if (typeof e.costUsd === 'number') costUsd = e.costUsd;
       }
     }
-    return { text, stopReason };
+    return { text, stopReason, usage, costUsd };
   };
 
   const processItem = async (item: QueueItem): Promise<RunAutonomousResult> => {
@@ -132,7 +168,8 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
     }
     channelSessions.set(req.channelId, session);
     try {
-      const { text } = await collectText(session, prompt);
+      const { text, usage, costUsd } = await collectText(session, prompt);
+      safeRecord('autonomous', req.guildId, usage, costUsd);
       const cleaned = postProcess(text);
       if (!cleaned) return { ok: false, reason: 'empty-output' };
       return { ok: true, text: cleaned };
@@ -205,7 +242,7 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
 
   return {
     async draftReply(req) {
-      const sysPrompt = resolveSystemPrompt(null);
+      const sysPrompt = resolveSystemPrompt(req.guildId);
       const inputs: PromptInputs = {
         systemPrompt: sysPrompt,
         channelMeta: req.channelMeta,
@@ -223,7 +260,8 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
       }
       draftSessions.set(req.requestId, session);
       try {
-        const { text, stopReason } = await collectText(session, prompt, (d) => opts.events.onDelta(req.requestId, d));
+        const { text, stopReason, usage, costUsd } = await collectText(session, prompt, (d) => opts.events.onDelta(req.requestId, d));
+        safeRecord('draft', req.guildId, usage, costUsd);
         opts.events.onDone(req.requestId, text, stopReason);
         return { ok: true, text, stopReason };
       } catch (e) {
