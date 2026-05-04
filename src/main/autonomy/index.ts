@@ -141,9 +141,8 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
         onDelta?.(ev.delta);
       } else if (ev.type === 'session.done') {
         stopReason = ev.stopReason;
-        const e = ev as unknown as { usage?: RecordUsageEntry['usage']; costUsd?: number };
-        if (e.usage) usage = e.usage;
-        if (typeof e.costUsd === 'number') costUsd = e.costUsd;
+        usage = ev.usage;
+        costUsd = ev.costUsd;
       }
     }
     return { text, stopReason, usage, costUsd };
