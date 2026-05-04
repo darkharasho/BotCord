@@ -7,6 +7,8 @@ import { DEFAULT_GLOBAL_SYSTEM_PROMPT } from '../../shared/domain';
 import type { IpcDeps } from './index';
 import { createAutonomyRepo } from '../db/repos/autonomy';
 import { createPrefsRepo } from '../db/repos/prefs';
+import { createAutonomyUsageRepo, DM_GUILD_SENTINEL } from '../db/repos/autonomyUsage';
+import type { AutonomyUsageStatsView, AutonomyGuildUsageView } from '../../shared/ipc-contract';
 import type { AutonomyModule } from '../autonomy';
 import type { AutonomyHost } from '../autonomy/types';
 import { renderMessageContent } from '../autonomy/message-render';
@@ -16,6 +18,7 @@ type Deps = IpcDeps & { autonomy: AutonomyModule; host: AutonomyHost; scratchDir
 export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchDir }: Deps): void {
   const repo = createAutonomyRepo(db);
   const prefs = createPrefsRepo(db);
+  const usageRepo = createAutonomyUsageRepo(db);
 
   const readGlobal = (): GlobalAutonomyConfig => ({
     enabled: prefs.get('autonomyGlobalEnabled') ?? false,
@@ -134,5 +137,22 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
     if (typeof requestId !== 'string') return err('INTERNAL', 'requestId must be a string');
     await autonomy.cancelDraft(requestId);
     return ok(undefined);
+  });
+
+  ipcMain.handle(IPC_CHANNELS['autonomy.getUsageStats'], async (): Promise<Result<AutonomyUsageStatsView>> => {
+    const stats = usageRepo.getStats();
+    const client = manager.getClient();
+    const perGuild: AutonomyGuildUsageView[] = stats.perGuild.map(g => {
+      let guildName: string;
+      if (g.guildId === DM_GUILD_SENTINEL) {
+        guildName = 'Direct messages';
+      } else if (client) {
+        guildName = client.guilds.cache.get(g.guildId)?.name ?? 'Unknown server';
+      } else {
+        guildName = 'Unknown server';
+      }
+      return { guildId: g.guildId, guildName, lifetime: g.lifetime, last7d: g.last7d };
+    });
+    return ok({ lifetime: stats.lifetime, last7d: stats.last7d, perGuild });
   });
 }

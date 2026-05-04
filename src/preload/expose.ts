@@ -88,6 +88,7 @@ const api: BotcordApi = {
     setGlobalConfig: (partial) => invoke(IPC_CHANNELS['autonomy.setGlobalConfig'], partial),
     draftReply: (channelId, messageId) => invoke(IPC_CHANNELS['autonomy.draftReply'], channelId, messageId),
     cancelDraft: (requestId) => invoke(IPC_CHANNELS['autonomy.cancelDraft'], requestId),
+    getUsageStats: () => invoke(IPC_CHANNELS['autonomy.getUsageStats']),
   },
   tray: {
     setUnreadBadge: (hasUnread) => invoke(IPC_CHANNELS['tray.setUnreadBadge'], hasUnread),

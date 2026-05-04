@@ -5,6 +5,34 @@ import type {
 } from './domain';
 import type { Result } from './errors';
 
+export type AutonomyUsageTotals = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  costUsd: number;
+  runCount: number;
+};
+
+export type AutonomyUsageTotalsByKind = {
+  autonomous: AutonomyUsageTotals;
+  draft: AutonomyUsageTotals;
+  combined: AutonomyUsageTotals;
+};
+
+export type AutonomyGuildUsageView = {
+  guildId: string;       // raw id, '__dm__' for DMs
+  guildName: string;     // resolved display name
+  lifetime: AutonomyUsageTotalsByKind;
+  last7d: AutonomyUsageTotalsByKind;
+};
+
+export type AutonomyUsageStatsView = {
+  lifetime: AutonomyUsageTotalsByKind;
+  last7d: AutonomyUsageTotalsByKind;
+  perGuild: AutonomyGuildUsageView[];
+};
+
 export type SystemContextMenuPayload = {
   x: number;
   y: number;
@@ -100,6 +128,7 @@ export interface BotcordApi {
     setGlobalConfig(partial: Partial<GlobalAutonomyConfig>): Promise<Result<GlobalAutonomyConfig>>;
     draftReply(channelId: string, messageId: string): Promise<Result<{ requestId: string }>>;
     cancelDraft(requestId: string): Promise<Result<void>>;
+    getUsageStats(): Promise<Result<AutonomyUsageStatsView>>;
   };
   tray: {
     setUnreadBadge(hasUnread: boolean): Promise<void>;
@@ -282,6 +311,7 @@ export const IPC_CHANNELS = {
   'autonomy.setGlobalConfig': 'autonomy.setGlobalConfig',
   'autonomy.draftReply': 'autonomy.draftReply',
   'autonomy.cancelDraft': 'autonomy.cancelDraft',
+  'autonomy.getUsageStats': 'autonomy.getUsageStats',
   'tray.setUnreadBadge': 'tray.setUnreadBadge',
   'event.autonomyDraftDelta': 'event.autonomyDraftDelta',
   'event.autonomyDraftDone': 'event.autonomyDraftDone',
