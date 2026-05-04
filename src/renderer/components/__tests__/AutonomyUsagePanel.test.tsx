@@ -4,11 +4,6 @@ import '@testing-library/jest-dom/vitest';
 import { AutonomyUsagePanel } from '../AutonomyUsagePanel';
 import type { AutonomyUsageStatsView } from '../../../shared/ipc-contract';
 
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  var window: any;
-}
-
 function makeStats(partial: Partial<AutonomyUsageStatsView> = {}): AutonomyUsageStatsView {
   const zero = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0, runCount: 0 };
   const empty = { autonomous: { ...zero }, draft: { ...zero }, combined: { ...zero } };
