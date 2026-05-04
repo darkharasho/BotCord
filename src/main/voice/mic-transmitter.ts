@@ -67,7 +67,7 @@ export class MicTransmitter {
     connection.subscribe(this.player);
     this.player.play(resource);
 
-    connection.setSpeaking(1);
+    connection.setSpeaking(true);
     this.active = true;
   }
 
@@ -92,7 +92,7 @@ export class MicTransmitter {
     this.encoder = null;
     this.active = false;
     if (connection && connection.state.status !== VoiceConnectionStatus.Destroyed) {
-      connection.setSpeaking(0);
+      connection.setSpeaking(false);
     }
   }
 

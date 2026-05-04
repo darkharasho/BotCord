@@ -84,6 +84,7 @@ export function translateAccelerator(accelerator: string): string | null {
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
+    if (!part) continue;
     const lower = part.toLowerCase();
     const isLast = i === parts.length - 1;
 
@@ -142,7 +143,7 @@ function translateKey(raw: string): string | null {
   // the most backends.
   const fnMatch = /^F(\d{1,2})$/i.exec(raw);
   if (fnMatch) {
-    const n = parseInt(fnMatch[1], 10);
+    const n = parseInt(fnMatch[1]!, 10);
     if (n >= 1 && n <= 35) return `F${n}`;
     return null;
   }

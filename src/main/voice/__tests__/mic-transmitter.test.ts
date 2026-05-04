@@ -41,7 +41,7 @@ describe('MicTransmitter', () => {
     const f = makeFakes();
     const tx = new MicTransmitter(f.voiceManager);
     tx.start();
-    expect(f.setSpeaking).toHaveBeenCalledWith(1);
+    expect(f.setSpeaking).toHaveBeenCalledWith(true);
     expect(f.subscribe).toHaveBeenCalledTimes(1);
     // The player must be subscribed before we start speaking so Discord
     // has the audio sink wired up before voice activity begins.
@@ -57,7 +57,7 @@ describe('MicTransmitter', () => {
     tx.frame(new Int16Array(960));
     f.setSpeaking.mockClear();
     tx.stop();
-    expect(f.setSpeaking).toHaveBeenLastCalledWith(0);
+    expect(f.setSpeaking).toHaveBeenLastCalledWith(false);
   });
 
   it('frame() before start() is dropped silently (no throw)', () => {
@@ -84,7 +84,7 @@ describe('MicTransmitter', () => {
       tx.stop();
     }
     expect(f.subscribe).toHaveBeenCalledTimes(3);
-    expect(f.setSpeaking.mock.calls.filter(c => c[0] === 1)).toHaveLength(3);
-    expect(f.setSpeaking.mock.calls.filter(c => c[0] === 0)).toHaveLength(3);
+    expect(f.setSpeaking.mock.calls.filter(c => c[0] === true)).toHaveLength(3);
+    expect(f.setSpeaking.mock.calls.filter(c => c[0] === false)).toHaveLength(3);
   });
 });
