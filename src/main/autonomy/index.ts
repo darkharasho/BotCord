@@ -85,7 +85,7 @@ export function createAutonomyModule(opts: CreateOpts): AutonomyModule {
   const pollMs = opts.pollMs ?? DEFAULT_QUEUE_POLL_MS;
 
   const safeRecord = (kind: 'autonomous' | 'draft', guildId: string | null, usage: RecordUsageEntry['usage'] | undefined, costUsd: number | undefined): void => {
-    if (!opts.recordUsage) return;
+    if (!opts.recordUsage || !usage) return;
     try {
       opts.recordUsage({ kind, guildId, usage, costUsd, at: now() });
     } catch {

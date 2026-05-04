@@ -300,8 +300,23 @@ describe('createAutonomyModule', () => {
 
   it('swallows errors thrown by recordUsage and still returns text', async () => {
     const recordUsage = vi.fn(() => { throw new Error('disk full'); });
+    const host: AutonomyHost = {
+      detect: async () => ({ found: true }),
+      startSession: async () => ({
+        send: () => (async function* () {
+          yield { type: 'assistant.text_delta', delta: 'hi' } as CDKEvent;
+          yield {
+            type: 'session.done',
+            stopReason: 'end_turn',
+            usage: { inputTokens: 1, outputTokens: 1 },
+          } as unknown as CDKEvent;
+        })(),
+        abort: async () => {},
+        close: async () => {},
+      }),
+    };
     const mod = createAutonomyModule({
-      host: fakeHost(['hi']),
+      host,
       globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '', queueMaxDepth: 5, queueTtlSeconds: 60 }),
       guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
       cwd: '/tmp/cdk',
