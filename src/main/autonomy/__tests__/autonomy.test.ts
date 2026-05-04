@@ -33,6 +33,7 @@ describe('createAutonomyModule', () => {
     });
     const res = await mod.draftReply({
       requestId: 'r1',
+      guildId: 'g',
       channelMeta: fakeChannelMeta,
       history,
       target,
@@ -179,5 +180,136 @@ describe('createAutonomyModule', () => {
     await new Promise(r => setTimeout(r, 20));
     release(); // d
     await d;
+  });
+
+  it('invokes recordUsage with autonomous kind and guildId on a successful run', async () => {
+    const recordUsage = vi.fn();
+    const host: AutonomyHost = {
+      detect: async () => ({ found: true }),
+      startSession: async () => ({
+        send: () => (async function* () {
+          yield { type: 'assistant.text_delta', delta: 'hi' } as CDKEvent;
+          yield {
+            type: 'session.done',
+            stopReason: 'end_turn',
+            usage: { inputTokens: 12, outputTokens: 7, cacheReadTokens: 2, cacheCreationTokens: 1 },
+            costUsd: 0.0042,
+          } as unknown as CDKEvent;
+        })(),
+        abort: async () => {},
+        close: async () => {},
+      }),
+    };
+    const mod = createAutonomyModule({
+      host,
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '', queueMaxDepth: 5, queueTtlSeconds: 60 }),
+      guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
+      cwd: '/tmp/cdk',
+      events: { onDelta: vi.fn(), onDone: vi.fn() },
+      recordUsage,
+    });
+    const res = await mod.runAutonomous({ guildId: 'g', channelId: 'c', channelMeta: fakeChannelMeta, history, target });
+    expect(res.ok).toBe(true);
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    const arg = recordUsage.mock.calls[0]![0];
+    expect(arg.kind).toBe('autonomous');
+    expect(arg.guildId).toBe('g');
+    expect(arg.usage).toEqual({ inputTokens: 12, outputTokens: 7, cacheReadTokens: 2, cacheCreationTokens: 1 });
+    expect(arg.costUsd).toBeCloseTo(0.0042);
+    expect(typeof arg.at).toBe('number');
+  });
+
+  it('invokes recordUsage with draft kind and propagates guildId from DraftRequest', async () => {
+    const recordUsage = vi.fn();
+    const host: AutonomyHost = {
+      detect: async () => ({ found: true }),
+      startSession: async () => ({
+        send: () => (async function* () {
+          yield { type: 'assistant.text_delta', delta: 'ok' } as CDKEvent;
+          yield {
+            type: 'session.done',
+            stopReason: 'end_turn',
+            usage: { inputTokens: 4, outputTokens: 2 },
+            costUsd: 0.001,
+          } as unknown as CDKEvent;
+        })(),
+        abort: async () => {},
+        close: async () => {},
+      }),
+    };
+    const mod = createAutonomyModule({
+      host,
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '', queueMaxDepth: 5, queueTtlSeconds: 60 }),
+      guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
+      cwd: '/tmp/cdk',
+      events: { onDelta: vi.fn(), onDone: vi.fn() },
+      recordUsage,
+    });
+    const res = await mod.draftReply({ requestId: 'r', guildId: 'g42', channelMeta: fakeChannelMeta, history, target });
+    expect(res.ok).toBe(true);
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    const arg = recordUsage.mock.calls[0]![0];
+    expect(arg.kind).toBe('draft');
+    expect(arg.guildId).toBe('g42');
+  });
+
+  it('invokes recordUsage with null guildId for DM drafts', async () => {
+    const recordUsage = vi.fn();
+    const host: AutonomyHost = {
+      detect: async () => ({ found: true }),
+      startSession: async () => ({
+        send: () => (async function* () {
+          yield { type: 'assistant.text_delta', delta: 'ok' } as CDKEvent;
+          yield { type: 'session.done', stopReason: 'end_turn', usage: { inputTokens: 1, outputTokens: 1 } } as unknown as CDKEvent;
+        })(),
+        abort: async () => {},
+        close: async () => {},
+      }),
+    };
+    const mod = createAutonomyModule({
+      host,
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '', queueMaxDepth: 5, queueTtlSeconds: 60 }),
+      guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
+      cwd: '/tmp/cdk',
+      events: { onDelta: vi.fn(), onDone: vi.fn() },
+      recordUsage,
+    });
+    const res = await mod.draftReply({ requestId: 'r', guildId: null, channelMeta: fakeChannelMeta, history, target });
+    expect(res.ok).toBe(true);
+    expect(recordUsage.mock.calls[0]![0].guildId).toBeNull();
+  });
+
+  it('does not call recordUsage when the host throws before session.done', async () => {
+    const recordUsage = vi.fn();
+    const host: AutonomyHost = {
+      detect: async () => ({ found: true }),
+      startSession: async () => { throw new Error('host kaboom'); },
+    };
+    const mod = createAutonomyModule({
+      host,
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '', queueMaxDepth: 5, queueTtlSeconds: 60 }),
+      guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
+      cwd: '/tmp/cdk',
+      events: { onDelta: vi.fn(), onDone: vi.fn() },
+      recordUsage,
+    });
+    const res = await mod.runAutonomous({ guildId: 'g', channelId: 'c', channelMeta: fakeChannelMeta, history, target });
+    expect(res.ok).toBe(false);
+    expect(recordUsage).not.toHaveBeenCalled();
+  });
+
+  it('swallows errors thrown by recordUsage and still returns text', async () => {
+    const recordUsage = vi.fn(() => { throw new Error('disk full'); });
+    const mod = createAutonomyModule({
+      host: fakeHost(['hi']),
+      globalConfig: () => ({ enabled: true, systemPrompt: '', rateCapPerMin: 100, visionEnabled: false, model: '', queueMaxDepth: 5, queueTtlSeconds: 60 }),
+      guildConfig: () => ({ guildId: 'g', enabled: true, channelIds: ['c'], contextSize: 20, systemPrompt: null, cooldownMs: 0, updatedAt: 0 }),
+      cwd: '/tmp/cdk',
+      events: { onDelta: vi.fn(), onDone: vi.fn() },
+      recordUsage,
+    });
+    const res = await mod.runAutonomous({ guildId: 'g', channelId: 'c', channelMeta: fakeChannelMeta, history, target });
+    expect(res.ok).toBe(true);
+    expect(recordUsage).toHaveBeenCalledTimes(1);
   });
 });
