@@ -20,7 +20,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install Linux X11 build deps (for uiohook-napi)
-        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxt-dev libxinerama-dev
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxt-dev libxinerama-dev libxrandr-dev
       - name: Install dependencies
         run: npm ci
       - name: Rebuild native modules
@@ -57,7 +57,7 @@ jobs:
 
       - name: Install Linux X11 build deps (for uiohook-napi)
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxt-dev libxinerama-dev
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxtst-dev libxt-dev libxinerama-dev libxrandr-dev
 
       - name: Install dependencies
         run: npm ci
