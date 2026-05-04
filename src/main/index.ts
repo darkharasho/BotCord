@@ -14,6 +14,7 @@ import { registerUpdater } from './updater';
 import { createAutonomyModule } from './autonomy';
 import { createPrefsRepo } from './db/repos/prefs';
 import { createAutonomyRepo } from './db/repos/autonomy';
+import { createAutonomyUsageRepo } from './db/repos/autonomyUsage';
 import { createDMChannelsRepo } from './db/repos/dm-channels';
 import { attachDMSupport } from './discord/dm-support';
 import { broadcast, AUTONOMY_DRAFT_DELTA_CHANNEL, AUTONOMY_DRAFT_DONE_CHANNEL } from './events/gateway-events';
@@ -224,6 +225,8 @@ if (!gotLock) {
     const cdkScratch = join(userData, 'cdk-scratch');
     mkdirSync(cdkScratch, { recursive: true });
 
+    const autonomyUsageRepo = createAutonomyUsageRepo(db);
+
     const cdkHost = new CDKHost();
     const host: AutonomyHost = {
       detect: async () => {
@@ -254,6 +257,7 @@ if (!gotLock) {
         onDelta: (requestId, delta) => broadcast(AUTONOMY_DRAFT_DELTA_CHANNEL, { requestId, delta }),
         onDone: (requestId, text, stopReason) => broadcast(AUTONOMY_DRAFT_DONE_CHANNEL, { requestId, text, stopReason }),
       },
+      recordUsage: (entry) => autonomyUsageRepo.recordUsage(entry),
     });
 
     attachAutonomousListener({

@@ -110,6 +110,7 @@ export function registerAutonomyHandlers({ db, manager, autonomy, host, scratchD
       try {
         await autonomy.draftReply({
           requestId,
+          guildId: triggerMsg.guildId ?? null,
           channelMeta,
           history,
           target: {
