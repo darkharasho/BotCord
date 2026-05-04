@@ -110,10 +110,10 @@ export function AutonomyUsagePanel() {
             <thead className="text-text-muted">
               <tr className="text-left">
                 <th className="py-2 pr-4 font-normal">Server</th>
-                <th className="py-2 pr-4 font-normal">Runs (7d / all-time)</th>
-                <th className="py-2 pr-4 font-normal">Tokens in (7d / all-time)</th>
-                <th className="py-2 pr-4 font-normal">Tokens out (7d / all-time)</th>
-                <th className="py-2 pr-4 font-normal">Cost (7d / all-time)</th>
+                <th className="py-2 pr-4 font-normal">Runs (7d / lifetime)</th>
+                <th className="py-2 pr-4 font-normal">Tokens in (7d / lifetime)</th>
+                <th className="py-2 pr-4 font-normal">Tokens out (7d / lifetime)</th>
+                <th className="py-2 pr-4 font-normal">Cost (7d / lifetime)</th>
               </tr>
             </thead>
             <tbody>

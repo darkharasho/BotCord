@@ -69,8 +69,8 @@ describe('AutonomyUsagePanel', () => {
     render(<AutonomyUsagePanel />);
 
     await waitFor(() => expect(screen.getByText('Test Guild')).toBeInTheDocument());
-    expect(screen.getByText(/lifetime/i)).toBeInTheDocument();
-    expect(screen.getByText(/last 7 days/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /lifetime/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /last 7 days/i })).toBeInTheDocument();
     // Token formatting: 1,200 with thousands separator
     expect(screen.getAllByText(/1,200/).length).toBeGreaterThan(0);
   });
