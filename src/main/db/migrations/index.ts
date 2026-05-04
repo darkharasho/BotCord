@@ -62,8 +62,25 @@ CREATE INDEX idx_dm_channels_user ON dm_channels(user_id);
 CREATE INDEX idx_dm_channels_updated ON dm_channels(updated_at DESC);
 `;
 
+const M004_AUTONOMY_USAGE = `
+CREATE TABLE autonomy_usage_daily (
+  date                   TEXT    NOT NULL,
+  guild_id               TEXT    NOT NULL,
+  kind                   TEXT    NOT NULL,
+  input_tokens           INTEGER NOT NULL DEFAULT 0,
+  output_tokens          INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens      INTEGER NOT NULL DEFAULT 0,
+  cache_creation_tokens  INTEGER NOT NULL DEFAULT 0,
+  cost_usd               REAL    NOT NULL DEFAULT 0,
+  run_count              INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, guild_id, kind)
+);
+CREATE INDEX idx_autonomy_usage_daily_date ON autonomy_usage_daily(date);
+`;
+
 export const MIGRATIONS: ReadonlyArray<Migration> = [
   { version: 1, sql: M001_INIT },
   { version: 2, sql: M002_AUTONOMY },
   { version: 3, sql: M003_DMS },
+  { version: 4, sql: M004_AUTONOMY_USAGE },
 ];
