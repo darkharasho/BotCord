@@ -31,6 +31,37 @@ const CUSTOM_EMOJI_RE = /<a?:([A-Za-z0-9_~]+):\d+>/g;
 const simplifyCustomEmoji = (text: string): string =>
   text.replace(CUSTOM_EMOJI_RE, ':$1:');
 
+export type MentionMaps = {
+  users: Map<string, string>;
+  roles: Map<string, string>;
+  channels: Map<string, string>;
+};
+
+// Resolve raw Discord mention tokens into a readable form that *also*
+// distinguishes a real ping from someone just typing the name in plain text.
+// User/role pings get a trailing `[ping]` marker; channel refs become `#name`.
+// Unknown IDs fall back to the bare token so we don't lie about who got pinged.
+const USER_MENTION_RE = /<@!?(\d+)>/g;
+const ROLE_MENTION_RE = /<@&(\d+)>/g;
+const CHANNEL_MENTION_RE = /<#(\d+)>/g;
+
+export const resolveMentions = (text: string, maps: MentionMaps | undefined): string => {
+  if (!maps) return text;
+  return text
+    .replace(USER_MENTION_RE, (m, id: string) => {
+      const name = maps.users.get(id);
+      return name ? `@${name} [ping <@${id}>]` : m;
+    })
+    .replace(ROLE_MENTION_RE, (m, id: string) => {
+      const name = maps.roles.get(id);
+      return name ? `@${name} [role-ping <@&${id}>]` : m;
+    })
+    .replace(CHANNEL_MENTION_RE, (m, id: string) => {
+      const name = maps.channels.get(id);
+      return name ? `#${name}` : m;
+    });
+};
+
 const isImage = (att: AttachmentLike): boolean => {
   if (att.contentType?.startsWith(IMAGE_MIME_PREFIX)) return true;
   const lower = att.name?.toLowerCase() ?? '';
@@ -74,7 +105,7 @@ const summarizeStickers = (stickers: Sticker[]): string[] =>
  */
 export async function renderMessageContent(
   m: Pick<Message, 'content' | 'attachments' | 'embeds' | 'stickers'>,
-  opts: { vision: boolean; scratchDir: string },
+  opts: { vision: boolean; scratchDir: string; mentions?: MentionMaps },
 ): Promise<{ content: string; cleanup: () => Promise<void> }> {
   const attachments: AttachmentLike[] = Array.from(m.attachments.values()).map(a => ({
     id: a.id,
@@ -95,7 +126,7 @@ export async function renderMessageContent(
   const stickers: Sticker[] = Array.from(m.stickers.values()).map(s => ({ name: s.name }));
 
   const lines: string[] = [];
-  if (m.content) lines.push(simplifyCustomEmoji(m.content));
+  if (m.content) lines.push(resolveMentions(simplifyCustomEmoji(m.content), opts.mentions));
 
   // Vision: download image attachments + inline file:// references
   let visionDir: string | null = null;

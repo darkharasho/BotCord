@@ -108,6 +108,41 @@ describe('renderMessageContent (vision off)', () => {
     expect(content).toBe('lol 😂 yeah');
   });
 
+  it('resolves user mentions and tags them with [ping <@id>] so plain-text names stay distinguishable', async () => {
+    const mentions = {
+      users: new Map([['111', 'HaroBot'], ['222', 'Harasho']]),
+      roles: new Map<string, string>(),
+      channels: new Map<string, string>(),
+    };
+    const { content } = await renderMessageContent(
+      baseMsg({ content: '<@111> is <@!222> your favourite person? not harasho the plain word' }),
+      { vision: false, scratchDir: '/tmp/x', mentions },
+    );
+    expect(content).toBe('@HaroBot [ping <@111>] is @Harasho [ping <@222>] your favourite person? not harasho the plain word');
+  });
+
+  it('resolves role mentions and channel references', async () => {
+    const mentions = {
+      users: new Map<string, string>(),
+      roles: new Map([['555', 'mods']]),
+      channels: new Map([['666', 'general']]),
+    };
+    const { content } = await renderMessageContent(
+      baseMsg({ content: 'hey <@&555> see <#666>' }),
+      { vision: false, scratchDir: '/tmp/x', mentions },
+    );
+    expect(content).toBe('hey @mods [role-ping <@&555>] see #general');
+  });
+
+  it('leaves unknown mention IDs untouched rather than fabricating a name', async () => {
+    const mentions = { users: new Map(), roles: new Map(), channels: new Map() };
+    const { content } = await renderMessageContent(
+      baseMsg({ content: 'who is <@999>?' }),
+      { vision: false, scratchDir: '/tmp/x', mentions },
+    );
+    expect(content).toBe('who is <@999>?');
+  });
+
   it('cleanup is a no-op when vision is off', async () => {
     const { cleanup } = await renderMessageContent(baseMsg({ content: 'hi' }), { vision: false, scratchDir: '/tmp/x' });
     await expect(cleanup()).resolves.toBeUndefined();

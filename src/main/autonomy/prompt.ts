@@ -7,6 +7,8 @@ const HARD_RULES = [
   'Never use @everyone or @here.',
   'Keep replies under 2000 characters.',
   'Use plain text. No markdown headings or code fences unless asked.',
+  'Mentions in messages are tagged: `@Name [ping <@ID>]` means the user was actually pinged. A bare name with no `[ping …]` marker is just plain text — treat it as casual reference, not as someone being summoned.',
+  'To ping a user back, write the literal `<@USER_ID>` token using the ID shown in their handle. Do not invent IDs. If you do not need to ping, just use their name as plain text.',
 ].join('\n');
 
 const formatTime = (ts: number): string => {
@@ -18,7 +20,8 @@ const formatTime = (ts: number): string => {
 
 const renderEntry = (e: ChannelHistoryEntry): string => {
   const showUsername = e.authorUsername && e.authorUsername !== e.authorDisplayName;
-  const handle = showUsername ? `${e.authorDisplayName} (${e.authorUsername})` : e.authorDisplayName;
+  const nameAndUser = showUsername ? `${e.authorDisplayName} (${e.authorUsername})` : e.authorDisplayName;
+  const handle = `${nameAndUser} <@${e.authorId}>`;
   return `[${formatTime(e.createdAt)}] ${handle}${e.isBot ? ' (bot)' : ''}: ${e.content}`;
 };
 

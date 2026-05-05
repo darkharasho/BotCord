@@ -44,6 +44,18 @@ describe('buildPrompt', () => {
     expect(out).toMatch(/Bob.*hey/s);
   });
 
+  it('exposes each author user ID in the handle so the model can ping back', () => {
+    const out = buildPrompt(baseInputs());
+    expect(out).toMatch(/Alice <@u1>/);
+    expect(out).toMatch(/Bob <@u2>/);
+  });
+
+  it('teaches the model to distinguish real pings from plain-text mentions', () => {
+    const out = buildPrompt(baseInputs());
+    expect(out).toMatch(/\[ping <@ID>\]/);
+    expect(out).toMatch(/<@USER_ID>/);
+  });
+
   it('omits topic line when topic is null', () => {
     const inputs = baseInputs();
     inputs.channelMeta.channelTopic = null;
@@ -64,8 +76,8 @@ describe('buildPrompt', () => {
     inputs.history[1]!.authorUsername = 'bob';
     inputs.history[1]!.authorDisplayName = 'bob';
     const out = buildPrompt(inputs);
-    expect(out).toMatch(/Alice \(alice_smith\): hi all/);
+    expect(out).toMatch(/Alice \(alice_smith\) <@u1>: hi all/);
     expect(out).not.toMatch(/bob \(bob\)/);
-    expect(out).toMatch(/bob: hey/);
+    expect(out).toMatch(/bob <@u2>: hey/);
   });
 });

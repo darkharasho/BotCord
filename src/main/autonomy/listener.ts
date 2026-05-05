@@ -9,7 +9,23 @@ import {
 } from '../events/gateway-events';
 import type { AutonomyRepo } from '../db/repos/autonomy';
 import { summarizeMessage } from '../discord/client-manager';
-import { renderMessageContent } from './message-render';
+import { renderMessageContent, type MentionMaps } from './message-render';
+
+const collectMentions = (m: Message): MentionMaps => {
+  const users = new Map<string, string>();
+  for (const u of m.mentions.users.values()) {
+    const member = m.mentions.members?.get(u.id);
+    users.set(u.id, member?.displayName ?? u.globalName ?? u.username);
+  }
+  const roles = new Map<string, string>();
+  for (const r of m.mentions.roles.values()) roles.set(r.id, r.name);
+  const channels = new Map<string, string>();
+  for (const c of m.mentions.channels.values()) {
+    const name = 'name' in c && typeof c.name === 'string' ? c.name : c.id;
+    channels.set(c.id, name);
+  }
+  return { users, roles, channels };
+};
 
 type SendableChannel = { send: (opts: MessageCreateOptions) => Promise<Message> };
 type TypingChannel = { sendTyping: () => Promise<void> };
@@ -62,7 +78,7 @@ export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, 
           .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
       : [];
     const history = await Promise.all(historyRaw.map(async x => {
-      const { content } = await renderMessageContent(x, { vision: false, scratchDir });
+      const { content } = await renderMessageContent(x, { vision: false, scratchDir, mentions: collectMentions(x) });
       return {
         authorId: x.author.id,
         authorDisplayName: x.member?.displayName ?? x.author.globalName ?? x.author.username,
@@ -88,7 +104,7 @@ export function attachAutonomousListener({ manager, autonomy, repo, scratchDir, 
     // Inline "thinking" indicator in the renderer's chat for this channel.
     broadcast(AUTONOMY_THINKING_START_CHANNEL, { channelId: m.channelId, triggerMessageId: m.id, botId });
 
-    const target = await renderMessageContent(m, { vision: isVisionEnabled(), scratchDir });
+    const target = await renderMessageContent(m, { vision: isVisionEnabled(), scratchDir, mentions: collectMentions(m) });
 
     let result;
     try {
