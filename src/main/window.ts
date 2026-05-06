@@ -23,18 +23,20 @@ function saveWindowState(state: WindowState): void {
 }
 
 function loadAppIcon(): Electron.NativeImage | undefined {
-  // Prefer the canonical `public/botcord-icon.png` (the source-of-truth
-  // brand mark). The square copies under `resources/` are kept only as a
-  // last-resort fallback for installs where the public asset wasn't
-  // bundled — they should otherwise stay in sync with the public PNG.
+  const isMac = process.platform === 'darwin';
+  const iconName = isMac ? 'botcord-icon-mac.icns' : 'botcord-icon.png';
   const candidates = [
-    join(app.getAppPath(), 'public', 'botcord-icon.png'),
-    join(__dirname, '../../public/botcord-icon.png'),
-    join(__dirname, '../renderer/botcord-icon.png'),
-    join(process.resourcesPath, 'resources', 'botcord-icon.png'),
-    join(process.resourcesPath, 'resources', 'icon-512.png'),
-    join(app.getAppPath(), 'resources', 'icon-512.png'),
-    join(__dirname, '../../resources/icon-512.png'),
+    join(app.getAppPath(), 'public', iconName),
+    join(__dirname, '../../public/' + iconName),
+    join(__dirname, '../renderer/' + iconName),
+    join(process.resourcesPath, 'resources', iconName),
+    join(app.getAppPath(), 'resources', iconName),
+    // Fallback to generic PNG on non-mac if platform-specific not found
+    ...(isMac ? [] : [
+      join(process.resourcesPath, 'resources', 'icon-512.png'),
+      join(app.getAppPath(), 'resources', 'icon-512.png'),
+      join(__dirname, '../../resources/icon-512.png'),
+    ]),
   ];
   const path = candidates.find(p => existsSync(p));
   // eslint-disable-next-line no-console

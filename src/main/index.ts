@@ -1,7 +1,7 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, powerMonitor, type Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, powerMonitor, type Tray } from 'electron';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 import { join } from 'path';
-import { mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { createMainWindow } from './window';
 import { createAppTray, notifyMinimizedToTray, rebuildTrayMenu, setTrayUnreadBadge } from './tray';
 import { IPC_CHANNELS } from '../shared/ipc-contract';
@@ -213,6 +213,18 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     installCSP();
+
+    // Set macOS dock icon
+    if (process.platform === 'darwin' && app.dock) {
+      const macIcon = 'botcord-icon-mac.icns';
+      const candidates = [
+        join(app.getAppPath(), 'public', macIcon),
+        join(__dirname, '../../public/' + macIcon),
+        join(__dirname, '../renderer/' + macIcon),
+      ];
+      const iconPath = candidates.find(p => existsSync(p));
+      if (iconPath) app.dock.setIcon(nativeImage.createFromPath(iconPath));
+    }
 
     const userData = app.getPath('userData');
     const vault = createTokenVault(join(userData, 'vault'));
