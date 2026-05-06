@@ -59,7 +59,7 @@
         "zip"
       ],
       "category": "public.app-category.social-networking",
-      "icon": "public/botcord-icon.png",
+      "icon": "public/botcord-icon-mac.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
