@@ -9,11 +9,13 @@ const baseMsg = (overrides: Partial<{
   attachments: Array<{ id: string; name: string | null; url: string; contentType: string | null; size: number }>;
   embeds: Array<{ data?: { type?: string }; title?: string | null; description?: string | null; url?: string | null; provider?: { name?: string } | null; image?: { url: string } | null; thumbnail?: { url: string } | null }>;
   stickers: Array<{ name: string }>;
+  editedTimestamp: number | null;
 }> = {}) => ({
   content: overrides.content ?? '',
   attachments: coll(overrides.attachments ?? []) as never,
   embeds: (overrides.embeds ?? []) as never,
   stickers: coll(overrides.stickers ?? []) as never,
+  editedTimestamp: overrides.editedTimestamp ?? null,
 });
 
 describe('renderMessageContent (vision off)', () => {
