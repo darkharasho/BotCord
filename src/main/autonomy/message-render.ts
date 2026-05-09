@@ -104,7 +104,7 @@ const summarizeStickers = (stickers: Sticker[]): string[] =>
  * caller must invoke once the autonomy session has completed.
  */
 export async function renderMessageContent(
-  m: Pick<Message, 'content' | 'attachments' | 'embeds' | 'stickers'>,
+  m: Pick<Message, 'content' | 'attachments' | 'embeds' | 'stickers' | 'editedTimestamp'>,
   opts: { vision: boolean; scratchDir: string; mentions?: MentionMaps },
 ): Promise<{ content: string; cleanup: () => Promise<void> }> {
   const attachments: AttachmentLike[] = Array.from(m.attachments.values()).map(a => ({
@@ -162,6 +162,8 @@ export async function renderMessageContent(
     if (s) lines.push(s);
   }
   lines.push(...summarizeStickers(stickers));
+
+  if (m.editedTimestamp) lines.push('(edited)');
 
   return {
     content: lines.join('\n').trim(),
