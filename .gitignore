@@ -10,3 +10,4 @@ coverage
 .superpowers
 build
 .superpowers/
+graphify-out/
