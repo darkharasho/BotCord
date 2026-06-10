@@ -240,7 +240,9 @@ export function EmbedModal({
               ? <EmbedCard embed={payloadToSummary(payload)} />
               : <div className="text-[13px] text-fg-dim italic">Add a title, description, or field to see a preview.</div>}
             <div className="flex-1" />
-            <div className="text-[11px] text-fg-dim mt-3">Sending to <span className="text-fg-muted font-medium">#{channelName}</span></div>
+            {!edit && (
+              <div className="text-[11px] text-fg-dim mt-3">Sending to <span className="text-fg-muted font-medium">#{channelName}</span></div>
+            )}
           </div>
         </div>
 
