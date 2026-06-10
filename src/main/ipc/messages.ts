@@ -155,13 +155,7 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
 
     let files: AttachmentBuilder[];
     try {
-      files = (attachments as SendAttachment[]).map((a, i) => {
-        if (typeof a?.name !== 'string' || !(a.bytes instanceof Uint8Array)) {
-          throw new Error(`attachments[${i}] is malformed`);
-        }
-        const buffer = Buffer.from(a.bytes);
-        return new AttachmentBuilder(buffer, { name: a.name });
-      });
+      files = toAttachmentBuilders(attachments as SendAttachment[]);
     } catch (e) {
       return err('INTERNAL', e instanceof Error ? e.message : String(e));
     }
