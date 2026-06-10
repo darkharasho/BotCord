@@ -1,5 +1,5 @@
 // src/renderer/components/EmbedModal.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
@@ -53,8 +53,10 @@ const EMPTY: FormState = {
 // Build an EmbedPayload from the form, omitting empty values.
 function buildPayload(s: FormState): EmbedPayload {
   const p: EmbedPayload = {};
-  const slotUrl = (slot: ImageSlot, urlStr: string): string =>
-    s.imageMode[slot] === 'file' && s.uploads[slot] ? `attachment://${s.uploads[slot]!.name}` : urlStr.trim();
+  const slotUrl = (slot: ImageSlot, urlStr: string): string => {
+    if (s.imageMode[slot] === 'file') return s.uploads[slot] ? `attachment://${s.uploads[slot]!.name}` : '';
+    return urlStr.trim();
+  };
   if (s.title.trim()) p.title = s.title.trim();
   if (s.description.trim()) p.description = s.description.trim();
   if (s.url.trim()) p.url = s.url.trim();
@@ -169,12 +171,16 @@ export function EmbedModal({
     });
   };
 
+  // Keep a ref to the latest uploads so the unmount cleanup revokes object
+  // URLs that were created AFTER the first render (a plain []-deps effect would
+  // close over the initial empty state and leak them).
+  const uploadsRef = useRef(s.uploads);
+  useEffect(() => { uploadsRef.current = s.uploads; }, [s.uploads]);
   useEffect(() => () => {
     for (const slot of IMAGE_SLOTS) {
-      const u = s.uploads[slot];
+      const u = uploadsRef.current[slot];
       if (u?.objectUrl) URL.revokeObjectURL(u.objectUrl);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submit = async () => {
