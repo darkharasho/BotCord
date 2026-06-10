@@ -103,17 +103,20 @@ export function EmbedModal({
   const submit = async () => {
     if (!valid) return;
     setBusy(true);
-    const content = s.content.trim();
-    const res = edit
-      ? await api.messages.editEmbed(channelId, edit.messageId, payload, content)
-      : await api.messages.sendEmbed(channelId, payload, content || undefined);
-    setBusy(false);
-    if (!res.ok) {
-      pushToast('danger', `${edit ? 'Edit' : 'Send'} failed: ${res.error.message}`);
-      return;
+    try {
+      const content = s.content.trim();
+      const res = edit
+        ? await api.messages.editEmbed(channelId, edit.messageId, payload, content)
+        : await api.messages.sendEmbed(channelId, payload, content || undefined);
+      if (!res.ok) {
+        pushToast('danger', `${edit ? 'Edit' : 'Send'} failed: ${res.error.message}`);
+        return;
+      }
+      pushToast('ok', edit ? 'Embed updated' : 'Embed sent');
+      onClose();
+    } finally {
+      setBusy(false);
     }
-    pushToast('ok', edit ? 'Embed updated' : 'Embed sent');
-    onClose();
   };
 
   const saveDraft = async () => {
