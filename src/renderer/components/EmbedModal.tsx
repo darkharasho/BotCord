@@ -6,8 +6,8 @@ import { pushToast } from './Toaster';
 import { EmbedCard } from './EmbedCard';
 import { CheckBox } from './CheckBox';
 import { EmbedImageField } from './EmbedImageField';
-import { payloadToSummary } from '../lib/embed-adapters';
-import type { EmbedPayload, DraftRow, SendAttachment } from '../../shared/domain';
+import { payloadToSummary, summaryToPayload } from '../lib/embed-adapters';
+import type { EmbedPayload, DraftRow, SendAttachment, MessageAttachment, MessageEmbedSummary } from '../../shared/domain';
 import { IconX, IconPlus, IconTrash } from '@tabler/icons-react';
 
 // Discord embed limits.
@@ -98,7 +98,7 @@ const inputBase =
 const labelCls = 'block text-[12px] font-semibold text-fg-muted mb-1.5 uppercase tracking-wide';
 
 export function EmbedModal({
-  channelId, guildId, channelName, onClose, edit, initial,
+  channelId, guildId, channelName, onClose, edit, initial, initialMessage,
 }: {
   channelId: string;
   guildId: string | null;
@@ -107,8 +107,11 @@ export function EmbedModal({
   // When present, the modal edits an existing message instead of sending a new one.
   edit?: { messageId: string };
   initial?: FormState;
+  initialMessage?: { content: string; embed: MessageEmbedSummary; attachments: MessageAttachment[] };
 }) {
-  const [s, setS] = useState<FormState>(initial ?? EMPTY);
+  const [s, setS] = useState<FormState>(
+    initial ?? (initialMessage ? formFromMessage(initialMessage.content, initialMessage.embed, initialMessage.attachments) : EMPTY),
+  );
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   useEffect(() => {
@@ -368,6 +371,33 @@ export function EmbedModal({
     </div>,
     document.body,
   );
+}
+
+// Build form state for EDIT mode from a sent message: URL-only fields come from
+// the embed payload, and any image field whose url matches a message attachment
+// opens in upload mode bound to that existing attachment (kept on save).
+export function formFromMessage(content: string, embed: MessageEmbedSummary, attachments: MessageAttachment[]): FormState {
+  const base = formFromPayload(content, summaryToPayload(embed));
+  const matchAttachment = (fieldUrl: string | null): MessageAttachment | null => {
+    if (!fieldUrl) return null;
+    return attachments.find(a => a.url === fieldUrl)
+      ?? attachments.find(a => fieldUrl.split('?')[0]!.endsWith('/' + a.name))
+      ?? null;
+  };
+  const slotFor = (fieldUrl: string | null): { mode: 'url' | 'file'; upload: SlotUpload | null } => {
+    const att = matchAttachment(fieldUrl);
+    if (!att) return { mode: 'url', upload: null };
+    return { mode: 'file', upload: { name: att.name, previewUrl: att.url, file: null, existingAttachmentId: att.id, objectUrl: null } };
+  };
+  const image = slotFor(embed.image?.url ?? null);
+  const thumbnail = slotFor(embed.thumbnail?.url ?? null);
+  const authorIcon = slotFor(embed.author?.iconUrl ?? null);
+  const footerIcon = slotFor(embed.footer?.iconUrl ?? null);
+  return {
+    ...base,
+    imageMode: { image: image.mode, thumbnail: thumbnail.mode, authorIcon: authorIcon.mode, footerIcon: footerIcon.mode },
+    uploads: { image: image.upload, thumbnail: thumbnail.upload, authorIcon: authorIcon.upload, footerIcon: footerIcon.upload },
+  };
 }
 
 // Exported for Task 4 (drafts) and Task 6 (edit prefill): build form state from a payload + content.

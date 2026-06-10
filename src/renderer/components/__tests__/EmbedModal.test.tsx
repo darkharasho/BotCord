@@ -109,3 +109,27 @@ describe('<EmbedModal> create mode', () => {
     expect(atts[0].bytes).toBeInstanceOf(Uint8Array);
   });
 });
+
+describe('<EmbedModal> edit mode', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('opens an attachment-backed image in upload mode and keeps it on save', async () => {
+    const { api } = await import('../../lib/api');
+    const attachments = [{ id: 'att1', name: 'photo.png', url: 'https://cdn.test/photo.png', size: 10, contentType: 'image/png', width: null, height: null }];
+    const embed = {
+      type: 'rich', title: 'T', description: null, url: null, color: null,
+      image: { url: 'https://cdn.test/photo.png', width: null, height: null },
+      thumbnail: null, author: null, footer: null, provider: null, timestamp: null, video: null, fields: [],
+    };
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" edit={{ messageId: 'm1' }}
+      initialMessage={{ content: '', embed, attachments }} onClose={() => {}} />);
+    // The Image slot shows the existing attachment filename in upload mode.
+    await waitFor(() => screen.getByText('photo.png'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.messages.editEmbed).toHaveBeenCalled());
+    const call = (api.messages.editEmbed as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[2].image).toEqual({ url: 'attachment://photo.png' }); // embed payload
+    expect(call[4]).toBeUndefined();                                   // no new files
+    expect(call[5]).toEqual(['att1']);                                 // kept attachment id
+  });
+});

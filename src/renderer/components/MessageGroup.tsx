@@ -23,8 +23,7 @@ import { BanDialog } from './moderation/BanDialog';
 import { TimeoutDialog } from './moderation/TimeoutDialog';
 import { buildUserMenu, type UserMenuTarget } from './UserContextMenu';
 import type { GuildRole, BotCapabilities, MemberDetail } from '../../shared/domain';
-import { EmbedModal, formFromPayload } from './EmbedModal';
-import { summaryToPayload } from '../lib/embed-adapters';
+import { EmbedModal } from './EmbedModal';
 
 // Approximate height of the EmojiPicker popover (max-h-96). Used to decide
 // whether to open above or below the trigger when space is tight.
@@ -390,7 +389,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
           guildId={embedEdit.guildId}
           channelName={embedEdit.channelId}
           edit={{ messageId: embedEdit.id }}
-          initial={formFromPayload(embedEdit.content, summaryToPayload(embedEdit.embeds[0]!))}
+          initialMessage={{ content: embedEdit.content, embed: embedEdit.embeds[0]!, attachments: embedEdit.attachments }}
           onClose={() => setEmbedEdit(null)}
         />
       )}
