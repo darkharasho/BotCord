@@ -81,7 +81,7 @@ export interface BotcordApi {
   };
   messages: {
     send(channelId: string, content: string, opts?: { replyToMessageId?: string }): Promise<Result<MessageSummary>>;
-    sendEmbed(channelId: string, embed: EmbedPayload, content?: string): Promise<Result<MessageSummary>>;
+    sendEmbed(channelId: string, embed: EmbedPayload, content?: string, attachments?: SendAttachment[]): Promise<Result<MessageSummary>>;
     sendWithAttachments(
       channelId: string,
       content: string,
@@ -94,7 +94,7 @@ export interface BotcordApi {
     delete(channelId: string, messageId: string): Promise<Result<void>>;
     bulkDelete(channelId: string, messageIds: string[]): Promise<Result<{ deleted: string[] }>>;
     edit(channelId: string, messageId: string, content: string): Promise<Result<MessageSummary>>;
-    editEmbed(channelId: string, messageId: string, embed: EmbedPayload, content?: string): Promise<Result<MessageSummary>>;
+    editEmbed(channelId: string, messageId: string, embed: EmbedPayload, content?: string, attachments?: SendAttachment[], keepAttachmentIds?: string[]): Promise<Result<MessageSummary>>;
     listPinned(channelId: string): Promise<Result<MessageSummary[]>>;
     pin(channelId: string, messageId: string): Promise<Result<void>>;
     unpin(channelId: string, messageId: string): Promise<Result<void>>;

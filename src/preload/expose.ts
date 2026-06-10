@@ -43,10 +43,10 @@ const api: BotcordApi = {
   },
   messages: {
     send: (channelId, content, opts) => invoke(IPC_CHANNELS['messages.send'], channelId, content, opts),
-    sendEmbed: (channelId, embed, content) =>
-      invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content),
-    editEmbed: (channelId, messageId, embed, content) =>
-      invoke(IPC_CHANNELS['messages.editEmbed'], channelId, messageId, embed, content),
+    sendEmbed: (channelId, embed, content, attachments) =>
+      invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content, attachments),
+    editEmbed: (channelId, messageId, embed, content, attachments, keepAttachmentIds) =>
+      invoke(IPC_CHANNELS['messages.editEmbed'], channelId, messageId, embed, content, attachments, keepAttachmentIds),
     sendWithAttachments: (channelId, content, attachments, opts) =>
       invoke(IPC_CHANNELS['messages.sendWithAttachments'], channelId, content, attachments, opts),
     sendPoll: (channelId, poll) => invoke(IPC_CHANNELS['messages.sendPoll'], channelId, poll),

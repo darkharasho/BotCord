@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { EmbedBuilder, AttachmentBuilder, ChannelType, type Message, type ForumChannel, type MediaChannel } from 'discord.js';
+import { EmbedBuilder, AttachmentBuilder, ChannelType, type Message, type Attachment, type MessageEditOptions, type ForumChannel, type MediaChannel } from 'discord.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
 import type { CreateForumPostPayload, EmbedPayload, ForumPostSummary, MessageSummary, PollPayload, PollVoter, SendAttachment } from '../../shared/domain';
@@ -55,6 +55,16 @@ const buildEmbed = (p: EmbedPayload): EmbedBuilder => {
   return e;
 };
 
+// Map IPC SendAttachment payloads to discord.js AttachmentBuilders. Throws on a
+// malformed entry (same validation as messages.sendWithAttachments).
+const toAttachmentBuilders = (attachments: SendAttachment[]): AttachmentBuilder[] =>
+  attachments.map((a, i) => {
+    if (typeof a?.name !== 'string' || !(a.bytes instanceof Uint8Array)) {
+      throw new Error(`attachments[${i}] is malformed`);
+    }
+    return new AttachmentBuilder(Buffer.from(a.bytes), { name: a.name });
+  });
+
 export function registerMessageHandlers({ manager }: IpcDeps): void {
   const requireSendableChannel = async (channelId: string): Promise<{ ok: true; channel: SendableChannel } | Result<never>> => {
     const client = manager.getClient();
@@ -81,38 +91,54 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS['messages.sendEmbed'], async (_, channelId: unknown, embed: unknown, content?: unknown): Promise<Result<MessageSummary>> => {
+  ipcMain.handle(IPC_CHANNELS['messages.sendEmbed'], async (_, channelId: unknown, embed: unknown, content?: unknown, attachments?: unknown): Promise<Result<MessageSummary>> => {
     if (typeof channelId !== 'string' || typeof embed !== 'object' || embed === null) return err('INTERNAL', 'invalid arguments');
     const got = await requireSendableChannel(channelId);
     if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
+    let files: AttachmentBuilder[] = [];
     try {
-      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send({
-        content: typeof content === 'string' ? content : undefined,
-        embeds: [buildEmbed(embed as EmbedPayload)],
-      });
+      if (Array.isArray(attachments)) files = toAttachmentBuilders(attachments as SendAttachment[]);
+    } catch (e) {
+      return err('INTERNAL', e instanceof Error ? e.message : String(e));
+    }
+    try {
+      const sendOpts: SendOpts = { embeds: [buildEmbed(embed as EmbedPayload)] };
+      if (typeof content === 'string') sendOpts.content = content;
+      if (files.length) sendOpts.files = files;
+      const msg = await (got as { ok: true; channel: SendableChannel }).channel.send(sendOpts);
       return ok(summarizeMessage(msg));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS['messages.editEmbed'], async (_, channelId: unknown, messageId: unknown, embed: unknown, content?: unknown): Promise<Result<MessageSummary>> => {
+  ipcMain.handle(IPC_CHANNELS['messages.editEmbed'], async (_, channelId: unknown, messageId: unknown, embed: unknown, content?: unknown, attachments?: unknown, keepAttachmentIds?: unknown): Promise<Result<MessageSummary>> => {
     if (typeof channelId !== 'string' || typeof messageId !== 'string' || typeof embed !== 'object' || embed === null) {
       return err('INTERNAL', 'invalid arguments');
     }
     const got = await requireSendableChannel(channelId);
     if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
     const channel = (got as { ok: true; channel: SendableChannel }).channel;
+    let files: AttachmentBuilder[] = [];
+    try {
+      if (Array.isArray(attachments)) files = toAttachmentBuilders(attachments as SendAttachment[]);
+    } catch (e) {
+      return err('INTERNAL', e instanceof Error ? e.message : String(e));
+    }
+    const keepIds = Array.isArray(keepAttachmentIds)
+      ? keepAttachmentIds.filter((v): v is string => typeof v === 'string')
+      : [];
     try {
       const msg = await channel.messages.fetch(messageId);
-      // Only set `content` when the caller provided it: an explicit string
-      // (incl. '') sets/clears the text, while omitting the key leaves the
-      // existing text untouched. Avoids passing `undefined`, which discord.js's
-      // MessageEditOptions rejects under exactOptionalPropertyTypes.
-      const editOpts: { content?: string; embeds: EmbedBuilder[] } = {
+      // Retain only the existing attachments the caller still references; any
+      // not listed here are dropped. New uploads are appended via `files`.
+      const kept: Attachment[] = Array.from(msg.attachments.values()).filter(a => keepIds.includes(a.id));
+      const editOpts: MessageEditOptions = {
         embeds: [buildEmbed(embed as EmbedPayload)],
+        attachments: kept,
       };
       if (typeof content === 'string') editOpts.content = content;
+      if (files.length) editOpts.files = files;
       const updated = await msg.edit(editOpts);
       return ok(summarizeMessage(updated));
     } catch (e) {
