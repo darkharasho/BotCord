@@ -1,10 +1,10 @@
 // src/renderer/components/EmbedModal.tsx
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { EmbedCard } from './EmbedCard';
 import { payloadToSummary } from '../lib/embed-adapters';
-import type { EmbedPayload } from '../../shared/domain';
+import type { EmbedPayload, DraftRow } from '../../shared/domain';
 import { IconX, IconPlus, IconTrash } from '@tabler/icons-react';
 
 // Discord embed limits.
@@ -83,6 +83,18 @@ export function EmbedModal({
 }) {
   const [s, setS] = useState<FormState>(initial ?? EMPTY);
   const [busy, setBusy] = useState(false);
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  useEffect(() => {
+    let alive = true;
+    api.drafts.list().then(res => { if (alive && res.ok) setDrafts(res.data.filter(d => d.embed)); });
+    return () => { alive = false; };
+  }, []);
+
+  const loadDraft = (id: string) => {
+    const d = drafts.find(x => x.id === id);
+    if (!d || !d.embed) return;
+    setS(formFromPayload(d.content ?? '', d.embed));
+  };
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setS(prev => ({ ...prev, [k]: v }));
 
   const payload = useMemo(() => buildPayload(s), [s]);
@@ -135,7 +147,15 @@ export function EmbedModal({
         {/* Header */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-white/[0.04]">
           <h2 className="text-[18px] font-semibold text-fg">{edit ? 'Edit Embed' : 'Create an Embed'}</h2>
-          <button className="text-fg-muted hover:text-fg p-1 rounded" onClick={onClose} title="Close"><IconX size={18} stroke={2} /></button>
+          <div className="flex items-center gap-3">
+            {drafts.length > 0 && (
+              <select aria-label="Load draft" defaultValue="" onChange={(e) => { if (e.target.value) loadDraft(e.target.value); }} className="bg-bg-input border border-white/[0.06] rounded-md text-[13px] text-fg-muted px-2.5 py-1.5 outline-none focus:border-accent">
+                <option value="" disabled>Load draft…</option>
+                {drafts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            )}
+            <button className="text-fg-muted hover:text-fg p-1 rounded" onClick={onClose} title="Close"><IconX size={18} stroke={2} /></button>
+          </div>
         </div>
 
         {/* Body: form | preview */}

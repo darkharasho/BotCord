@@ -60,4 +60,16 @@ describe('<EmbedModal> create mode', () => {
     fireEvent.click(screen.getByTitle('Remove field'));
     expect(screen.queryByPlaceholderText('Field name')).not.toBeInTheDocument();
   });
+
+  it('loads an embed draft into the form', async () => {
+    const { api } = await import('../../lib/api');
+    (api.drafts.list as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      data: [{ id: 'd1', name: 'Promo', guildId: 'g1', channelId: 'c1', content: 'hey', embed: { title: 'Promo Title' }, createdAt: 1, updatedAt: 1 }],
+    });
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" onClose={() => {}} />);
+    await waitFor(() => screen.getByRole('option', { name: 'Promo' }));
+    fireEvent.change(screen.getByLabelText('Load draft'), { target: { value: 'd1' } });
+    expect((screen.getByPlaceholderText('Embed title') as HTMLInputElement).value).toBe('Promo Title');
+  });
 });
