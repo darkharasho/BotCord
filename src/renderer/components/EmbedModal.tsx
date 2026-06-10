@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { EmbedCard } from './EmbedCard';
+import { CheckBox } from './CheckBox';
 import { payloadToSummary } from '../lib/embed-adapters';
 import type { EmbedPayload, DraftRow } from '../../shared/domain';
 import { IconX, IconPlus, IconTrash } from '@tabler/icons-react';
@@ -175,7 +176,7 @@ export function EmbedModal({
               <div className="w-20">
                 <label className={labelCls}>Color</label>
                 <div className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={s.useColor} onChange={(e) => set('useColor', e.target.checked)} className="accent-accent w-4 h-4" title="Use color" />
+                  <CheckBox checked={s.useColor} onChange={() => set('useColor', !s.useColor)} ariaLabel="Use color" />
                   <input type="color" value={s.color} disabled={!s.useColor} onChange={(e) => set('color', e.target.value)} className="h-8 w-9 bg-transparent disabled:opacity-40" />
                 </div>
               </div>
@@ -211,7 +212,10 @@ export function EmbedModal({
                   <div key={i} className="bg-bg border border-white/[0.05] rounded-md p-2 flex items-center gap-2">
                     <input className="w-28 bg-bg-input border border-white/[0.06] rounded px-2 py-1.5 text-[13px] text-fg outline-none focus:border-accent" value={f.name} onChange={(e) => updateField(i, { name: e.target.value })} placeholder="Field name" maxLength={LIMITS.fieldName} />
                     <input className="flex-1 bg-bg-input border border-white/[0.06] rounded px-2 py-1.5 text-[13px] text-fg outline-none focus:border-accent" value={f.value} onChange={(e) => updateField(i, { value: e.target.value })} placeholder="Field value" maxLength={LIMITS.fieldValue} />
-                    <label className="text-[12px] text-fg-muted flex items-center gap-1 shrink-0"><input type="checkbox" checked={f.inline} onChange={(e) => updateField(i, { inline: e.target.checked })} className="accent-accent w-3.5 h-3.5" />inline</label>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <CheckBox checked={f.inline} onChange={() => updateField(i, { inline: !f.inline })} ariaLabel="Inline field" />
+                      <span className="text-[12px] text-fg-muted select-none">inline</span>
+                    </div>
                     <button onClick={() => removeField(i)} title="Remove field" className="text-fg-muted hover:text-danger p-1"><IconTrash size={15} stroke={1.75} /></button>
                   </div>
                 ))}
@@ -227,13 +231,14 @@ export function EmbedModal({
               <div className="flex-1"><label className={labelCls}>Footer</label><input className={inputBase} value={s.footerText} onChange={(e) => set('footerText', e.target.value)} placeholder="Footer text" maxLength={LIMITS.footer} /></div>
               <div className="flex-1"><label className={labelCls}>Footer icon URL</label><input className={inputBase} value={s.footerIcon} onChange={(e) => set('footerIcon', e.target.value)} placeholder="https://…" /></div>
             </div>
-            <label className="flex items-center gap-2 text-[13px] text-fg-muted select-none">
-              <input type="checkbox" checked={s.useTimestamp} onChange={(e) => set('useTimestamp', e.target.checked)} className="accent-accent w-4 h-4" /> Add timestamp (now)
-            </label>
+            <div className="flex items-center gap-2 text-[13px] text-fg-muted select-none">
+              <CheckBox checked={s.useTimestamp} onChange={() => set('useTimestamp', !s.useTimestamp)} ariaLabel="Add timestamp" /> Add timestamp (now)
+            </div>
           </div>
 
-          {/* Preview */}
-          <div className="w-[22rem] px-5 py-4 flex flex-col">
+          {/* Preview — on the real channel background so the embed panel
+              stands out exactly as it will in a Discord channel. */}
+          <div className="w-[22rem] px-5 py-4 flex flex-col bg-bg-sunken">
             <div className="text-[11px] font-bold tracking-wide text-fg-dim mb-2">LIVE PREVIEW</div>
             {s.content.trim() && <div className="text-[14px] text-fg mb-1.5 whitespace-pre-wrap">{s.content}</div>}
             {isNonEmpty(payload)

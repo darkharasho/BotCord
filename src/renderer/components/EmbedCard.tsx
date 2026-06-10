@@ -29,13 +29,13 @@ export function EmbedCard({ embed, mentions }: { embed: MessageEmbedSummary; men
 
   return (
     <div
-      className="my-1 max-w-[520px] rounded bg-bg-subtle/60 grid"
+      className="my-0.5 max-w-[520px] rounded-[4px] bg-[#2b2d31] grid"
       style={{
         borderLeft: `4px solid ${accent}`,
         gridTemplateColumns: hasFloatedThumb ? 'minmax(0,1fr) auto' : 'minmax(0,1fr)',
       }}
     >
-      <div className="px-3 py-2 min-w-0 space-y-1">
+      <div className="pl-3 pr-4 pt-2 pb-4 min-w-0 space-y-2">
         {embed.provider?.name && (
           <div className="text-[11px] text-fg-muted">
             {embed.provider.url
@@ -60,7 +60,7 @@ export function EmbedCard({ embed, mentions }: { embed: MessageEmbedSummary; men
         )}
 
         {embed.title && (
-          <div className="text-[15px] font-semibold leading-snug">
+          <div className="text-[16px] font-semibold leading-snug">
             {embed.url
               ? <a href="#" onClick={(e) => { e.preventDefault(); openExternal(embed.url!); }} className="text-link hover:underline">
                   <Markdown source={embed.title} mentions={mentions ?? []} jumbo={false} />
@@ -70,7 +70,7 @@ export function EmbedCard({ embed, mentions }: { embed: MessageEmbedSummary; men
         )}
 
         {embed.description && (
-          <div className="text-[14px] text-fg whitespace-pre-wrap leading-snug">
+          <div className="text-[14px] text-[#dbdee1] whitespace-pre-wrap leading-snug">
             <Markdown source={embed.description} mentions={mentions ?? []} jumbo={false} />
           </div>
         )}
@@ -79,10 +79,10 @@ export function EmbedCard({ embed, mentions }: { embed: MessageEmbedSummary; men
           <div className="grid grid-cols-6 gap-2 mt-1">
             {embed.fields.map((f, i) => (
               <div key={i} className={f.inline ? 'col-span-3 min-w-0' : 'col-span-6'}>
-                <div className="text-[13px] font-semibold text-fg">
+                <div className="text-[14px] font-semibold text-fg">
                   <Markdown source={f.name} mentions={mentions ?? []} jumbo={false} />
                 </div>
-                <div className="text-[13px] text-fg-muted whitespace-pre-wrap leading-snug">
+                <div className="text-[14px] text-[#dbdee1] whitespace-pre-wrap leading-snug">
                   <Markdown source={f.value} mentions={mentions ?? []} jumbo={false} />
                 </div>
               </div>
