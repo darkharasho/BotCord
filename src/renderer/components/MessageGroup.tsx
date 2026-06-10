@@ -23,6 +23,8 @@ import { BanDialog } from './moderation/BanDialog';
 import { TimeoutDialog } from './moderation/TimeoutDialog';
 import { buildUserMenu, type UserMenuTarget } from './UserContextMenu';
 import type { GuildRole, BotCapabilities, MemberDetail } from '../../shared/domain';
+import { EmbedModal, formFromPayload } from './EmbedModal';
+import { summaryToPayload } from '../lib/embed-adapters';
 
 // Approximate height of the EmojiPicker popover (max-h-96). Used to decide
 // whether to open above or below the trigger when space is tight.
@@ -184,6 +186,19 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
   const thinkingSet = useAutonomyThinkingForChannel(head.channelId);
   // One message in the group at most can be in inline-edit mode.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // When set, edit a sent embed via the modal instead of the inline editor.
+  const [embedEdit, setEmbedEdit] = useState<MessageSummary | null>(null);
+
+  // A message is embed-editable when the bot owns it and it carries exactly
+  // one rich embed (link-preview / multi-embed messages stay text-editable).
+  const isEmbedEditable = (m: MessageSummary) =>
+    bot?.id === m.authorId && m.embeds.length === 1 && m.embeds[0]!.type === 'rich';
+
+  // Route edit to the embed modal or the inline text editor.
+  const startEdit = (m: MessageSummary) => {
+    if (isEmbedEditable(m)) setEmbedEdit(m);
+    else setEditingId(m.id);
+  };
   // Profile card state — anchored to the avatar/name that was clicked.
   const [profileState, setProfileState] = useState<{ userId: string; guildId: string; rect: DOMRect } | null>(null);
   // Add-reaction state triggered from the context menu — anchored to the
@@ -269,7 +284,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
       message: m,
       isOwn: bot?.id === m.authorId,
       ...(onReply ? { onReply: () => onReply(m) } : {}),
-      onEdit: () => setEditingId(m.id),
+      onEdit: () => startEdit(m),
       onAddReaction: () => setReactState({ message: m, rect }),
       onGenerateClaudeReply: () => generateReplyWithClaude(m.channelId, m.id, m.authorDisplayName ?? m.authorTag),
     }));
@@ -293,7 +308,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
           message={head}
           isOwn={bot?.id === head.authorId}
           onReply={onReply}
-          onEdit={() => setEditingId(head.id)}
+          onEdit={() => startEdit(head)}
         />
         <div className="w-10 shrink-0 pt-0.5 cursor-pointer" onClick={(e) => openProfile(e, head.authorId)} onContextMenu={(e) => onAuthorContextMenu(e, head.authorId, head.authorDisplayName, head.authorTag)}>
           <Avatar
@@ -338,7 +353,7 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
               message={m}
               isOwn={bot?.id === m.authorId}
               onReply={onReply}
-              onEdit={() => setEditingId(m.id)}
+              onEdit={() => startEdit(m)}
             />
             <div className="w-10 shrink-0 text-[10px] text-fg-dim text-right pr-1 opacity-0 group-hover:opacity-100 leading-[21px] whitespace-nowrap tracking-tight">
               {formatGutterTimestamp(m.createdAt)}
@@ -369,6 +384,16 @@ export function MessageGroup({ messages, onReply, onJumpToMessage }: { messages:
       {modState && head.guildId && modState.kind === 'kick'    && <KickDialog    guildId={head.guildId} userId={modState.userId} displayName={modState.displayName} onClose={() => setModState(null)} />}
       {modState && head.guildId && modState.kind === 'ban'     && <BanDialog     guildId={head.guildId} userId={modState.userId} displayName={modState.displayName} onClose={() => setModState(null)} />}
       {modState && head.guildId && modState.kind === 'timeout' && <TimeoutDialog guildId={head.guildId} userId={modState.userId} displayName={modState.displayName} onClose={() => setModState(null)} />}
+      {embedEdit && (
+        <EmbedModal
+          channelId={embedEdit.channelId}
+          guildId={embedEdit.guildId}
+          channelName={embedEdit.channelId}
+          edit={{ messageId: embedEdit.id }}
+          initial={formFromPayload(embedEdit.content, summaryToPayload(embedEdit.embeds[0]!))}
+          onClose={() => setEmbedEdit(null)}
+        />
+      )}
     </div>
   );
 }
