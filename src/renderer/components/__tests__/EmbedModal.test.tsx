@@ -88,6 +88,22 @@ describe('<EmbedModal> create mode', () => {
     expect((screen.getByPlaceholderText('Embed title') as HTMLInputElement).value).toBe('Promo Title');
   });
 
+  it('drops uploaded images when saving a draft and warns', async () => {
+    const { api } = await import('../../lib/api');
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('My Draft');
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" onClose={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText('Embed title'), { target: { value: 'T' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload image' }));
+    const input = screen.getByTestId('file-input-image') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([new Uint8Array([1])], 'p.png', { type: 'image/png' })] } });
+    await waitFor(() => screen.getByText('image.png'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+    await waitFor(() => expect(api.drafts.upsert).toHaveBeenCalled());
+    const draft = (api.drafts.upsert as ReturnType<typeof vi.fn>).mock.calls[0]![0];
+    expect(draft.embed.image).toBeUndefined(); // file-backed image not persisted
+    promptSpy.mockRestore();
+  });
+
   it('uploads a local image: sends attachment:// url + the file', async () => {
     const { api } = await import('../../lib/api');
     render(<EmbedModal channelId="c1" guildId="g1" channelName="general" onClose={() => {}} />);

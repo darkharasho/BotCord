@@ -221,8 +221,21 @@ export function EmbedModal({
   const saveDraft = async () => {
     const name = window.prompt('Draft name?');
     if (!name) return;
-    const res = await api.drafts.upsert({ name, guildId, channelId, content: s.content.trim() || null, embed: payload });
-    pushToast(res.ok ? 'ok' : 'danger', res.ok ? 'Draft saved' : `Couldn't save draft: ${res.error.message}`);
+    // Drafts can't store file bytes. Drop image fields that point at an upload
+    // (their attachment:// url would dangle), keeping URL-based images.
+    const hasUpload = IMAGE_SLOTS.some(slot => s.imageMode[slot] === 'file' && s.uploads[slot]);
+    const draftEmbed: EmbedPayload = { ...payload };
+    if (s.imageMode.image === 'file' && s.uploads.image) delete draftEmbed.image;
+    if (s.imageMode.thumbnail === 'file' && s.uploads.thumbnail) delete draftEmbed.thumbnail;
+    if (s.imageMode.authorIcon === 'file' && s.uploads.authorIcon && draftEmbed.author) {
+      const { iconUrl: _drop, ...rest } = draftEmbed.author; void _drop; draftEmbed.author = rest;
+    }
+    if (s.imageMode.footerIcon === 'file' && s.uploads.footerIcon && draftEmbed.footer) {
+      const { iconUrl: _drop, ...rest } = draftEmbed.footer; void _drop; draftEmbed.footer = rest;
+    }
+    const res = await api.drafts.upsert({ name, guildId, channelId, content: s.content.trim() || null, embed: draftEmbed });
+    if (!res.ok) { pushToast('danger', `Couldn't save draft: ${res.error.message}`); return; }
+    pushToast('ok', hasUpload ? "Draft saved — uploaded images aren't kept in drafts" : 'Draft saved');
   };
 
   // Portal to <body> so the modal escapes the stacking context of whatever
