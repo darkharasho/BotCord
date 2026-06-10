@@ -5,8 +5,9 @@ import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { EmbedCard } from './EmbedCard';
 import { CheckBox } from './CheckBox';
+import { EmbedImageField } from './EmbedImageField';
 import { payloadToSummary } from '../lib/embed-adapters';
-import type { EmbedPayload, DraftRow } from '../../shared/domain';
+import type { EmbedPayload, DraftRow, SendAttachment } from '../../shared/domain';
 import { IconX, IconPlus, IconTrash } from '@tabler/icons-react';
 
 // Discord embed limits.
@@ -14,6 +15,18 @@ const LIMITS = { title: 256, description: 4096, fieldName: 256, fieldValue: 1024
 const DEFAULT_COLOR = '#007f68'; // accent
 
 type FieldRow = { name: string; value: string; inline: boolean };
+
+type ImageSlot = 'image' | 'thumbnail' | 'authorIcon' | 'footerIcon';
+type SlotUpload = {
+  name: string;            // attachment filename → field url becomes attachment://<name>
+  previewUrl: string;      // object URL (new file) or CDN url (existing attachment)
+  file: File | null;       // a newly picked local file (bytes to upload), else null
+  existingAttachmentId: string | null; // an existing message attachment to keep, else null
+  objectUrl: string | null; // object URL we created and must revoke, else null
+};
+const SLOT_BASENAME: Record<ImageSlot, string> = { image: 'image', thumbnail: 'thumbnail', authorIcon: 'author-icon', footerIcon: 'footer-icon' };
+const IMAGE_SLOTS: ImageSlot[] = ['image', 'thumbnail', 'authorIcon', 'footerIcon'];
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 type FormState = {
   content: string;
@@ -25,33 +38,43 @@ type FormState = {
   thumbnailUrl: string; imageUrl: string;
   footerText: string; footerIcon: string;
   useTimestamp: boolean;
+  imageMode: Record<ImageSlot, 'url' | 'file'>;
+  uploads: Record<ImageSlot, SlotUpload | null>;
 };
 
 const EMPTY: FormState = {
   content: '', authorName: '', authorUrl: '', authorIcon: '',
   useColor: true, color: DEFAULT_COLOR, title: '', url: '', description: '',
   fields: [], thumbnailUrl: '', imageUrl: '', footerText: '', footerIcon: '', useTimestamp: false,
+  imageMode: { image: 'url', thumbnail: 'url', authorIcon: 'url', footerIcon: 'url' },
+  uploads: { image: null, thumbnail: null, authorIcon: null, footerIcon: null },
 };
 
 // Build an EmbedPayload from the form, omitting empty values.
 function buildPayload(s: FormState): EmbedPayload {
   const p: EmbedPayload = {};
+  const slotUrl = (slot: ImageSlot, urlStr: string): string =>
+    s.imageMode[slot] === 'file' && s.uploads[slot] ? `attachment://${s.uploads[slot]!.name}` : urlStr.trim();
   if (s.title.trim()) p.title = s.title.trim();
   if (s.description.trim()) p.description = s.description.trim();
   if (s.url.trim()) p.url = s.url.trim();
   if (s.useColor) p.color = parseInt(s.color.slice(1), 16);
   if (s.useTimestamp) p.timestamp = new Date().toISOString();
   if (s.footerText.trim()) {
-    p.footer = s.footerIcon.trim() ? { text: s.footerText.trim(), iconUrl: s.footerIcon.trim() } : { text: s.footerText.trim() };
+    const fIcon = slotUrl('footerIcon', s.footerIcon);
+    p.footer = fIcon ? { text: s.footerText.trim(), iconUrl: fIcon } : { text: s.footerText.trim() };
   }
   if (s.authorName.trim()) {
     const a: { name: string; url?: string; iconUrl?: string } = { name: s.authorName.trim() };
     if (s.authorUrl.trim()) a.url = s.authorUrl.trim();
-    if (s.authorIcon.trim()) a.iconUrl = s.authorIcon.trim();
+    const aIcon = slotUrl('authorIcon', s.authorIcon);
+    if (aIcon) a.iconUrl = aIcon;
     p.author = a;
   }
-  if (s.thumbnailUrl.trim()) p.thumbnail = { url: s.thumbnailUrl.trim() };
-  if (s.imageUrl.trim()) p.image = { url: s.imageUrl.trim() };
+  const thumb = slotUrl('thumbnail', s.thumbnailUrl);
+  if (thumb) p.thumbnail = { url: thumb };
+  const img = slotUrl('image', s.imageUrl);
+  if (img) p.image = { url: img };
   const fields = s.fields.filter(f => f.name.trim() && f.value.trim()).map(f => ({ name: f.name.trim(), value: f.value.trim(), inline: f.inline }));
   if (fields.length) p.fields = fields;
   return p;
@@ -114,14 +137,67 @@ export function EmbedModal({
   const updateField = (i: number, patch: Partial<FieldRow>) => setS(prev => ({ ...prev, fields: prev.fields.map((f, idx) => idx === i ? { ...f, ...patch } : f) }));
   const removeField = (i: number) => setS(prev => ({ ...prev, fields: prev.fields.filter((_, idx) => idx !== i) }));
 
+  const setImageMode = (slot: ImageSlot, mode: 'url' | 'file') => {
+    setS(prev => {
+      // Leaving file mode discards any picked file (and revokes its object URL).
+      const u = prev.uploads[slot];
+      if (mode === 'url' && u?.objectUrl) URL.revokeObjectURL(u.objectUrl);
+      return {
+        ...prev,
+        imageMode: { ...prev.imageMode, [slot]: mode },
+        uploads: { ...prev.uploads, [slot]: mode === 'url' ? null : prev.uploads[slot] },
+      };
+    });
+  };
+  const pickImage = (slot: ImageSlot, file: File) => {
+    if (!file.type.startsWith('image/')) { pushToast('warn', 'Please choose an image file'); return; }
+    if (file.size > MAX_IMAGE_BYTES) { pushToast('warn', `${file.name} is over 25MB`); return; }
+    const ext = (file.name.split('.').pop() || file.type.split('/')[1] || 'png').toLowerCase();
+    const name = `${SLOT_BASENAME[slot]}.${ext}`;
+    const objectUrl = URL.createObjectURL(file);
+    setS(prev => {
+      const old = prev.uploads[slot];
+      if (old?.objectUrl) URL.revokeObjectURL(old.objectUrl);
+      return { ...prev, uploads: { ...prev.uploads, [slot]: { name, previewUrl: objectUrl, file, existingAttachmentId: null, objectUrl } } };
+    });
+  };
+  const clearImage = (slot: ImageSlot) => {
+    setS(prev => {
+      const u = prev.uploads[slot];
+      if (u?.objectUrl) URL.revokeObjectURL(u.objectUrl);
+      return { ...prev, uploads: { ...prev.uploads, [slot]: null } };
+    });
+  };
+
+  useEffect(() => () => {
+    for (const slot of IMAGE_SLOTS) {
+      const u = s.uploads[slot];
+      if (u?.objectUrl) URL.revokeObjectURL(u.objectUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const submit = async () => {
     if (!valid) return;
     setBusy(true);
     try {
       const content = s.content.trim();
+      const newAttachments: SendAttachment[] = [];
+      const keepIds: string[] = [];
+      for (const slot of IMAGE_SLOTS) {
+        if (s.imageMode[slot] !== 'file') continue;
+        const u = s.uploads[slot];
+        if (!u) continue;
+        if (u.file) {
+          newAttachments.push({ name: u.name, mimeType: u.file.type || 'application/octet-stream', bytes: new Uint8Array(await u.file.arrayBuffer()) });
+        } else if (u.existingAttachmentId) {
+          keepIds.push(u.existingAttachmentId);
+        }
+      }
+      const atts = newAttachments.length ? newAttachments : undefined;
       const res = edit
-        ? await api.messages.editEmbed(channelId, edit.messageId, payload, content)
-        : await api.messages.sendEmbed(channelId, payload, content || undefined);
+        ? await api.messages.editEmbed(channelId, edit.messageId, payload, content, atts, keepIds.length ? keepIds : undefined)
+        : await api.messages.sendEmbed(channelId, payload, content || undefined, atts);
       if (!res.ok) {
         pushToast('danger', `${edit ? 'Edit' : 'Send'} failed: ${res.error.message}`);
         return;
@@ -189,7 +265,11 @@ export function EmbedModal({
 
             <div className="flex gap-3">
               <div className="flex-1"><label className={labelCls}>Author URL</label><input className={inputBase} value={s.authorUrl} onChange={(e) => set('authorUrl', e.target.value)} placeholder="https://…" /></div>
-              <div className="flex-1"><label className={labelCls}>Author icon URL</label><input className={inputBase} value={s.authorIcon} onChange={(e) => set('authorIcon', e.target.value)} placeholder="https://…" /></div>
+              <div className="flex-1">
+                <EmbedImageField label="Author icon" slotKey="authorIcon" mode={s.imageMode.authorIcon} url={s.authorIcon}
+                  upload={s.uploads.authorIcon} onModeChange={(m) => setImageMode('authorIcon', m)}
+                  onUrlChange={(v) => set('authorIcon', v)} onPickFile={(f) => pickImage('authorIcon', f)} onClear={() => clearImage('authorIcon')} />
+              </div>
             </div>
 
             <div>
@@ -228,13 +308,25 @@ export function EmbedModal({
             </div>
 
             <div className="flex gap-3">
-              <div className="flex-1"><label className={labelCls}>Thumbnail URL</label><input className={inputBase} value={s.thumbnailUrl} onChange={(e) => set('thumbnailUrl', e.target.value)} placeholder="https://…" /></div>
-              <div className="flex-1"><label className={labelCls}>Image URL</label><input className={inputBase} value={s.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="https://…" /></div>
+              <div className="flex-1">
+                <EmbedImageField label="Thumbnail" slotKey="thumbnail" mode={s.imageMode.thumbnail} url={s.thumbnailUrl}
+                  upload={s.uploads.thumbnail} onModeChange={(m) => setImageMode('thumbnail', m)}
+                  onUrlChange={(v) => set('thumbnailUrl', v)} onPickFile={(f) => pickImage('thumbnail', f)} onClear={() => clearImage('thumbnail')} />
+              </div>
+              <div className="flex-1">
+                <EmbedImageField label="Image" slotKey="image" mode={s.imageMode.image} url={s.imageUrl}
+                  upload={s.uploads.image} onModeChange={(m) => setImageMode('image', m)}
+                  onUrlChange={(v) => set('imageUrl', v)} onPickFile={(f) => pickImage('image', f)} onClear={() => clearImage('image')} />
+              </div>
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1"><label className={labelCls}>Footer</label><input className={inputBase} value={s.footerText} onChange={(e) => set('footerText', e.target.value)} placeholder="Footer text" maxLength={LIMITS.footer} /></div>
-              <div className="flex-1"><label className={labelCls}>Footer icon URL</label><input className={inputBase} value={s.footerIcon} onChange={(e) => set('footerIcon', e.target.value)} placeholder="https://…" /></div>
+              <div className="flex-1">
+                <EmbedImageField label="Footer icon" slotKey="footerIcon" mode={s.imageMode.footerIcon} url={s.footerIcon}
+                  upload={s.uploads.footerIcon} onModeChange={(m) => setImageMode('footerIcon', m)}
+                  onUrlChange={(v) => set('footerIcon', v)} onPickFile={(f) => pickImage('footerIcon', f)} onClear={() => clearImage('footerIcon')} />
+              </div>
             </div>
             <div className="flex items-center gap-2 text-[13px] text-fg-muted select-none">
               <CheckBox checked={s.useTimestamp} onChange={() => set('useTimestamp', !s.useTimestamp)} ariaLabel="Add timestamp" /> Add timestamp (now)
@@ -283,5 +375,7 @@ export function formFromPayload(content: string, p: EmbedPayload): FormState {
     thumbnailUrl: p.thumbnail?.url ?? '', imageUrl: p.image?.url ?? '',
     footerText: p.footer?.text ?? '', footerIcon: p.footer?.iconUrl ?? '',
     useTimestamp: !!p.timestamp,
+    imageMode: { image: 'url', thumbnail: 'url', authorIcon: 'url', footerIcon: 'url' },
+    uploads: { image: null, thumbnail: null, authorIcon: null, footerIcon: null },
   };
 }
