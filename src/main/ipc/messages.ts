@@ -106,7 +106,7 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     try {
       const msg = await channel.messages.fetch(messageId);
       const updated = await msg.edit({
-        content: typeof content === 'string' ? content : '',
+        content: typeof content === 'string' ? content : undefined,
         embeds: [buildEmbed(embed as EmbedPayload)],
       });
       return ok(summarizeMessage(updated));
