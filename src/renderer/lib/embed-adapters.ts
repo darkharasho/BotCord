@@ -26,9 +26,9 @@ export function payloadToSummary(p: EmbedPayload): MessageEmbedSummary {
 // Drops auto-generated fields (provider, video, image/thumbnail dimensions).
 export function summaryToPayload(s: MessageEmbedSummary): EmbedPayload {
   const out: EmbedPayload = {};
-  if (s.title) out.title = s.title;
-  if (s.description) out.description = s.description;
-  if (s.url) out.url = s.url;
+  if (s.title != null) out.title = s.title;
+  if (s.description != null) out.description = s.description;
+  if (s.url != null) out.url = s.url;
   if (s.color != null) out.color = s.color;
   if (s.timestamp != null) out.timestamp = new Date(s.timestamp).toISOString();
   if (s.footer) {

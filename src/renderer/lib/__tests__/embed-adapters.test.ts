@@ -59,6 +59,15 @@ describe('summaryToPayload', () => {
     expect('description' in p).toBe(false);
   });
 
+  it('omits the fields key when fields is empty', () => {
+    const p = summaryToPayload({
+      type: 'rich', title: 'T', description: null, url: null, color: null,
+      image: null, thumbnail: null, author: null, footer: null, provider: null,
+      timestamp: null, video: null, fields: [],
+    });
+    expect('fields' in p).toBe(false);
+  });
+
   it('round-trips a payload through summary and back', () => {
     const p: EmbedPayload = {
       title: 'T', description: 'D', color: 0x007f68,
