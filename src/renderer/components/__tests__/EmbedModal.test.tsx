@@ -1,7 +1,7 @@
 // src/renderer/components/__tests__/EmbedModal.test.tsx
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { EmbedModal } from '../EmbedModal';
+import { EmbedModal, toPreviewPayload } from '../EmbedModal';
 
 beforeAll(() => {
   // jsdom lacks object-URL APIs used by the image preview.
@@ -147,5 +147,39 @@ describe('<EmbedModal> edit mode', () => {
     expect(call[2].image).toEqual({ url: 'attachment://photo.png' }); // embed payload
     expect(call[4]).toBeUndefined();                                   // no new files
     expect(call[5]).toEqual(['att1']);                                 // kept attachment id
+  });
+});
+
+describe('toPreviewPayload', () => {
+  const noUploads = { image: null, thumbnail: null, authorIcon: null, footerIcon: null };
+  const allUrl = { image: 'url', thumbnail: 'url', authorIcon: 'url', footerIcon: 'url' } as const;
+
+  it('swaps an attachment:// image for the slot preview url', () => {
+    const out = toPreviewPayload(
+      { image: { url: 'attachment://image.png' }, title: 'T' },
+      { ...allUrl, image: 'file' },
+      { ...noUploads, image: { name: 'image.png', previewUrl: 'blob:xyz', file: null, existingAttachmentId: null, objectUrl: 'blob:xyz' } },
+    );
+    expect(out.image).toEqual({ url: 'blob:xyz' });
+    expect(out.title).toBe('T');
+  });
+
+  it('swaps an attachment-backed author/footer icon (edit mode CDN url)', () => {
+    const out = toPreviewPayload(
+      { author: { name: 'A', iconUrl: 'attachment://author-icon.png' }, footer: { text: 'F', iconUrl: 'attachment://footer-icon.png' } },
+      { ...allUrl, authorIcon: 'file', footerIcon: 'file' },
+      {
+        ...noUploads,
+        authorIcon: { name: 'author-icon.png', previewUrl: 'https://cdn.test/a.png', file: null, existingAttachmentId: 'a1', objectUrl: null },
+        footerIcon: { name: 'footer-icon.png', previewUrl: 'https://cdn.test/f.png', file: null, existingAttachmentId: 'f1', objectUrl: null },
+      },
+    );
+    expect(out.author).toEqual({ name: 'A', iconUrl: 'https://cdn.test/a.png' });
+    expect(out.footer).toEqual({ text: 'F', iconUrl: 'https://cdn.test/f.png' });
+  });
+
+  it('leaves url-mode images untouched', () => {
+    const out = toPreviewPayload({ image: { url: 'https://x.test/a.png' } }, allUrl, noUploads);
+    expect(out.image).toEqual({ url: 'https://x.test/a.png' });
   });
 });

@@ -82,6 +82,29 @@ function buildPayload(s: FormState): EmbedPayload {
   return p;
 }
 
+// The live preview can't render an `attachment://…` reference (the browser has
+// no such file yet), so swap those image fields for the slot's previewUrl — a
+// local object URL for a freshly picked file, or the CDN url for an existing
+// attachment. The real send payload keeps the `attachment://` urls untouched.
+export function toPreviewPayload(
+  payload: EmbedPayload,
+  imageMode: Record<ImageSlot, 'url' | 'file'>,
+  uploads: Record<ImageSlot, SlotUpload | null>,
+): EmbedPayload {
+  const previewUrl = (slot: ImageSlot): string | null =>
+    imageMode[slot] === 'file' && uploads[slot] ? uploads[slot]!.previewUrl : null;
+  const p: EmbedPayload = { ...payload };
+  const img = previewUrl('image');
+  if (img && p.image) p.image = { url: img };
+  const thumb = previewUrl('thumbnail');
+  if (thumb && p.thumbnail) p.thumbnail = { url: thumb };
+  const aIcon = previewUrl('authorIcon');
+  if (aIcon && p.author) p.author = { ...p.author, iconUrl: aIcon };
+  const fIcon = previewUrl('footerIcon');
+  if (fIcon && p.footer) p.footer = { ...p.footer, iconUrl: fIcon };
+  return p;
+}
+
 // True when the embed carries at least one visible element.
 function isNonEmpty(p: EmbedPayload): boolean {
   return !!(p.title || p.description || p.author || p.footer || p.image || p.thumbnail || (p.fields && p.fields.length));
@@ -128,6 +151,7 @@ export function EmbedModal({
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setS(prev => ({ ...prev, [k]: v }));
 
   const payload = useMemo(() => buildPayload(s), [s]);
+  const previewPayload = useMemo(() => toPreviewPayload(payload, s.imageMode, s.uploads), [payload, s.imageMode, s.uploads]);
   const chars = totalChars(payload);
   const overLimit =
     chars > LIMITS.total ||
@@ -361,7 +385,7 @@ export function EmbedModal({
             <div className="text-[11px] font-bold tracking-wide text-fg-dim mb-2">LIVE PREVIEW</div>
             {s.content.trim() && <div className="text-[14px] text-fg mb-1.5 whitespace-pre-wrap">{s.content}</div>}
             {isNonEmpty(payload)
-              ? <EmbedCard embed={payloadToSummary(payload)} />
+              ? <EmbedCard embed={payloadToSummary(previewPayload)} />
               : <div className="text-[13px] text-fg-dim italic">Add a title, description, or field to see a preview.</div>}
             <div className="flex-1" />
             {!edit && (
