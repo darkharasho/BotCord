@@ -158,6 +158,11 @@ export function EmbedModal({
               </div>
             </div>
 
+            <div className="flex gap-3">
+              <div className="flex-1"><label className={labelCls}>Author URL</label><input className={inputBase} value={s.authorUrl} onChange={(e) => set('authorUrl', e.target.value)} placeholder="https://…" /></div>
+              <div className="flex-1"><label className={labelCls}>Author icon URL</label><input className={inputBase} value={s.authorIcon} onChange={(e) => set('authorIcon', e.target.value)} placeholder="https://…" /></div>
+            </div>
+
             <div>
               <label className={labelCls}>Title</label>
               <input className={inputBase} value={s.title} onChange={(e) => set('title', e.target.value)} placeholder="Embed title" maxLength={LIMITS.title} />
