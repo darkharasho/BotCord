@@ -163,6 +163,7 @@ export function ChannelView({ channelId, guildId, channelName, backToForum }: {
             guildId={guildId}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(null)}
+            {...(channelName != null ? { channelName } : {})}
           />
         </div>
         {showMembers && <MemberList guildId={guildId} channelId={channelId} />}

@@ -9,8 +9,9 @@ import { AutocompletePopover, type AutocompleteItem } from './AutocompletePopove
 import { STANDARD_EMOJI } from '../lib/emoji-data';
 import { pushToast } from './Toaster';
 import type { GatewayState, GuildEmoji, MemberSummary } from '../../shared/domain';
-import { IconCirclePlus, IconMoodSmile, IconSend2, IconUpload, IconChartBar, IconX } from '@tabler/icons-react';
+import { IconCirclePlus, IconMoodSmile, IconSend2, IconUpload, IconChartBar, IconX, IconLayoutCards } from '@tabler/icons-react';
 import { PollModal } from './PollModal';
+import { EmbedModal } from './EmbedModal';
 import { GifPicker } from './GifPicker';
 
 const MAX_FILES = 10;
@@ -48,13 +49,14 @@ function detectTrigger(text: string, cursor: number): Trigger | null {
 }
 
 export function Composer({
-  channelId, guildId, replyTo, onCancelReply, mode = 'guild',
+  channelId, guildId, replyTo, onCancelReply, mode = 'guild', channelName,
 }: {
   channelId: string | null;
   guildId: string | null;
   replyTo?: { messageId: string; authorDisplayName: string } | null;
   onCancelReply?: () => void;
   mode?: 'guild' | 'dm';
+  channelName?: string;
 }) {
   const isDM = mode === 'dm';
   const sendImpl = isDM
@@ -69,6 +71,7 @@ export function Composer({
   const [autocomplete, setAutocomplete] = useState<AutocompleteState>(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
   const [gifOpen, setGifOpen] = useExclusivePopover();
   const emojiTriggerRef = useRef<HTMLButtonElement>(null);
   // displayName → user id, populated when an @ autocomplete is accepted.
@@ -529,6 +532,16 @@ export function Composer({
                       Create a poll
                     </button>
                   )}
+                  {!isDM && (
+                    <button
+                      onClick={() => { setPlusMenuOpen(false); setEmbedOpen(true); }}
+                      disabled={!channelId}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-hover disabled:opacity-40"
+                    >
+                      <IconLayoutCards size={18} stroke={1.75} className="text-fg-muted" />
+                      Create an embed
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -612,6 +625,7 @@ export function Composer({
         </div>
       </div>
       {pollOpen && channelId && <PollModal channelId={channelId} guildId={guildId} onClose={() => setPollOpen(false)} />}
+      {embedOpen && channelId && <EmbedModal channelId={channelId} guildId={guildId} channelName={channelName ?? channelId} onClose={() => setEmbedOpen(false)} />}
     </div>
   );
 }
