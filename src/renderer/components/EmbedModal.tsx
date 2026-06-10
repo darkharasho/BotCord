@@ -1,5 +1,6 @@
 // src/renderer/components/EmbedModal.tsx
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../lib/api';
 import { pushToast } from './Toaster';
 import { EmbedCard } from './EmbedCard';
@@ -139,8 +140,12 @@ export function EmbedModal({
     pushToast(res.ok ? 'ok' : 'danger', res.ok ? 'Draft saved' : `Couldn't save draft: ${res.error.message}`);
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+  // Portal to <body> so the modal escapes the stacking context of whatever
+  // rendered it (the composer, or a message row deep in the list) — otherwise
+  // sibling chrome like the composer bar, member avatars, and unread pill
+  // paint over the overlay. z-[70] matches the app's other top-level dialogs.
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[70] animate-fade-in" onClick={onClose}>
       <div
         className="bg-bg-subtle border border-white/[0.06] rounded-xl w-[55rem] max-w-[94vw] max-h-[90vh] flex flex-col shadow-2xl animate-pop-in"
         onClick={(e) => e.stopPropagation()}
@@ -262,7 +267,8 @@ export function EmbedModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
