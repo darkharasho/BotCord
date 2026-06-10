@@ -94,6 +94,7 @@ export interface BotcordApi {
     delete(channelId: string, messageId: string): Promise<Result<void>>;
     bulkDelete(channelId: string, messageIds: string[]): Promise<Result<{ deleted: string[] }>>;
     edit(channelId: string, messageId: string, content: string): Promise<Result<MessageSummary>>;
+    editEmbed(channelId: string, messageId: string, embed: EmbedPayload, content?: string): Promise<Result<MessageSummary>>;
     listPinned(channelId: string): Promise<Result<MessageSummary[]>>;
     pin(channelId: string, messageId: string): Promise<Result<void>>;
     unpin(channelId: string, messageId: string): Promise<Result<void>>;
@@ -233,6 +234,7 @@ export const IPC_CHANNELS = {
   'guilds.bulkBanMembers': 'guilds.bulkBanMembers',
   'messages.send': 'messages.send',
   'messages.sendEmbed': 'messages.sendEmbed',
+  'messages.editEmbed': 'messages.editEmbed',
   'messages.sendWithAttachments': 'messages.sendWithAttachments',
   'messages.sendPoll': 'messages.sendPoll',
   'messages.fetchPollVoters': 'messages.fetchPollVoters',

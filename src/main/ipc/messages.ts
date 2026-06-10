@@ -96,6 +96,25 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     }
   });
 
+  ipcMain.handle(IPC_CHANNELS['messages.editEmbed'], async (_, channelId: unknown, messageId: unknown, embed: unknown, content?: unknown): Promise<Result<MessageSummary>> => {
+    if (typeof channelId !== 'string' || typeof messageId !== 'string' || typeof embed !== 'object' || embed === null) {
+      return err('INTERNAL', 'invalid arguments');
+    }
+    const got = await requireSendableChannel(channelId);
+    if ('ok' in got && got.ok === false) return got as Result<MessageSummary>;
+    const channel = (got as { ok: true; channel: SendableChannel }).channel;
+    try {
+      const msg = await channel.messages.fetch(messageId);
+      const updated = await msg.edit({
+        content: typeof content === 'string' ? content : '',
+        embeds: [buildEmbed(embed as EmbedPayload)],
+      });
+      return ok(summarizeMessage(updated));
+    } catch (e) {
+      return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
+    }
+  });
+
   ipcMain.handle(IPC_CHANNELS['messages.sendWithAttachments'], async (_, channelId: unknown, content: unknown, attachments: unknown, opts: unknown): Promise<Result<MessageSummary>> => {
     if (typeof channelId !== 'string' || typeof content !== 'string' || !Array.isArray(attachments)) {
       return err('INTERNAL', 'invalid arguments');

@@ -45,6 +45,8 @@ const api: BotcordApi = {
     send: (channelId, content, opts) => invoke(IPC_CHANNELS['messages.send'], channelId, content, opts),
     sendEmbed: (channelId, embed, content) =>
       invoke(IPC_CHANNELS['messages.sendEmbed'], channelId, embed, content),
+    editEmbed: (channelId, messageId, embed, content) =>
+      invoke(IPC_CHANNELS['messages.editEmbed'], channelId, messageId, embed, content),
     sendWithAttachments: (channelId, content, attachments, opts) =>
       invoke(IPC_CHANNELS['messages.sendWithAttachments'], channelId, content, attachments, opts),
     sendPoll: (channelId, poll) => invoke(IPC_CHANNELS['messages.sendPoll'], channelId, poll),
