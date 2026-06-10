@@ -105,10 +105,15 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
     const channel = (got as { ok: true; channel: SendableChannel }).channel;
     try {
       const msg = await channel.messages.fetch(messageId);
-      const updated = await msg.edit({
-        content: typeof content === 'string' ? content : undefined,
+      // Only set `content` when the caller provided it: an explicit string
+      // (incl. '') sets/clears the text, while omitting the key leaves the
+      // existing text untouched. Avoids passing `undefined`, which discord.js's
+      // MessageEditOptions rejects under exactOptionalPropertyTypes.
+      const editOpts: { content?: string; embeds: EmbedBuilder[] } = {
         embeds: [buildEmbed(embed as EmbedPayload)],
-      });
+      };
+      if (typeof content === 'string') editOpts.content = content;
+      const updated = await msg.edit(editOpts);
       return ok(summarizeMessage(updated));
     } catch (e) {
       return err('DISCORD_HTTP_ERROR', e instanceof Error ? e.message : String(e));
