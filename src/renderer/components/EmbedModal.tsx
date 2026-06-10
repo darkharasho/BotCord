@@ -380,9 +380,13 @@ export function formFromMessage(content: string, embed: MessageEmbedSummary, att
   const base = formFromPayload(content, summaryToPayload(embed));
   const matchAttachment = (fieldUrl: string | null): MessageAttachment | null => {
     if (!fieldUrl) return null;
-    return attachments.find(a => a.url === fieldUrl)
-      ?? attachments.find(a => fieldUrl.split('?')[0]!.endsWith('/' + a.name))
-      ?? null;
+    const exact = attachments.find(a => a.url === fieldUrl);
+    if (exact) return exact;
+    // Filename fallback only for Discord-hosted URLs, so an external image URL
+    // that merely shares a filename with an attachment isn't mistaken for one.
+    const isDiscordCdn = /^https?:\/\/(cdn\.discordapp\.com|media\.discordapp\.net)\//.test(fieldUrl);
+    if (!isDiscordCdn) return null;
+    return attachments.find(a => fieldUrl.split('?')[0]!.endsWith('/' + a.name)) ?? null;
   };
   const slotFor = (fieldUrl: string | null): { mode: 'url' | 'file'; upload: SlotUpload | null } => {
     const att = matchAttachment(fieldUrl);
