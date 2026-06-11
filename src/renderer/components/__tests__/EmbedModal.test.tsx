@@ -182,6 +182,27 @@ describe('<EmbedModal> edit mode', () => {
     expect(call[5]).toEqual(['att1']);                                 // kept attachment id
   });
 
+  it('binds an unresolved attachment:// icon reference to the message attachment', async () => {
+    const { api } = await import('../../lib/api');
+    const attachments = [{ id: 'att1', name: 'author-icon.png', url: 'https://cdn.test/author-icon.png', size: 10, contentType: 'image/png', width: null, height: null }];
+    const embed = {
+      type: 'rich', title: 'T', description: null, url: null, color: null,
+      image: null, thumbnail: null,
+      author: { name: 'Me', url: null, iconUrl: 'attachment://author-icon.png' },
+      footer: null, provider: null, timestamp: null, video: null, fields: [],
+    };
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" edit={{ messageId: 'm1' }}
+      initialMessage={{ content: '', embed, attachments }} onClose={() => {}} />);
+    // Slot opens in upload mode bound to the existing attachment…
+    await waitFor(() => screen.getByText('author-icon.png'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.messages.editEmbed).toHaveBeenCalled());
+    const call = (api.messages.editEmbed as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    // …and saving keeps it referenced + retained instead of dropping it.
+    expect(call[2].author).toEqual({ name: 'Me', iconUrl: 'attachment://author-icon.png' });
+    expect(call[5]).toEqual(['att1']);
+  });
+
   it('keeps attachments that are not bound to any image slot on save', async () => {
     const { api } = await import('../../lib/api');
     const attachments = [

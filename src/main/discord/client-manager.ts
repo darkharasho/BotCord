@@ -354,6 +354,20 @@ function mapType(t: number): ChannelKind {
   }
 }
 
+// Discord echoes `attachment://<name>` embed urls back verbatim; the loadable
+// link lives in the proxy field (or the matching message attachment). Resolve
+// to something an <img> can actually render.
+export function resolveEmbedMediaUrl(
+  url: string | null | undefined,
+  proxyUrl: string | null | undefined,
+  attachments: { name: string; url: string }[],
+): string | null {
+  if (!url) return null;
+  if (!url.startsWith('attachment://')) return url;
+  const name = url.slice('attachment://'.length);
+  return proxyUrl ?? attachments.find(a => a.name === name)?.url ?? url;
+}
+
 export function summarizeMessage(m: Message): MessageSummary {
   const attachments: MessageAttachment[] = m.attachments.map(a => ({
     id: a.id,
@@ -371,10 +385,10 @@ export function summarizeMessage(m: Message): MessageSummary {
     description: e.description ?? null,
     url: e.url ?? null,
     color: e.color ?? null,
-    image: e.image ? { url: e.image.url, width: e.image.width ?? null, height: e.image.height ?? null } : null,
-    thumbnail: e.thumbnail ? { url: e.thumbnail.url, width: e.thumbnail.width ?? null, height: e.thumbnail.height ?? null } : null,
-    author: e.author ? { name: e.author.name, url: e.author.url ?? null, iconUrl: e.author.iconURL ?? null } : null,
-    footer: e.footer ? { text: e.footer.text, iconUrl: e.footer.iconURL ?? null } : null,
+    image: e.image ? { url: resolveEmbedMediaUrl(e.image.url, e.image.proxyURL, attachments) ?? e.image.url, width: e.image.width ?? null, height: e.image.height ?? null } : null,
+    thumbnail: e.thumbnail ? { url: resolveEmbedMediaUrl(e.thumbnail.url, e.thumbnail.proxyURL, attachments) ?? e.thumbnail.url, width: e.thumbnail.width ?? null, height: e.thumbnail.height ?? null } : null,
+    author: e.author ? { name: e.author.name, url: e.author.url ?? null, iconUrl: resolveEmbedMediaUrl(e.author.iconURL, e.author.proxyIconURL, attachments) } : null,
+    footer: e.footer ? { text: e.footer.text, iconUrl: resolveEmbedMediaUrl(e.footer.iconURL, e.footer.proxyIconURL, attachments) } : null,
     provider: e.provider ? { name: e.provider.name ?? '', url: e.provider.url ?? null } : null,
     timestamp: e.timestamp ? new Date(e.timestamp).getTime() : null,
     video: e.video ? { url: e.video.url ?? '', width: e.video.width ?? null, height: e.video.height ?? null } : null,

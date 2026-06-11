@@ -450,6 +450,11 @@ export function formFromMessage(content: string, embed: MessageEmbedSummary, att
   const base = formFromPayload(content, summaryToPayload(embed));
   const matchAttachment = (fieldUrl: string | null): MessageAttachment | null => {
     if (!fieldUrl) return null;
+    // An unresolved attachment reference (Discord echoes these back verbatim).
+    if (fieldUrl.startsWith('attachment://')) {
+      const name = fieldUrl.slice('attachment://'.length);
+      return attachments.find(a => a.name === name) ?? null;
+    }
     const exact = attachments.find(a => a.url === fieldUrl);
     if (exact) return exact;
     // Filename fallback only for Discord-hosted URLs, so an external image URL
