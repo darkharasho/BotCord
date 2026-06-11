@@ -104,6 +104,39 @@ describe('<EmbedModal> create mode', () => {
     promptSpy.mockRestore();
   });
 
+  it('does not upload an author icon file when there is no author name', async () => {
+    const { api } = await import('../../lib/api');
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" onClose={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText('Embed title'), { target: { value: 'T' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload author icon' }));
+    const input = screen.getByTestId('file-input-authorIcon') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })] } });
+    await waitFor(() => screen.getByText('author-icon.png'));
+    // The icon can't render without an author name; warn instead of silently orphaning it.
+    expect(screen.getByText(/author name/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(api.messages.sendEmbed).toHaveBeenCalled());
+    const call = (api.messages.sendEmbed as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[1].author).toBeUndefined();
+    expect(call[3]).toBeUndefined(); // no orphan attachment
+  });
+
+  it('uploads the author icon when an author name is set', async () => {
+    const { api } = await import('../../lib/api');
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" onClose={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText('Author name'), { target: { value: 'Me' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload author icon' }));
+    const input = screen.getByTestId('file-input-authorIcon') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })] } });
+    await waitFor(() => screen.getByText('author-icon.png'));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(api.messages.sendEmbed).toHaveBeenCalled());
+    const call = (api.messages.sendEmbed as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[1].author).toEqual({ name: 'Me', iconUrl: 'attachment://author-icon.png' });
+    expect(call[3]).toHaveLength(1);
+    expect(call[3][0].name).toBe('author-icon.png');
+  });
+
   it('uploads a local image: sends attachment:// url + the file', async () => {
     const { api } = await import('../../lib/api');
     render(<EmbedModal channelId="c1" guildId="g1" channelName="general" onClose={() => {}} />);
@@ -147,6 +180,47 @@ describe('<EmbedModal> edit mode', () => {
     expect(call[2].image).toEqual({ url: 'attachment://photo.png' }); // embed payload
     expect(call[4]).toBeUndefined();                                   // no new files
     expect(call[5]).toEqual(['att1']);                                 // kept attachment id
+  });
+
+  it('keeps attachments that are not bound to any image slot on save', async () => {
+    const { api } = await import('../../lib/api');
+    const attachments = [
+      { id: 'att1', name: 'photo.png', url: 'https://cdn.test/photo.png', size: 10, contentType: 'image/png', width: null, height: null },
+      { id: 'att2', name: 'notes.pdf', url: 'https://cdn.test/notes.pdf', size: 10, contentType: 'application/pdf', width: null, height: null },
+    ];
+    const embed = {
+      type: 'rich', title: 'T', description: null, url: null, color: null,
+      image: { url: 'https://cdn.test/photo.png', width: null, height: null },
+      thumbnail: null, author: null, footer: null, provider: null, timestamp: null, video: null, fields: [],
+    };
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" edit={{ messageId: 'm1' }}
+      initialMessage={{ content: '', embed, attachments }} onClose={() => {}} />);
+    await waitFor(() => screen.getByText('photo.png'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.messages.editEmbed).toHaveBeenCalled());
+    const call = (api.messages.editEmbed as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[5]).toEqual(expect.arrayContaining(['att1', 'att2'])); // slot-bound AND unmanaged kept
+    expect(call[5]).toHaveLength(2);
+  });
+
+  it('still drops a slot-bound attachment the user explicitly removed', async () => {
+    const { api } = await import('../../lib/api');
+    const attachments = [
+      { id: 'att1', name: 'photo.png', url: 'https://cdn.test/photo.png', size: 10, contentType: 'image/png', width: null, height: null },
+    ];
+    const embed = {
+      type: 'rich', title: 'T', description: null, url: null, color: null,
+      image: { url: 'https://cdn.test/photo.png', width: null, height: null },
+      thumbnail: null, author: null, footer: null, provider: null, timestamp: null, video: null, fields: [],
+    };
+    render(<EmbedModal channelId="c1" guildId="g1" channelName="general" edit={{ messageId: 'm1' }}
+      initialMessage={{ content: '', embed, attachments }} onClose={() => {}} />);
+    await waitFor(() => screen.getByText('photo.png'));
+    fireEvent.click(screen.getByTitle('Remove image'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(api.messages.editEmbed).toHaveBeenCalled());
+    const call = (api.messages.editEmbed as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(call[5]).toBeUndefined(); // nothing kept — attachment removed
   });
 });
 

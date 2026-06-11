@@ -132,9 +132,20 @@ export function EmbedModal({
   initial?: FormState;
   initialMessage?: { content: string; embed: MessageEmbedSummary; attachments: MessageAttachment[] };
 }) {
-  const [s, setS] = useState<FormState>(
-    initial ?? (initialMessage ? formFromMessage(initialMessage.content, initialMessage.embed, initialMessage.attachments) : EMPTY),
+  const initialForm = useMemo(
+    () => initial ?? (initialMessage ? formFromMessage(initialMessage.content, initialMessage.embed, initialMessage.attachments) : EMPTY),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial props are fixed for the modal's lifetime
+    [],
   );
+  const [s, setS] = useState<FormState>(initialForm);
+  // Message attachments that didn't bind to an image slot (files attached
+  // alongside the embed, etc). The modal doesn't manage them, so an edit must
+  // always keep them — otherwise saving silently strips them from the message.
+  const unmanagedAttachmentIds = useMemo(() => {
+    if (!initialMessage) return [];
+    const boundIds = new Set(IMAGE_SLOTS.map(slot => initialForm.uploads[slot]?.existingAttachmentId).filter((v): v is string => !!v));
+    return initialMessage.attachments.filter(a => !boundIds.has(a.id)).map(a => a.id);
+  }, [initialForm, initialMessage]);
   const [busy, setBusy] = useState(false);
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   useEffect(() => {
@@ -151,6 +162,12 @@ export function EmbedModal({
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setS(prev => ({ ...prev, [k]: v }));
 
   const payload = useMemo(() => buildPayload(s), [s]);
+  // Icon slots only render when their parent text field is set; warn so the
+  // user isn't surprised when the icon silently goes nowhere.
+  const orphanIcon = (slot: 'authorIcon' | 'footerIcon', urlValue: string, parentText: string): boolean => {
+    const hasIcon = s.imageMode[slot] === 'file' ? !!s.uploads[slot] : !!urlValue.trim();
+    return hasIcon && !parentText.trim();
+  };
   const previewPayload = useMemo(() => toPreviewPayload(payload, s.imageMode, s.uploads), [payload, s.imageMode, s.uploads]);
   const chars = totalChars(payload);
   const overLimit =
@@ -216,9 +233,19 @@ export function EmbedModal({
     try {
       const content = s.content.trim();
       const newAttachments: SendAttachment[] = [];
-      const keepIds: string[] = [];
+      const keepIds: string[] = [...unmanagedAttachmentIds];
+      // Only attach files the payload actually references — an icon whose
+      // parent field is empty (author icon without an author name, footer icon
+      // without footer text) is omitted from the payload, and uploading it
+      // anyway would make Discord render it as a standalone image.
+      const slotInPayload: Record<ImageSlot, boolean> = {
+        image: !!payload.image,
+        thumbnail: !!payload.thumbnail,
+        authorIcon: !!payload.author?.iconUrl,
+        footerIcon: !!payload.footer?.iconUrl,
+      };
       for (const slot of IMAGE_SLOTS) {
-        if (s.imageMode[slot] !== 'file') continue;
+        if (s.imageMode[slot] !== 'file' || !slotInPayload[slot]) continue;
         const u = s.uploads[slot];
         if (!u) continue;
         if (u.file) {
@@ -315,6 +342,9 @@ export function EmbedModal({
                 <EmbedImageField label="Author icon" slotKey="authorIcon" mode={s.imageMode.authorIcon} url={s.authorIcon}
                   upload={s.uploads.authorIcon} onModeChange={(m) => setImageMode('authorIcon', m)}
                   onUrlChange={(v) => set('authorIcon', v)} onPickFile={(f) => pickImage('authorIcon', f)} onClear={() => clearImage('authorIcon')} />
+                {orphanIcon('authorIcon', s.authorIcon, s.authorName) && (
+                  <p className="mt-1 text-[12px] text-warn">Add an author name to show this icon — it won't be sent without one.</p>
+                )}
               </div>
             </div>
 
@@ -372,6 +402,9 @@ export function EmbedModal({
                 <EmbedImageField label="Footer icon" slotKey="footerIcon" mode={s.imageMode.footerIcon} url={s.footerIcon}
                   upload={s.uploads.footerIcon} onModeChange={(m) => setImageMode('footerIcon', m)}
                   onUrlChange={(v) => set('footerIcon', v)} onPickFile={(f) => pickImage('footerIcon', f)} onClear={() => clearImage('footerIcon')} />
+                {orphanIcon('footerIcon', s.footerIcon, s.footerText) && (
+                  <p className="mt-1 text-[12px] text-warn">Add footer text to show this icon — it won't be sent without it.</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 text-[13px] text-fg-muted select-none">
@@ -381,7 +414,7 @@ export function EmbedModal({
 
           {/* Preview — on the real channel background so the embed panel
               stands out exactly as it will in a Discord channel. */}
-          <div className="w-[22rem] px-5 py-4 flex flex-col bg-bg-sunken">
+          <div className="w-[22rem] min-h-0 px-5 py-4 flex flex-col overflow-y-auto bg-bg-sunken">
             <div className="text-[11px] font-bold tracking-wide text-fg-dim mb-2">LIVE PREVIEW</div>
             {s.content.trim() && <div className="text-[14px] text-fg mb-1.5 whitespace-pre-wrap">{s.content}</div>}
             {isNonEmpty(payload)
