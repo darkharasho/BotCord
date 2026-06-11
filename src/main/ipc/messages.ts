@@ -4,6 +4,7 @@ import { IPC_CHANNELS } from '../../shared/ipc-contract';
 import { ok, err, type Result } from '../../shared/errors';
 import type { CreateForumPostPayload, EmbedPayload, ForumPostSummary, MessageSummary, PollPayload, PollVoter, SendAttachment } from '../../shared/domain';
 import { projectForumPost, summarizeMessage } from '../discord/client-manager';
+import { rehostDiscordAttachmentUrls } from '../discord/embed-rehost';
 import type { IpcDeps } from './index';
 
 type SendOpts = {
@@ -102,7 +103,9 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       return err('INTERNAL', e instanceof Error ? e.message : String(e));
     }
     try {
-      const sendOpts: SendOpts = { embeds: [buildEmbed(embed as EmbedPayload)] };
+      const payload = { ...(embed as EmbedPayload) };
+      await rehostDiscordAttachmentUrls(payload, files);
+      const sendOpts: SendOpts = { embeds: [buildEmbed(payload)] };
       if (typeof content === 'string') sendOpts.content = content;
       if (files.length) sendOpts.files = files;
       const msg = await (got as { ok: true; channel: SendableChannel }).channel.send(sendOpts);
@@ -133,8 +136,10 @@ export function registerMessageHandlers({ manager }: IpcDeps): void {
       // Retain only the existing attachments the caller still references; any
       // not listed here are dropped. New uploads are appended via `files`.
       const kept: Attachment[] = Array.from(msg.attachments.values()).filter(a => keepIds.includes(a.id));
+      const payload = { ...(embed as EmbedPayload) };
+      await rehostDiscordAttachmentUrls(payload, files);
       const editOpts: MessageEditOptions = {
-        embeds: [buildEmbed(embed as EmbedPayload)],
+        embeds: [buildEmbed(payload)],
         attachments: kept,
       };
       if (typeof content === 'string') editOpts.content = content;
