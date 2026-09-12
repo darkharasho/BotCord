@@ -70,13 +70,37 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
+      # electron-builder's createKeychain() makes a temp keychain with a random
+      # password, then runs `security set-key-partition-list -k` with the p12
+      # password instead (app-builder-lib macCodeSign.js). macOS runner image
+      # 20260828 (Darwin 25.6) enforces -k, so signing dies with
+      # "SecKeychainUnlock: The user name or passphrase you entered is not correct".
+      # Import the cert ourselves and hand electron-builder CSC_KEYCHAIN instead of
+      # CSC_LINK, which skips that code path entirely.
+      - name: Import macOS signing certificate
+        if: matrix.platform == 'mac'
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.CSC_LINK }}
+          p12-password: ${{ secrets.CSC_KEY_PASSWORD }}
+          keychain: signing_temp
+      # electron-builder silently ad-hoc signs when it can't see an identity, which
+      # only surfaces minutes later as a notarization rejection. Fail here instead.
+      - name: Verify macOS signing identity is visible
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          if ! security find-identity -v -p codesigning signing_temp.keychain | grep -q "Developer ID Application"; then
+            echo "::error::No Developer ID Application identity in signing_temp.keychain"
+            security find-identity -v signing_temp.keychain
+            exit 1
+          fi
       - name: Build and publish Electron distributables
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Mac code signing — set these as repo secrets to enable signing
-          # and notarization. If unset, mac builds run unsigned.
-          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.CSC_KEY_PASSWORD || '' }}
+          # Mac code signing + notarization, from the keychain imported above.
+          # .keychain suffix required: `security find-identity` won't resolve a bare name.
+          CSC_KEYCHAIN: ${{ matrix.platform == 'mac' && 'signing_temp.keychain' || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
