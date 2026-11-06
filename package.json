@@ -51,7 +51,13 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "public/botcord-icon.png"
+      "icon": "public/botcord-icon.png",
+      "azureSignOptions": {
+        "publisherName": "Michael Stephens",
+        "endpoint": "https://eus.codesigning.azure.net/",
+        "codeSigningAccountName": "darkharasho-signing",
+        "certificateProfileName": "public-trust"
+      }
     },
     "mac": {
       "target": [
@@ -111,7 +117,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.0",
     "electron": "^33.0.0",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "eslint": "^9.0.0",
     "jsdom": "^25.0.0",
